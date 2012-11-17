@@ -90,7 +90,7 @@ BACKEND_CONFS= abaton.conf agfafocus.conf apple.conf artec.conf \
 	       matsushita.conf microtek2.conf microtek.conf mustek.conf \
 	       mustek_pp.conf mustek_usb.conf nec.conf net.conf \
 	       p5.conf \
-	       pie.conf pixma.conf plustek.conf plustek_pp.conf \
+	       pie.conf pieusb.conf pixma.conf plustek.conf plustek_pp.conf \
 	       qcam.conf ricoh.conf rts8891.conf s9036.conf sceptre.conf \
 	       sharp.conf sm3840.conf snapscan.conf sp15c.conf \
 	       st400.conf stv680.conf tamarack.conf \
@@ -182,7 +182,7 @@ be_convenience_libs = libabaton.la libagfafocus.la \
     libmustek.la libmustek_pp.la libmustek_usb.la \
     libmustek_usb2.la libnec.la libnet.la \
     libniash.la libp5.la \
-    libpie.la libpint.la libpixma.la \
+    libpie.la libpieusb.la libpint.la libpixma.la \
     libplustek.la libplustek_pp.la libpnm.la \
     libqcam.la libricoh.la librts8891.la \
     libs9036.la libsceptre.la libsharp.la \
@@ -216,7 +216,7 @@ be_dlopen_libs = libsane-abaton.la libsane-agfafocus.la \
     libsane-mustek.la libsane-mustek_pp.la libsane-mustek_usb.la \
     libsane-mustek_usb2.la libsane-nec.la libsane-net.la \
     libsane-niash.la libsane-p5.la \
-    libsane-pie.la libsane-pint.la libsane-pixma.la \
+    libsane-pie.la libsane-pieusb.la libsane-pint.la libsane-pixma.la \
     libsane-plustek.la libsane-plustek_pp.la libsane-pnm.la \
     libsane-qcam.la libsane-ricoh.la libsane-rts8891.la \
     libsane-s9036.la libsane-sceptre.la libsane-sharp.la \
@@ -793,14 +793,21 @@ libsane_niash_la_LIBADD = $(COMMON_LIBS) libniash.la ../sanei/sanei_init_debug.l
 # TODO: Why are these distributed but not compiled?
 EXTRA_DIST += niash_core.c niash_core.h niash_xfer.c niash_xfer.h
 
-libpie_la_SOURCES = pie.c pie-scsidef.h
+libpie_la_SOURCES = pie.c pie_usb.h pie-scsidef.h
 libpie_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=pie
 
 nodist_libsane_pie_la_SOURCES = pie-s.c 
 libsane_pie_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=pie
 libsane_pie_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS)
-libsane_pie_la_LIBADD = $(COMMON_LIBS) libpie.la ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo ../sanei/sanei_config2.lo sane_strstatus.lo ../sanei/sanei_scsi.lo ../sanei/sanei_thread.lo $(SCSI_LIBS) $(PTHREAD_LIBS) $(RESMGR_LIBS)
+libsane_pie_la_LIBADD = $(COMMON_LIBS) libpie.la ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo ../sanei/sanei_config2.lo sane_strstatus.lo ../sanei/sanei_scsi.lo ../sanei/sanei_thread.lo ../sanei/sanei_usb.lo ../sanei/sanei_ir.lo ../sanei/sanei_magic.lo $(SCSI_LIBS) $(PTHREAD_LIBS) $(RESMGR_LIBS) $(USB_LIBS) $(MATH_LIB)
 EXTRA_DIST += pie.conf.in
+
+
+nodist_libsane_pieusb_la_SOURCES = pieusb.c pieusb.h
+libsane_pieusb_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=pieusb
+libsane_pieusb_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS) libsane_pieusb_la_LIBADD = $(COMMON_LIBS) ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo ../sanei/sanei_config2.lo sane_strstatus.lo ../sanei/sanei_scsi.lo ../sanei/sanei_thread.lo ../sanei/sanei_usb.lo ../sanei/sanei_ir.lo ../sanei/sanei_magic.lo $(SCSI_LIBS) $(PTHREAD_LIBS) $(RESMGR_LIBS) $(USB_LIBS) $(MATH_LIB)
+EXTRA_DIST += pieusb.conf.in
+EXTRA_DIST += pieusb_buffer.c pieusb_buffer.h pieusb_scancmd.c pieusb_scancmd.h pieusb_specific.c pieusb_specific.h pieusb_usb.c pieusb_usb.h stiff.c stiff.h
 
 libp5_la_SOURCES = p5.c p5.h p5_device.h
 libp5_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=p5
