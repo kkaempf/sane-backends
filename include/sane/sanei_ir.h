@@ -32,6 +32,8 @@
 
 #define MAD_WIN2_SIZE(x) ( (((x) * 4) / 3) | 1 )	/**< MAD filter: 2nd window size */
 
+typedef uint16_t SANE_Uint;
+
 /**
  * @brief Pointer to access values of different bit depths 
  */

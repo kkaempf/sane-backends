@@ -19,10 +19,7 @@
 #include <stdio.h> /* for FILE */
 #include <string.h> /* for strlen */
 #include <stdlib.h> /* for NULL */
-extern char *strdup (const char *s);
-extern char *strndup (const char *s, size_t n);
 #include <unistd.h> /* usleep */
-extern int usleep (__useconds_t useconds);
 #include <stdint.h>
 #include <math.h>
 
@@ -35,6 +32,7 @@ extern int usleep (__useconds_t useconds);
 #include "../include/sane/sanei_usb.h"
 #include "../include/sane/sanei_config.h"
 #include "../include/sane/sanei_thread.h"
+#include "../include/sane/sanei_ir.h"
 
 /* Backend includes */
 #define BACKEND_NAME pieusb
