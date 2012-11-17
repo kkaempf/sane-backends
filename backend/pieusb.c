@@ -177,7 +177,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     /* Reflecta 6000 Multiple Slide Scanner */
     pieusb_supported_usb_device_list[1].vendor = 0x05e3;
     pieusb_supported_usb_device_list[1].product = 0x0142;
-    pieusb_supported_usb_device_list[1].model = 0x00; /* to be determined */
+    pieusb_supported_usb_device_list[1].model = 0x3a;
     /* end of list */
     pieusb_supported_usb_device_list[2].vendor = 0;
     pieusb_supported_usb_device_list[2].product = 0;
