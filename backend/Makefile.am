@@ -807,7 +807,7 @@ nodist_libsane_pieusb_la_SOURCES = pieusb.c pieusb.h
 libsane_pieusb_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=pieusb
 libsane_pieusb_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS) libsane_pieusb_la_LIBADD = $(COMMON_LIBS) ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo ../sanei/sanei_config2.lo sane_strstatus.lo ../sanei/sanei_scsi.lo ../sanei/sanei_thread.lo ../sanei/sanei_usb.lo ../sanei/sanei_ir.lo ../sanei/sanei_magic.lo $(SCSI_LIBS) $(PTHREAD_LIBS) $(RESMGR_LIBS) $(USB_LIBS) $(MATH_LIB)
 EXTRA_DIST += pieusb.conf.in
-EXTRA_DIST += pieusb_buffer.c pieusb_buffer.h pieusb_scancmd.c pieusb_scancmd.h pieusb_specific.c pieusb_specific.h pieusb_usb.c pieusb_usb.h stiff.c stiff.h
+EXTRA_DIST += pieusb_buffer.c pieusb_buffer.h pieusb_scancmd.c pieusb_scancmd.h pieusb_specific.c pieusb_specific.h pieusb_usb.c pieusb_usb.h
 
 libp5_la_SOURCES = p5.c p5.h p5_device.h
 libp5_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=p5
