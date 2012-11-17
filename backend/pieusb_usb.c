@@ -339,7 +339,7 @@ static SANE_Status bulkin(SANE_Int device_number, SANE_Byte data[], unsigned int
     SANE_Byte * buffer = malloc(0x4000);
     while (total<size) {
         /* Determine bulk size */
-        unsigned int part = ((size-total) >= 0x4000 ? 0x4000 : (size-total));
+        size_t part = ((size-total) >= 0x4000 ? 0x4000 : (size-total));
         /* Get bulk data */
         /* r = libusb_bulk_transfer(scannerHandle, BULK_ENDPOINT, buffer, part, &N, TIMEOUT); */
 /*
