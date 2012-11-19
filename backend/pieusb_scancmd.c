@@ -49,6 +49,9 @@
 /* =========================================================================
  * 
  * Pieusb scanner commands
+ *
+ * The set of commands which the scanner executes.
+ * See the sort description preceeding each function.
  * 
  * ========================================================================= */
 
@@ -644,15 +647,6 @@ void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Comman
 
     memset(mask,'\0',size);
     commandScannerRepeat(device_number, command, mask, size, status, repeat);
-    
-/*
-    int k;
-    fprintf(stderr,"CCD mask:\n");
-    for (k = 0; k < size; k++) {
-        fprintf(stderr,"%02x ",mask[k]);
-        if ((k+1) % 50 == 0) fprintf(stderr,"\n");
-    }
-*/
     
 }
 

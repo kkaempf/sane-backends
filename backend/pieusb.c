@@ -199,12 +199,12 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     /* Initialize usb */
     sanei_usb_init ();
     
-    /* What's the use of a config file here, if all that is done with the information
-     * is checking it against hard coded values? We should assume that the config
-     * file contains appropriate scanner identifications, or we should ignore the
-     * config file altogether. Let's adopt the first option. A user who modifies
-     * the config file, may use the backend to address any USB device, even ones
-     * that don't work. */
+    /* There are currently 3 scanners hardcoded into this backend, see below.
+     * The config file may add other scanners using a line like
+     * usb 0x1234 0x5678 0x9A
+     * where the first two hex numbers are vendor and product id, and the last
+     * number is the model number. Unfortunately, this is not according to the
+     * config file standard. Anyone any suggestions? */
 
     /* Create default list */
     pieusb_supported_usb_device_list = calloc(3,sizeof(struct Pieusb_USB_Device_Entry));
@@ -219,21 +219,12 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     /* Reflecta 6000 Multiple Slide Scanner */
     pieusb_supported_usb_device_list[1].vendor = 0x05e3;
     pieusb_supported_usb_device_list[1].product = 0x0142;
-    pieusb_supported_usb_device_list[1].model = 0x3A; /* to be determined */
+    pieusb_supported_usb_device_list[1].model = 0x3A;
     /* end of list */
     pieusb_supported_usb_device_list[2].vendor = 0;
     pieusb_supported_usb_device_list[2].product = 0;
     pieusb_supported_usb_device_list[2].model = 0;
 
-/*
-    for (i=0; i<3; i++) {
-        DBG(DBG_info,"%03d: %04x %04x %02x\n", i,
-            pieusb_supported_usb_device_list[i].vendor,
-            pieusb_supported_usb_device_list[i].product,
-            pieusb_supported_usb_device_list[i].model);
-    }
-*/
-    
     /* Add entries from config file */
     fp = sanei_config_open (PIEUSB_CONFIG_FILE);
     if (!fp) {
@@ -276,13 +267,6 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
         pieusb_supported_usb_device.device_number = -1; /* No device number (yet) */
         DBG( DBG_info_sane, "sane_init() looking for Reflecta scanner %04x %04x model %02x\n",pieusb_supported_usb_device.vendor,pieusb_supported_usb_device.product,pieusb_supported_usb_device.model);
         sanei_usb_find_devices (pieusb_supported_usb_device_list[i].vendor, pieusb_supported_usb_device_list[i].product, pieusb_find_device_callback);
-        /* If opened, close it again here.
-         * sanei_usb_find_devices() ignores errors from find_device_callback(), so the device may already be closed. */
-/* not necessary, callback closes device
-        if (pieusb_supported_usb_device.device_number >= 0) {
-            sanei_usb_close (pieusb_supported_usb_device.device_number);
-        }
-*/
         i++;
     }    
     return SANE_STATUS_GOOD;    
@@ -411,10 +395,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
                          * it here. */
                         DBG (DBG_error, "sane_open: sanei_usb_find_devices did not open device %s\n",devicename);
                         return SANE_STATUS_INVAL;
-/* not necessary, callback closes device
-                    } else {
-                        sanei_usb_close(pieusb_supported_usb_device.device_number);
-*/
                     }
                 }
                 i++;
@@ -455,10 +435,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     sanei_usb_open(dev->sane.name, &scanner->device_number);
     scanner->cancel_request = 0;
     scanner->shading_data_present = SANE_FALSE;
-    /* No preview data available */
-/*
-    scanner->preview_done = SANE_FALSE;
-*/
     /* Options and buffers */
     pieusb_init_options (scanner);
     cmdGetShadingParameters(scanner->device_number,scanner->device->shading_parameters,&rs,1);
@@ -1190,15 +1166,6 @@ sane_start (SANE_Handle handle)
         pieusb_post (scanner, planes, scanner->buffer.colors, scanner->buffer.colors);
     }
 
-    /* Save preview data. Preview data only used once to set gain and offset. */
-/*
-    if(scanner->val[OPT_PREVIEW].b) {
-        pieusb_analyze_preview(scanner);
-    } else {
-        scanner->preview_done = SANE_FALSE;
-    }
-*/
-    
     /* Modify buffer in case the buffer has infrared, but no infrared should be returned */
     if (scanner->buffer.colors == 4 && (strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b)) {
         DBG(DBG_info_sane,"sane_start(): modifying buffer to ignore I\n");
@@ -1334,7 +1301,8 @@ sane_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking)
 /**
  * Obtain a file-descriptor for the scanner that is readable if image data is
  * available. The select file-descriptor is returned in *fd.
- * The function has not been implemented yet.
+ * The function has not been implemented since USB-device only operate in
+ * blocking mode.
  *
  * @param handle Scanner handle
  * @param fd File descriptor with imae data
@@ -1350,11 +1318,23 @@ sane_get_select_fd (SANE_Handle handle, SANE_Int * fd)
 
 /* --------------------------------------------------------------------------
  *
- * SPECIFIC PIEUSB 
+ * SPECIFIC PIEUSB INCLUDES
  * 
  * --------------------------------------------------------------------------*/
 
+/* =========================================================================
+ * 
+ * Pieusb read buffer
+ * 
+ * ========================================================================= */
+
 #include "pieusb_buffer.c"
+
+/* =========================================================================
+ * 
+ * Functions specific to the Pieusb backend
+ * 
+ * ========================================================================= */
 
 #include "pieusb_specific.c"
 

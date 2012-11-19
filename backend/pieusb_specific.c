@@ -52,11 +52,12 @@
 extern long int lround(double c);
 extern int snprintf(char *str, size_t size, const char *format, ...);
 
-/* --------------------------------------------------------------------------
+/* =========================================================================
  *
- * SPECIFIC PIEUSB 
+ * Various Pieusb backend specific functions
+ * Option handling, configuration file handling, post-processing
  * 
- * --------------------------------------------------------------------------*/
+ * ========================================================================= */
 
 /* Settings for byte order */
 #define SCAN_IMG_FMT_OKLINE          0x08
@@ -114,6 +115,7 @@ static const SANE_Range offset_range = {
   0	  /* quantization */
 };
 
+/* Scanner DSP gains (for the gain setting in the comment) */
 static const double gains[] = {
 1.000, 1.075, 1.154, 1.251, 1.362, 1.491, 1.653, /*  0,  5, 10, 15, 20, 25, 30 */
 1.858, 2.115, 2.458, 2.935, 3.638, 4.627         /* 35, 40, 45, 50, 55, 60 */
@@ -252,8 +254,8 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
         dev->maximum_resolution_x *= dev->maximum_resolution_y;
         dev->maximum_resolution_y = dev->maximum_resolution_x;
     } else {
-      /* y res really is resolution */
-      dev->maximum_resolution = min (dev->maximum_resolution_x, dev->maximum_resolution_y);
+        /* y res really is resolution */
+        dev->maximum_resolution = min (dev->maximum_resolution_x, dev->maximum_resolution_y);
     }
 
     /* Geometry */
@@ -321,9 +323,6 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     
     dev->calibration_mode_list[0] = SCAN_CALIBRATION_DEFAULT;
     dev->calibration_mode_list[1] = SCAN_CALIBRATION_AUTO;
-/*
-    dev->calibration_mode_list[2] = SCAN_CALIBRATION_PREVIEW;
-*/
     dev->calibration_mode_list[2] = SCAN_CALIBRATION_OPTIONS;
     dev->calibration_mode_list[3] = 0;
 
@@ -337,7 +336,7 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     dev->gain_adjust_list[7] = 0;
     
     /*TODO: create from inq->colorDepths? Maybe not: didn't experiment with
-     * 4 and 12 bit depths. Don;t know how they behave. */
+     * 4 and 12 bit depths. Don't know how they behave. */
     dev->bpp_list[0] = 3; /* count */
     dev->bpp_list[1] = 1;
     dev->bpp_list[2] = 8;
@@ -988,7 +987,8 @@ max_string_size (SANE_String_Const strings[])
 
 /**
  * Correct the given buffer for shading using shading data in scanner.
- * If the loop order is width->color->height, a 7200 dpi scan correction takes
+ *
+ * Note: If the loop order is width->color->height, a 7200 dpi scan correction takes
  * 45 minutes. If the loop order is color->height->width, this is less than 3
  * minutes. So it is worthwhile to find the used pixels first (array width_to_loc).
  * 

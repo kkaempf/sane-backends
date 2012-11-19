@@ -42,6 +42,38 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
+/* =========================================================================
+ *
+ * Read buffer
+ * 
+ * Data obtained from the scanner cannot be presented to the frontend immediately.
+ * The scanner returns data in the 'index' or 'line' color format, which means it
+ * returns data in batches which contain a single color of a scan line.
+ * 
+ * These must finally be converted into the SANE data format (data for a single
+ * pixel in consecutive bytes). Apart from that, sane_read() must be able to
+ * return any amount of data bytes.
+ * 
+ * In between, data processing may be necessary, usually requiring the whole
+ * image to be available.
+ * 
+ * To accommodate all this, the buffer stores all samples as 16-bit values, even
+ * if the original values are 8-bit or even 1 bit. This is a waste of space, but
+ * makes processing much easier, and it is only temporary.
+ * 
+ * The read buffer is constructed by a call to buffer_create(), which initializes
+ * the buffer based on width, height, number of colors and depth. The buffer
+ * contains data organized in color planes, with each plane consisting of lines,
+ * each line of a fixed number of (single color) pixels, and each pixel of a fixed
+ * number of bits (or bytes). 
+ * 
+ * The buffer maintains read and write pointers.
+ * 
+ * Multi-color data with a bit depth of 1 are packed in single color bytes, so
+ * the data obtained from the scanner does not need conversion.
+ *
+ * ========================================================================= */
+
 #include "pieusb_specific.h"
 #include "pieusb_buffer.h"
 
@@ -57,8 +89,6 @@
 #else
  #define le16toh(x) __bswap_16 (x)
 #endif
-
-/* READER */
 
 /**
  * Initialize the buffer.
@@ -232,7 +262,7 @@ static SANE_Int buffer_put_single_color_line(struct Pieusb_Read_Buffer* buffer, 
      * - use packing_density to decode the full packet into separate values
      * - now save these values as neighbouring pixels on the current line
      * Use custom code for the 1-byte and 2-byte single sample cases,
-     * because the general approach is a bit overkill for them.
+     * the code below shows why.
      */
     
     if (buffer->packet_size_bytes == 1 && buffer->packing_density == 1) {
@@ -320,7 +350,7 @@ static SANE_Int buffer_put_full_color_line(struct Pieusb_Read_Buffer* buffer, vo
      * - use packing_density to decode the full packet into separate values
      * - now save these values as neighbouring pixels on the current line
      * Use custom code for the 1-byte and 2-byte single sample cases,
-     * because the general approach is a bit overkill for them.
+     * the code below shows why.
      */
     
     if (buffer->packet_size_bytes == 1 && buffer->packing_density == 1) {
@@ -481,6 +511,12 @@ static void buffer_get(struct Pieusb_Read_Buffer* buffer, SANE_Byte* data, SANE_
     /* buffer_output_state(buffer); */
 }
 
+/**
+ * Update read index to point a given number of bytes past the current position.
+ * 
+ * @param buffer the buffer to initialize
+ * @param increment the amount of bytes to move the index
+ */
 static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int increment)
 {
     /* Update read indices
@@ -504,6 +540,11 @@ static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int incr
     }
 }
 
+/**
+ * Display the buffer state.
+ * 
+ * @param buffer the buffer to initialize
+ */
 static void buffer_output_state(struct Pieusb_Read_Buffer* buffer)
 {
     SANE_Int line_size;
