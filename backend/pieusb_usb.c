@@ -42,8 +42,15 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
-#include "pieusb_usb.h"
+/* =========================================================================
+ * 
+ * USB level functions
+ * 
+ * Called by the scanner command functions in pieusb_scancmd.c
+ * 
+ * ========================================================================= */
 
+#include "pieusb_usb.h"
 
 /* Defines for use in USB functions */
 
@@ -90,12 +97,6 @@
 
 /* Standard SCSI Sense codes*/
 #define SCSI_NO_ADDITIONAL_SENSE_INFORMATION 0x00
-
-/* =========================================================================
- * 
- * USB functions
- * 
- * ========================================================================= */
 
 /**
  * Send a command to the device, retry at most repeat times if device is busy
@@ -349,11 +350,8 @@ static SANE_Status ctrloutint(SANE_Int device_number, unsigned int size) {
     return sanei_usb_control_msg(device_number, REQUEST_TYPE_OUT, REQUEST_BUFFER, PORT_82, ANYINDEX, 8, bulksize);
 }
 
-/*
- * Ctrl inbound, single byte
- */
 /**
- * Inbound control transfer
+ * Inbound control transfer, single byte
  * 
  * @param device_number device number
  * @param b byte received from device
@@ -382,13 +380,7 @@ static SANE_Status bulkin(SANE_Int device_number, SANE_Byte data[], unsigned int
         size_t part = ((size-total) >= 0x4000 ? 0x4000 : (size-total));
         /* Get bulk data */
         /* r = libusb_bulk_transfer(scannerHandle, BULK_ENDPOINT, buffer, part, &N, TIMEOUT); */
-/*
-        fprintf(stderr,"[pieusb] bulkin() calling sanei_usb_read_bulk(), size=%d, current total=%d, this part=%d\n",size,total,part);
-*/
         r = sanei_usb_read_bulk(device_number, buffer, &part);
-/*
-        fprintf(stderr,"[pieusb] bulkin() called sanei_usb_read_bulk(), result=%d (expected 0)\n",r);
-*/
         if (r==0) {
             /* Read data into buffer, part = # bytes actually read */
             unsigned int k;
@@ -492,25 +484,37 @@ SANE_String senseDescription(struct Pieusb_Sense* sense)
     return desc;
 }
 
-/*
+/**
  * Get the unsigned char value in the array at given offset
+ * 
+ * @param array
+ * @param offset
+ * @return 
  */
 static SANE_Byte getByte(SANE_Byte* array, SANE_Byte offset) {
     return *(array+offset);
 }
 
-/*
+/**
  * Set the array at given offset to the given unsigned char value
+ * 
+ * @param val
+ * @param array
+ * @param offset
  */
 static void setByte(SANE_Byte val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset) = val;
 }
 
 
-/*
+/**
  * Get the unsigned short value in the array at given offset.
  * All data in structures is little-endian, so the LSB comes first
  * SANE_Int is 4 bytes, but that is not a problem.
+ * 
+ * @param array
+ * @param offset
+ * @return 
  */
 static SANE_Int getShort(SANE_Byte* array, SANE_Byte offset) {
     SANE_Int i = *(array+offset+1);
@@ -519,18 +523,26 @@ static SANE_Int getShort(SANE_Byte* array, SANE_Byte offset) {
     return i;
 }
 
-/*
+/**
  * Put the bytes of a short int value into an unsigned char array
  * All data in structures is little-endian, so start with LSB
+ * 
+ * @param array
+ * @param offset
+ * @return 
  */
 static void setShort(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset) = val & 0xFF;
     *(array+offset+1) = (val>>8) & 0xFF;
 }
 
-/*
+/**
  * Get the signed int value in the array at given offset.
  * All data in structures is little-endian, so the LSB comes first
+ * 
+ * @param array
+ * @param offset
+ * @return 
  */
 static SANE_Int getInt(SANE_Byte* array, SANE_Byte offset) {
     SANE_Int i = *(array+offset+3);
@@ -543,9 +555,14 @@ static SANE_Int getInt(SANE_Byte* array, SANE_Byte offset) {
     return i;
 }
 
-/*
+/**
  * Put the bytes of a signed int value into an unsigned char array
  * All data in structures is little-endian, so start with LSB
+ * 
+ * @param val
+ * @param array
+ * @param offset
+ * @param count
  */
 static void setInt(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset) = val & 0xFF;
@@ -554,8 +571,13 @@ static void setInt(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset+3) = (val>>24) & 0xFF;
 }
 
-/*
+/**
  * Get count unsigned char values in the array at given offset.
+ * 
+ * @param val
+ * @param array
+ * @param offset
+ * @param count
  */
 static void getBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
@@ -564,8 +586,13 @@ static void getBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_By
     }
 }
 
-/*
+/**
  * Copy an unsigned char array of given size
+ * 
+ * @param val
+ * @param array
+ * @param offset
+ * @param count
  */
 static void setBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
@@ -574,10 +601,15 @@ static void setBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_By
     }
 }
 
-/*
+/**
  * Get count unsigned short values in the array at given offset.
  * All data in structures is little-endian, so the MSB comes first.
  * SANE_Word is 4 bytes, but that is not a problem.
+ * 
+ * @param val
+ * @param array
+ * @param offset
+ * @param count
  */
 static void getShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
@@ -588,10 +620,15 @@ static void getShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_B
     }
 }
 
-/*
+/**
  * Copy an unsigned short array of given size
  * All data in structures is little-endian, so start with MSB of each short.
  * SANE_Word is 4 bytes, but that is not a problem. All MSB 2 bytes are ignored.
+ * 
+ * @param val
+ * @param array
+ * @param offset
+ * @param count
  */
 static void setShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;

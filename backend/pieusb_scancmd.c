@@ -50,7 +50,7 @@
  * 
  * Pieusb scanner commands
  *
- * The set of commands which the scanner executes.
+ * Each scanner command has its own function.
  * See the sort description preceeding each function.
  * 
  * ========================================================================= */

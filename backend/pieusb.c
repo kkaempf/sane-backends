@@ -42,12 +42,14 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
-/* 
+/* =========================================================================
+ *
  * SANE interface to three Reflecta USB scanners with USB-id 0x05e3/0x0145:
  * - Reflecta CrystalScan 7200 (model id 0x30)
  * - Reflecta ProScan 7200 (model id 0x36)
  * - Reflecta 6000 Multiple Slide Scanner (model id 0x3A)
- */
+ * 
+ * ========================================================================= */
 
 /* --------------------------------------------------------------------------
  *
@@ -108,12 +110,6 @@ extern void write_tiff_rgbi_header (FILE *fptr, int width, int height, int depth
 #define DBG_info_proc    9      /* information pieusb backend functions */
 #define DBG_info_scan   11      /* information scanner commands */
 #define DBG_info_usb    13      /* information usb level functions */
-
-/* =========================================================================
- * 
- * Defines
- * 
- * ========================================================================= */
 
 /* Additional SANE status code */
 #define SANE_STATUS_CHECK_CONDITION 14 /* add to SANE_status enum */
@@ -1318,38 +1314,11 @@ sane_get_select_fd (SANE_Handle handle, SANE_Int * fd)
 
 /* --------------------------------------------------------------------------
  *
- * SPECIFIC PIEUSB INCLUDES
+ * PIEUSB BACKEND IMPLEMENTATION INCLUDES
  * 
  * --------------------------------------------------------------------------*/
 
-/* =========================================================================
- * 
- * Pieusb read buffer
- * 
- * ========================================================================= */
-
 #include "pieusb_buffer.c"
-
-/* =========================================================================
- * 
- * Functions specific to the Pieusb backend
- * 
- * ========================================================================= */
-
 #include "pieusb_specific.c"
-
-/* =========================================================================
- * 
- * Pieusb scanner commands
- * 
- * ========================================================================= */
-
 #include "pieusb_scancmd.c"
-
-/* =========================================================================
- * 
- * USB functions
- * 
- * ========================================================================= */
-
 #include "pieusb_usb.c"

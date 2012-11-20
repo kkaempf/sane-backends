@@ -42,6 +42,14 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
+/* =========================================================================
+ *
+ * Various Pieusb backend specific functions
+ * 
+ * Option handling, configuration file handling, post-processing
+ * 
+ * ========================================================================= */
+
 #include "pieusb_specific.h"
 #include "pieusb_scancmd.h"
 #include "pieusb_buffer.h"
@@ -51,13 +59,6 @@
 #include <stdio.h>
 extern long int lround(double c);
 extern int snprintf(char *str, size_t size, const char *format, ...);
-
-/* =========================================================================
- *
- * Various Pieusb backend specific functions
- * Option handling, configuration file handling, post-processing
- * 
- * ========================================================================= */
 
 /* Settings for byte order */
 #define SCAN_IMG_FMT_OKLINE          0x08
@@ -206,7 +207,12 @@ pieusb_find_device_callback (const char *devicename)
  * The function is used in find_device_callback(), so when sane_init() or
  * sane_open() is called.
  * 
- * @param dev
+ * @param dev device to initialize
+ * @param inq INQUIRY data
+ * @param devicename SANE device name
+ * @param vendor_id USB vendor id
+ * @param product_id USB product id
+ * @param devnr (unused)
  */
 static void
 pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scanner_Properties* inq, const char* devicename,
@@ -896,7 +902,8 @@ pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id,
 }
 
 /**
- * Add the given specifications to the current list of supported devices 
+ * Add the given specifications to the current list of supported devices
+ * 
  * @param vendor_id
  * @param product_id
  * @param model_number
@@ -981,283 +988,14 @@ max_string_size (SANE_String_Const strings[])
     return max_size;
 }
 
-/* From MR's pie.c */
-
-/* ------------------------- PIE_USB_CORRECT_SHADING -------------------------- */
-
-/**
- * Correct the given buffer for shading using shading data in scanner.
- *
- * Note: If the loop order is width->color->height, a 7200 dpi scan correction takes
- * 45 minutes. If the loop order is color->height->width, this is less than 3
- * minutes. So it is worthwhile to find the used pixels first (array width_to_loc).
- * 
- * @param scanner Scanner
- * @param buffer Buffer to correct
- */
-static void pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer *buffer)
-{
-
-    DBG (DBG_info_proc, "pieusb_correct_shading()\n");
-
-    int i, j, c, k;
-    SANE_Uint val, val_org, *p;
-    int *width_to_loc;
-    
-    /* Loop through CCD-mask to find used pixels */
-    width_to_loc = calloc(buffer->width,sizeof(int));
-    j = 0;
-    for (i = 0; i < 5340; i++) {
-        if (scanner->ccd_mask[i] == 0) {
-            width_to_loc[j++] = i;
-        }
-    }    
-    /* Correct complete image */
-    for (c = 0; c < buffer->colors; c++) {
-        DBG(DBG_info,"pieusb_correct_shading() correct color %d\n",c);
-        for (k = 0; k < buffer->height; k++) {
-            /* DBG(DBG_info,"Correct line %d\n",k); */
-            p = buffer->data + c * buffer->width * buffer->height + k * buffer->width;
-            for (j = 0; j < buffer->width; j++) {
-                val_org = *p;
-                val = lround((double)scanner->shading_mean[c] / scanner->shading_ref[c][width_to_loc[j]] * val_org);
-                /* DBG(DBG_info,"Correct [%d,%d,%d] %d -> %d\n",k,j,c,val_org,val); */
-                *p++ = val;
-            }
-        }
-    }
-    /* Free memory */
-    free(width_to_loc);
-}
-
-/* === functions copied from MR's code === */
-
-/**
- * 
- * @param scanner
- * @param in_img
- * @param planes
- * @param out_planes
- * @return 
- */
-static SANE_Status pieusb_post (Pieusb_Scanner *scanner, uint16_t **in_img, int planes, int out_planes)
-{
-  uint16_t *cplane[4];    /* R, G, B, I gray scale planes */
-  SANE_Parameters parameters;   /* describes the image */
-  int winsize_smooth;           /* for adapting replaced pixels */
-  char filename[64];
-  SANE_Status status;
-  int smooth, i;
-
-  memcpy (&parameters, &scanner->scan_parameters, sizeof (SANE_Parameters));
-  parameters.format = SANE_FRAME_GRAY;
-  parameters.bytes_per_line = parameters.pixels_per_line;
-  if (parameters.depth > 8)
-    parameters.bytes_per_line *= 2;
-  parameters.last_frame = 0;
-
-  DBG (DBG_info, "pie_usb_sw_post: %d ppl, %d lines, %d bits, %d planes, %d dpi\n",
-       parameters.pixels_per_line, parameters.lines,
-       parameters.depth, planes, scanner->mode.resolution);
-
-  for (i = 0; i < planes; i++)
-    cplane[i] = in_img[i];
-
-  /* dirt is rather resolution invariant, so
-   * setup resolution dependent parameters
-   */
-  /* film grain reduction */
-  smooth = scanner->val[OPT_SMOOTH_IMAGE].w;
-  winsize_smooth = (scanner->mode.resolution / 540) | 1;
-  /* smoothen whole image or only replaced pixels */
-  if (smooth)
-    {
-      winsize_smooth += 2 * (smooth - 3);       /* even */
-      if (winsize_smooth < 3)
-        smooth = 0;
-    }
-  if (winsize_smooth < 3)
-    winsize_smooth = 3;
-  DBG (DBG_info, "pie_usb_sw_post: winsize_smooth %d\n", winsize_smooth);
-
-  /* RGBI post-processing if selected:
-   * 1) remove spectral overlay from ired plane,
-   * 2) remove dirt, smoothen if, crop if */
-  if (scanner->val[OPT_CORRECT_INFRARED].b) /* (scanner->processing & POST_SW_IRED_MASK) */
-    {
-      /* remove spectral overlay from ired plane */
-      status = sane_ir_spectral_clean (&parameters, scanner->ln_lut, cplane[0], cplane[3]);
-      if (status != SANE_STATUS_GOOD)
-        return status;
-      if (DBG_LEVEL >= 15)
-        {
-          snprintf (filename, 63, "/tmp/ir-spectral.pnm");
-          pieusb_write_pnm_file (filename, cplane[3],
-                                  parameters.depth, 1,
-                                  parameters.pixels_per_line, parameters.lines);
-        }
-      if (scanner->cancel_request)          /* asynchronous cancel ? */
-        return SANE_STATUS_CANCELLED;
-  } /* scanner-> processing & POST_SW_IRED_MASK */
-  
-  /* remove dirt, smoothen if, crop if */
-  if (scanner->val[OPT_CLEAN_IMAGE].b) /* (scanner->processing & POST_SW_DIRT) */
-    {
-      double *norm_histo;
-      uint16_t *thresh_data;
-      int static_thresh, too_thresh;    /* static thresholds */
-      int winsize_filter;               /* primary size of filtering window */
-      int size_dilate;                  /* the dirt mask */
-
-      /* size of filter detecting dirt */
-      winsize_filter = (int) (5.0 * (double) scanner->mode.resolution / 300.0) | 1;
-      if (winsize_filter < 3)
-        winsize_filter = 3;
-      /* dirt usually has smooth edges which also need correction */
-      size_dilate = scanner->mode.resolution / 1000 + 1;
-
-      /* first detect large dirt by a static threshold */
-      status = sanei_ir_create_norm_histogram (&parameters, cplane[3], &norm_histo);
-      if (status != SANE_STATUS_GOOD)
-        {
-          DBG (DBG_error, "pie_usb_sw_post: no buffer\n");
-          return SANE_STATUS_NO_MEM;
-        }
-      /* generate a "bimodal" static threshold */
-      status = sanei_ir_threshold_yen (&parameters, norm_histo, &static_thresh);
-      if (status != SANE_STATUS_GOOD)
-        return status;
-      /* generate traditional static threshold */
-      status = sanei_ir_threshold_otsu (&parameters, norm_histo, &too_thresh);
-      if (status != SANE_STATUS_GOOD)
-        return status;
-      /* choose lower one */
-      if (too_thresh < static_thresh)
-        static_thresh = too_thresh;
-      free (norm_histo);
-
-      /* then generate dirt mask with adaptive thresholding filter
-       * and add the dirt from the static threshold */
-      /* last two parameters: 10, 50 detects more, 20, 75 less */
-      status = sanei_ir_filter_madmean (&parameters, cplane[3], &thresh_data, winsize_filter, 20, 100);
-      if (status != SANE_STATUS_GOOD)
-        return status;
-      sanei_ir_add_threshold (&parameters, cplane[3], thresh_data, static_thresh);
-      if (DBG_LEVEL >= 15)
-        {
-          snprintf (filename, 63, "/tmp/ir-threshold.pnm");
-          pieusb_write_pnm_file (filename, thresh_data,
-                                  8, 1, parameters.pixels_per_line,
-                                  parameters.lines);
-        }
-      if (scanner->cancel_request)          /* asynchronous cancel ? */
-        return SANE_STATUS_CANCELLED;
-
-      /* replace the dirt and smoothen film grain and crop if possible */
-      status = sanei_ir_dilate_mean (&parameters, cplane, thresh_data,
-              500, size_dilate, winsize_smooth, smooth,
-              0, NULL);
-      if (status != SANE_STATUS_GOOD)
-        return status;
-      smooth = 0;
-      free (thresh_data);
-    }
-      
-  if (DBG_LEVEL >= 15)
-    {
-      pieusb_write_pnm_file ("/tmp/RGBi-img.pnm", scanner->buffer.data,
-        scanner->scan_parameters.depth, 3, scanner->scan_parameters.pixels_per_line,
-        scanner->scan_parameters.lines);
-    }
-  
-  return status;
-}
-
-/* ------------------------------ PIE_USB_WRITE_PNM_FILE ------------------------------- */
-static SANE_Status
-pieusb_write_pnm_file (char *filename, SANE_Uint *data, int depth,
-                        int channels, int pixels_per_line, int lines)
-{
-  FILE *out;
-  int r, c, ch;
-  SANE_Uint val;
-  uint8_t b = 0;
-
-  DBG (DBG_info_proc,
-       "pie_usb_write_pnm_file: depth=%d, channels=%d, ppl=%d, lines=%d\n",
-       depth, channels, pixels_per_line, lines);
-
-  out = fopen (filename, "w");
-  if (!out)
-    {
-      DBG (DBG_error,
-           "pie_usb_write_pnm_file: could not open %s for writing: %s\n",
-           filename, strerror (errno));
-      return SANE_STATUS_INVAL;
-    }
-  
-  switch (depth) {
-      case 1:
-          fprintf (out, "P4\n%d\n%d\n", pixels_per_line, lines);
-          int i;
-          for (r = 0; r < lines; r++) {
-              i = 0;
-              b = 0;
-              for (c = 0; c < pixels_per_line; c++) {
-                  val = *(data + r * pixels_per_line + c);
-                  if (val > 0) b |= (0x80 >> i);
-                  i++;
-                  if (i == 7) {
-                      fputc(b, out);
-                      i = 0;
-                      b = 0;
-                  }
-              }
-              if (i != 0) {
-                  fputc(b, out);
-              }
-          }
-          break;
-      case 8:
-          fprintf (out, "P%c\n%d\n%d\n%d\n", channels == 1 ? '5' : '6', pixels_per_line, lines, 255);
-          for (r = 0; r < lines; r++) {
-              for (c = 0; c < pixels_per_line; c++) {
-                  for (ch = 0; ch < channels; ch++) {
-                      val = *(data + ch * lines * pixels_per_line + r * pixels_per_line + c);
-                      b = val & 0xFF;
-                      fputc(b, out);
-                  }
-              }
-          }
-          break;
-      case 16:
-          fprintf (out, "P%c\n%d\n%d\n%d\n", channels == 1 ? '5' : '6', pixels_per_line, lines, 65535);
-          for (r = 0; r < lines; r++) {
-              for (c = 0; c < pixels_per_line; c++) {
-                  for (ch = 0; ch < channels; ch++) {
-                      val = *(data + ch * lines * pixels_per_line + r * pixels_per_line + c);
-                      b = (val >> 8) & 0xFF;
-                      fputc(b, out);
-                      b = val & 0xFF;
-                      fputc(b, out);
-                  }
-              }
-          }
-          break;
-      default:
-          DBG (DBG_error, "pie_usb_write_pnm_file: depth %d not implemented\n", depth);
-  }
-  fclose (out);
-
-  DBG (DBG_info, "pie_usb_write_pnm_file: finished\n");
-  return SANE_STATUS_GOOD;
-}
-
 /**
  * Check option inconsistencies.
  * In most cases an inconsistency can be solved by ignoring an option setting.
  * Message these situations and return 1 to indicate we can work with the
  * current set op options. If the settings are really inconsistent, return 0.
+ * 
+ * @param scanner 
+ * @return 
  */
 static int pieusb_analyse_options(struct Pieusb_Scanner *scanner)
 {
@@ -1543,6 +1281,12 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
     
 }
 
+/**
+ * Initialize scan frame from given options.
+ * 
+ * @param scanner
+ * @return 
+ */
 static SANE_Status pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
 {
     double dpmm;
@@ -1561,6 +1305,19 @@ static SANE_Status pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
     return status.sane_status;
 }
 
+/**
+ * Initialize mode from options. Mode includes:
+ * - the 'passes' value (R, G, B, one-pass-color or RGBI)
+ * - the color format (index, line or pixel)
+ * - resolution
+ * - color depth (bits used for one color of a pixel)
+ * - byte order
+ * - quality settings: sharpen, skip shading, fast infrared
+ * - halftone pattern and threshold
+ * 
+ * @param scanner
+ * @return 
+ */
 static SANE_Status pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
@@ -1658,68 +1415,6 @@ static SANE_Status pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *
         scanner->settings.extraEntries = DEFAULT_ADDITIONAL_ENTRIES;
         scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
         status.sane_status = SANE_STATUS_GOOD;
-    } else if (0) { /* (strcmp(calibration_mode,SCAN_CALIBRATION_PREVIEW) == 0 && scanner->preview_done) { */
-        /* If no preview data availble, do the auto-calibration. */
-/*
-        double dg, dgi;
-        switch (scanner->mode.passes) {
-            case SCAN_ONE_PASS_RGBI: 
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[0] / 65536) / ((double)scanner->preview_upper_bound[0] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                dgi = ((double)scanner->settings.saturationLevel[1] / 65536) / ((double)scanner->preview_upper_bound[1] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                dgi = ((double)scanner->settings.saturationLevel[2] / 65536) / ((double)scanner->preview_upper_bound[2] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi; 
-                don't correct I 
-                dgi = ((double)scanner->settings.saturationLevel[3] / 65536) / ((double)scanner->preview_upper_bound[3] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,0,dg);
-                updateGain2(scanner,1,dg);
-                updateGain2(scanner,2,dg);
-                updateGain2(scanner,3,dg); don't correct I
-                break;
-            case SCAN_ONE_PASS_COLOR:
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[0] / 65536) / ((double)scanner->preview_upper_bound[0] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                dgi = ((double)scanner->settings.saturationLevel[1] / 65536) / ((double)scanner->preview_upper_bound[1] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                dgi = ((double)scanner->settings.saturationLevel[2] / 65536) / ((double)scanner->preview_upper_bound[2] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,0,dg);
-                updateGain2(scanner,1,dg);
-                updateGain2(scanner,2,dg);
-                break;
-            case SCAN_FILTER_INFRARED:
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[3] / 65536) / ((double)scanner->preview_upper_bound[3] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,3,dg);
-                break;
-            case SCAN_FILTER_BLUE:
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[2] / 65536) / ((double)scanner->preview_upper_bound[2] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,2,dg);
-                break;
-            case SCAN_FILTER_GREEN:
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[1] / 65536) / ((double)scanner->preview_upper_bound[1] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,1,dg);
-                break;
-            case SCAN_FILTER_RED:
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[0] / 65536) / ((double)scanner->preview_upper_bound[0] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,0,dg);
-                break;
-            case SCAN_FILTER_NEUTRAL:
-                break;
-        }
-        status.sane_status = SANE_STATUS_GOOD;
-*/
     } else if (strcmp(calibration_mode,SCAN_CALIBRATION_OPTIONS) == 0) {
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from options\n");
         /* Exposure times */
@@ -1796,6 +1491,13 @@ static SANE_Status pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *
     return status.sane_status;
 }
 
+/**
+ * Read shading reference data from scanner and calculate correction factors
+ * 
+ * @param scanner
+ * @param calibration_mode
+ * @return 
+ */
 static SANE_Status pieusb_get_shading_data(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
@@ -1826,6 +1528,12 @@ static SANE_Status pieusb_get_shading_data(Pieusb_Scanner * scanner)
     return status.sane_status;    
 }
 
+/**
+ * Read CCD mask
+ * 
+ * @param scanner
+ * @return 
+ */
 static SANE_Status pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
@@ -1908,6 +1616,12 @@ static SANE_Status pieusb_get_parameters(Pieusb_Scanner * scanner)
     return SANE_STATUS_GOOD;
 }
 
+/**
+ * Read image data from scanner into read buffer
+ * 
+ * @param scanner
+ * @return 
+ */
 static SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
@@ -1930,12 +1644,6 @@ static SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner)
             return SANE_STATUS_INVAL;
     }
     lines_read = 0;
-/*
-    fdraw = open("/tmp/pieusb.raw", O_WRONLY | O_CREAT | O_TRUNC, (mode_t)0600);
-    if (fdraw == -1) {
-         perror("error opening raw image buffer file");
-    }
-*/
     while (lines_read < lines_to_read) {
         cmdGetScanParameters(scanner->device_number,&parameters, &status, 5);
         if (status.sane_status != SANE_STATUS_GOOD) {
@@ -1965,13 +1673,6 @@ static SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner)
                 free(linebuf);
                 return SANE_STATUS_INVAL;
             }
-            /* Save raw data */
-/*
-            if (fdraw != -1) {
-                wcnt = write(fdraw,linebuf,parameters.availableLines*bpl);
-                DBG(DBG_info_sane,"Raw written %d\n",wcnt);
-            }
-*/
             /* Copy into official buffer
              * Sometimes the scanner returns too many lines. Take care not to
              * overflow the buffer. */
@@ -2024,64 +1725,11 @@ static SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner)
             DBG(DBG_info_sane,"pieusb_get_scan_data(): reading lines: total read %d of to read %d\n",lines_read,lines_to_read);
         } else {
             /* Wait for the scanner to prepare new lines */
-            usleep(200000); /* 0.2 s */
+            usleep(200000); /* 0.2 s - not sure if this is fail-proof */
         }
     }
-/*
-    if (fdraw != -1) close(fdraw);
-*/
     return SANE_STATUS_GOOD;
 }
-
-/*
-static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner)
-{
-    int k, n;
-    SANE_Parameters params;
-    SANE_Int N;
-    double *norm_histo;
-    double level;
-
-    DBG(DBG_info_sane,"pieusb_analyze_preview(): saving preview data\n");
-
-    // Settings
-    scanner->preview_done = SANE_TRUE;
-    for (k = 0; k < 4; k++) {
-        scanner->preview_exposure[k] = scanner->settings.exposureTime[k];
-        scanner->preview_gain[k] = scanner->settings.gain[k];
-        scanner->preview_offset[k] = scanner->settings.offset[k];
-    }
-    // Analyze color planes
-    N = scanner->buffer.width * scanner->buffer.height;
-    params.format = SANE_FRAME_GRAY;
-    params.depth = scanner->buffer.depth;
-    params.pixels_per_line = scanner->buffer.width;
-    params.lines = scanner->buffer.height;
-    for (k = 0; k < scanner->buffer.colors; k++) {
-        // Create histogram for color k
-        sanei_ir_create_norm_histogram (&params, scanner->buffer.data + k * N, &norm_histo);
-        // Find 1% and 99% limits
-        level = 0;
-        for (n =0; n < HISTOGRAM_SIZE; n++) {
-
-            level += norm_histo[n];
-            if (level < 0.01) {
-                scanner->preview_lower_bound[k] = n;
-            }
-            if (level < 0.99) {
-                scanner->preview_upper_bound[k] = n;
-            }
-        }
-        DBG(DBG_info_sane,"pieusb_analyze_preview(): 1%%-99%% levels for color %d: %d - %d\n",k,scanner->preview_lower_bound[k],scanner->preview_upper_bound[k]);
-    }
-    // Disable remaining color planes
-    for (k = scanner->buffer.colors; k < 4; k++) {
-        scanner->preview_lower_bound[k] = 0;
-        scanner->preview_upper_bound[k] = 0;
-    }   
-    return SANE_STATUS_GOOD;
-}
-*/
 
 /**
  * Return actual gain at given gain setting
@@ -2106,6 +1754,12 @@ static double getGain(int gain)
     return (gain-5*k)*(gains[k+1]-gains[k])/5 + gains[k];
 }
 
+/**
+ * Determine gain setting for given gain
+ * 
+ * @param gain
+ * @return 
+ */
 static int getGainSetting(double gain)
 {
     int k, m;
@@ -2132,42 +1786,10 @@ static int getGainSetting(double gain)
 /**
  * Modify gain and exposure times in order to make maximal use of the scan depth.
  * Each color treated separately, infrared excluded.
- *
- * This may be too aggressive => leads to a noisy whitish border instead of the orange.
- * In a couuple of tries, gain was set to values of 60 and above, which introduces
- * the noise?
- * The whitish border is logical since the brightest parts of the negative, the
- * unexposed borders, are amplified to values near CCD saturation, which is white.
+ * The automatic process of updateGain() may be too aggressive.
  * Maybe a uniform gain increase for each color is more appropriate? Somewhere
  * between 2.5 and 3 seems worthwhile trying, see updateGain2().
  * 
-        switch (scanner->mode.passes) {
-            case SCAN_ONE_PASS_RGBI: 
-                updateGain(scanner,0);
-                updateGain(scanner,1);
-                updateGain(scanner,2);
-                updateGain(scanner,3);
-                break;
-            case SCAN_ONE_PASS_COLOR:
-                updateGain(scanner,0);
-                updateGain(scanner,1);
-                updateGain(scanner,2);
-                break;
-            case SCAN_FILTER_INFRARED:
-                updateGain(scanner,3);
-                break;
-            case SCAN_FILTER_BLUE:
-                updateGain(scanner,2);
-                break;
-            case SCAN_FILTER_GREEN:
-                updateGain(scanner,1);
-                break;
-            case SCAN_FILTER_RED:
-                updateGain(scanner,0);
-                break;
-            case SCAN_FILTER_NEUTRAL:
-                break;
-        }
  * @param scanner
  */
 /*
@@ -2213,4 +1835,290 @@ static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_in
     DBG(DBG_info_sane,"updateGain2(): remains for exposure %f\n",gain_increase/(getGain(scanner->settings.gain[color_index])/g));
     scanner->settings.exposureTime[color_index] = lround( g / getGain(scanner->settings.gain[color_index]) * gain_increase * scanner->settings.exposureTime[color_index] );
     DBG(DBG_info_sane,"updateGain2(): new setting G=%d Exp=%d\n", scanner->settings.gain[color_index], scanner->settings.exposureTime[color_index]);
+}
+
+
+/* Functions copied from MR's pie.c code, some partly modified */
+
+
+/* ------------------------- PIE_USB_CORRECT_SHADING -------------------------- */
+
+/**
+ * Correct the given buffer for shading using shading data in scanner.
+ *
+ * Note: If the loop order is width->color->height, a 7200 dpi scan correction takes
+ * 45 minutes. If the loop order is color->height->width, this is less than 3
+ * minutes. So it is worthwhile to find the used pixels first (array width_to_loc).
+ * 
+ * @param scanner Scanner
+ * @param buffer Buffer to correct
+ */
+static void pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer *buffer)
+{
+
+    DBG (DBG_info_proc, "pieusb_correct_shading()\n");
+
+    int i, j, c, k;
+    SANE_Uint val, val_org, *p;
+    int *width_to_loc;
+    
+    /* Loop through CCD-mask to find used pixels */
+    width_to_loc = calloc(buffer->width,sizeof(int));
+    j = 0;
+    for (i = 0; i < 5340; i++) {
+        if (scanner->ccd_mask[i] == 0) {
+            width_to_loc[j++] = i;
+        }
+    }    
+    /* Correct complete image */
+    for (c = 0; c < buffer->colors; c++) {
+        DBG(DBG_info,"pieusb_correct_shading() correct color %d\n",c);
+        for (k = 0; k < buffer->height; k++) {
+            /* DBG(DBG_info,"Correct line %d\n",k); */
+            p = buffer->data + c * buffer->width * buffer->height + k * buffer->width;
+            for (j = 0; j < buffer->width; j++) {
+                val_org = *p;
+                val = lround((double)scanner->shading_mean[c] / scanner->shading_ref[c][width_to_loc[j]] * val_org);
+                /* DBG(DBG_info,"Correct [%d,%d,%d] %d -> %d\n",k,j,c,val_org,val); */
+                *p++ = val;
+            }
+        }
+    }
+    /* Free memory */
+    free(width_to_loc);
+}
+
+/**
+ * Post-process scanned image, e.g. do the IR image cleaning.
+ * 
+ * @param scanner
+ * @param in_img
+ * @param planes
+ * @param out_planes
+ * @return 
+ */
+static SANE_Status pieusb_post (Pieusb_Scanner *scanner, uint16_t **in_img, int planes, int out_planes)
+{
+  uint16_t *cplane[4];    /* R, G, B, I gray scale planes */
+  SANE_Parameters parameters;   /* describes the image */
+  int winsize_smooth;           /* for adapting replaced pixels */
+  char filename[64];
+  SANE_Status status;
+  int smooth, i;
+
+  memcpy (&parameters, &scanner->scan_parameters, sizeof (SANE_Parameters));
+  parameters.format = SANE_FRAME_GRAY;
+  parameters.bytes_per_line = parameters.pixels_per_line;
+  if (parameters.depth > 8)
+    parameters.bytes_per_line *= 2;
+  parameters.last_frame = 0;
+
+  DBG (DBG_info, "pie_usb_sw_post: %d ppl, %d lines, %d bits, %d planes, %d dpi\n",
+       parameters.pixels_per_line, parameters.lines,
+       parameters.depth, planes, scanner->mode.resolution);
+
+  for (i = 0; i < planes; i++)
+    cplane[i] = in_img[i];
+
+  /* dirt is rather resolution invariant, so
+   * setup resolution dependent parameters
+   */
+  /* film grain reduction */
+  smooth = scanner->val[OPT_SMOOTH_IMAGE].w;
+  winsize_smooth = (scanner->mode.resolution / 540) | 1;
+  /* smoothen whole image or only replaced pixels */
+  if (smooth)
+    {
+      winsize_smooth += 2 * (smooth - 3);       /* even */
+      if (winsize_smooth < 3)
+        smooth = 0;
+    }
+  if (winsize_smooth < 3)
+    winsize_smooth = 3;
+  DBG (DBG_info, "pie_usb_sw_post: winsize_smooth %d\n", winsize_smooth);
+
+  /* RGBI post-processing if selected:
+   * 1) remove spectral overlay from ired plane,
+   * 2) remove dirt, smoothen if, crop if */
+  if (scanner->val[OPT_CORRECT_INFRARED].b) /* (scanner->processing & POST_SW_IRED_MASK) */
+    {
+      /* remove spectral overlay from ired plane */
+      status = sane_ir_spectral_clean (&parameters, scanner->ln_lut, cplane[0], cplane[3]);
+      if (status != SANE_STATUS_GOOD)
+        return status;
+      if (DBG_LEVEL >= 15)
+        {
+          snprintf (filename, 63, "/tmp/ir-spectral.pnm");
+          pieusb_write_pnm_file (filename, cplane[3],
+                                  parameters.depth, 1,
+                                  parameters.pixels_per_line, parameters.lines);
+        }
+      if (scanner->cancel_request)          /* asynchronous cancel ? */
+        return SANE_STATUS_CANCELLED;
+  } /* scanner-> processing & POST_SW_IRED_MASK */
+  
+  /* remove dirt, smoothen if, crop if */
+  if (scanner->val[OPT_CLEAN_IMAGE].b) /* (scanner->processing & POST_SW_DIRT) */
+    {
+      double *norm_histo;
+      uint16_t *thresh_data;
+      int static_thresh, too_thresh;    /* static thresholds */
+      int winsize_filter;               /* primary size of filtering window */
+      int size_dilate;                  /* the dirt mask */
+
+      /* size of filter detecting dirt */
+      winsize_filter = (int) (5.0 * (double) scanner->mode.resolution / 300.0) | 1;
+      if (winsize_filter < 3)
+        winsize_filter = 3;
+      /* dirt usually has smooth edges which also need correction */
+      size_dilate = scanner->mode.resolution / 1000 + 1;
+
+      /* first detect large dirt by a static threshold */
+      status = sanei_ir_create_norm_histogram (&parameters, cplane[3], &norm_histo);
+      if (status != SANE_STATUS_GOOD)
+        {
+          DBG (DBG_error, "pie_usb_sw_post: no buffer\n");
+          return SANE_STATUS_NO_MEM;
+        }
+      /* generate a "bimodal" static threshold */
+      status = sanei_ir_threshold_yen (&parameters, norm_histo, &static_thresh);
+      if (status != SANE_STATUS_GOOD)
+        return status;
+      /* generate traditional static threshold */
+      status = sanei_ir_threshold_otsu (&parameters, norm_histo, &too_thresh);
+      if (status != SANE_STATUS_GOOD)
+        return status;
+      /* choose lower one */
+      if (too_thresh < static_thresh)
+        static_thresh = too_thresh;
+      free (norm_histo);
+
+      /* then generate dirt mask with adaptive thresholding filter
+       * and add the dirt from the static threshold */
+      /* last two parameters: 10, 50 detects more, 20, 75 less */
+      status = sanei_ir_filter_madmean (&parameters, cplane[3], &thresh_data, winsize_filter, 20, 100);
+      if (status != SANE_STATUS_GOOD)
+        return status;
+      sanei_ir_add_threshold (&parameters, cplane[3], thresh_data, static_thresh);
+      if (DBG_LEVEL >= 15)
+        {
+          snprintf (filename, 63, "/tmp/ir-threshold.pnm");
+          pieusb_write_pnm_file (filename, thresh_data,
+                                  8, 1, parameters.pixels_per_line,
+                                  parameters.lines);
+        }
+      if (scanner->cancel_request)          /* asynchronous cancel ? */
+        return SANE_STATUS_CANCELLED;
+
+      /* replace the dirt and smoothen film grain and crop if possible */
+      status = sanei_ir_dilate_mean (&parameters, cplane, thresh_data,
+              500, size_dilate, winsize_smooth, smooth,
+              0, NULL);
+      if (status != SANE_STATUS_GOOD)
+        return status;
+      smooth = 0;
+      free (thresh_data);
+    }
+      
+  if (DBG_LEVEL >= 15)
+    {
+      pieusb_write_pnm_file ("/tmp/RGBi-img.pnm", scanner->buffer.data,
+        scanner->scan_parameters.depth, 3, scanner->scan_parameters.pixels_per_line,
+        scanner->scan_parameters.lines);
+    }
+  
+  return status;
+}
+
+/* ------------------------------ PIE_USB_WRITE_PNM_FILE ------------------------------- */
+
+/**
+ * Output PNM file.
+ * Auxiliary function for pieusb_post(). 
+ * 
+ * @param filename
+ * @param data
+ * @param depth
+ * @param channels
+ * @param pixels_per_line
+ * @param lines
+ * @return 
+ */
+static SANE_Status
+pieusb_write_pnm_file (char *filename, SANE_Uint *data, int depth,
+                        int channels, int pixels_per_line, int lines)
+{
+  FILE *out;
+  int r, c, ch;
+  SANE_Uint val;
+  uint8_t b = 0;
+
+  DBG (DBG_info_proc,
+       "pie_usb_write_pnm_file: depth=%d, channels=%d, ppl=%d, lines=%d\n",
+       depth, channels, pixels_per_line, lines);
+
+  out = fopen (filename, "w");
+  if (!out)
+    {
+      DBG (DBG_error,
+           "pie_usb_write_pnm_file: could not open %s for writing: %s\n",
+           filename, strerror (errno));
+      return SANE_STATUS_INVAL;
+    }
+  
+  switch (depth) {
+      case 1:
+          fprintf (out, "P4\n%d\n%d\n", pixels_per_line, lines);
+          int i;
+          for (r = 0; r < lines; r++) {
+              i = 0;
+              b = 0;
+              for (c = 0; c < pixels_per_line; c++) {
+                  val = *(data + r * pixels_per_line + c);
+                  if (val > 0) b |= (0x80 >> i);
+                  i++;
+                  if (i == 7) {
+                      fputc(b, out);
+                      i = 0;
+                      b = 0;
+                  }
+              }
+              if (i != 0) {
+                  fputc(b, out);
+              }
+          }
+          break;
+      case 8:
+          fprintf (out, "P%c\n%d\n%d\n%d\n", channels == 1 ? '5' : '6', pixels_per_line, lines, 255);
+          for (r = 0; r < lines; r++) {
+              for (c = 0; c < pixels_per_line; c++) {
+                  for (ch = 0; ch < channels; ch++) {
+                      val = *(data + ch * lines * pixels_per_line + r * pixels_per_line + c);
+                      b = val & 0xFF;
+                      fputc(b, out);
+                  }
+              }
+          }
+          break;
+      case 16:
+          fprintf (out, "P%c\n%d\n%d\n%d\n", channels == 1 ? '5' : '6', pixels_per_line, lines, 65535);
+          for (r = 0; r < lines; r++) {
+              for (c = 0; c < pixels_per_line; c++) {
+                  for (ch = 0; ch < channels; ch++) {
+                      val = *(data + ch * lines * pixels_per_line + r * pixels_per_line + c);
+                      b = (val >> 8) & 0xFF;
+                      fputc(b, out);
+                      b = val & 0xFF;
+                      fputc(b, out);
+                  }
+              }
+          }
+          break;
+      default:
+          DBG (DBG_error, "pie_usb_write_pnm_file: depth %d not implemented\n", depth);
+  }
+  fclose (out);
+
+  DBG (DBG_info, "pie_usb_write_pnm_file: finished\n");
+  return SANE_STATUS_GOOD;
 }
