@@ -85,15 +85,18 @@ sanei_ir_create_norm_histo (const SANE_Parameters * params,
   if ((histo == NULL) || (histo_data == NULL))
     {
       DBG (5, "sanei_ir_create_norm_histo: no buffers\n");
-      free (histo);
-      free (histo_data);
+      if (histo) free (histo);
+      if (histo_data) free (histo_data);
       return NULL;
     }
 
   num_pixels = params->pixels_per_line * params->lines;
 
+  DBG (1, "sanei_ir_create_norm_histo: %d pixels_per_line, %d lines => %d num_pixels\n", params->pixels_per_line, params->lines, num_pixels);
+  DBG (1, "sanei_ir_create_norm_histo: histo_data[] with %d x %d bytes\n", HISTOGRAM_SIZE, sizeof(int));
   /* Populate the histogram */
   is = params->depth - HISTOGRAM_SHIFT; /* Number of data bits to ignore */
+  DBG (1, "sanei_ir_create_norm_histo: depth %d, HISTOGRAM_SHIFT %d => ignore %d bits\n", params->depth, HISTOGRAM_SHIFT, is);
   for (i = num_pixels; i > 0; i--) {
       histo_data[*img_data++ >> is]++;
   }
