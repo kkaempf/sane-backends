@@ -1,43 +1,44 @@
-/* 
+/*
  * File:   pieusb.c
- * Author: jan
+ * Author: Jan Vleeshouwers
  *
  * Created on July 22, 2012, 2:22 PM
- * 
+ *
  * SANE interface to two Reflecta USB scanners:
  * - CrystalScan 7200 (model id 0x30)
  * - ProScan 7200 (model id 0x36)
  */
 
-/* --------------------------------------------------------------------------
- *
- * INCLUDES
- * 
- * --------------------------------------------------------------------------*/
+#define DEBUG_NOT_STATIC
+#include "pieusb.h"
 
-/* Standard includes for various utiliy functions */
-#include <stdio.h> /* for FILE */
-#include <string.h> /* for strlen */
-#include <stdlib.h> /* for NULL */
-#include <unistd.h> /* usleep */
 #include <stdint.h>
 #include <math.h>
 
-/* Configuration defines */
-#include "../include/sane/config.h"
-
 /* SANE includes */
-#include "../include/sane/sane.h"
-#include "../include/sane/saneopts.h"
-#include "../include/sane/sanei_usb.h"
-#include "../include/sane/sanei_config.h"
-#include "../include/sane/sanei_thread.h"
-#include "../include/sane/sanei_ir.h"
+#include <sane/saneopts.h>
+#include <sane/sanei_config.h>
+#include <sane/sanei_thread.h>
+#include <sane/sanei_ir.h>
+#include <sane/sanei_backend.h>
 
-/* Backend includes */
-#define BACKEND_NAME pieusb
-#include "../include/sane/sanei_backend.h"
-#include "pieusb.h"
+#include "pieusb_scancmd.h"
+#include "pieusb_buffer.h"
+#include "pieusb_specific.h"
+
+SANE_Status sane_pieusb_init (SANE_Int * version_code, SANE_Auth_Callback authorize);
+void sane_pieusb_exit (void);
+SANE_Status sane_pieusb_get_devices (const SANE_Device *** device_list, SANE_Bool local_only);
+SANE_Status sane_pieusb_open (SANE_String_Const devicename, SANE_Handle * handle);
+void sane_pieusb_close (SANE_Handle handle);
+const SANE_Option_Descriptor *sane_pieusb_get_option_descriptor (SANE_Handle handle, SANE_Int option);
+SANE_Status sane_pieusb_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action, void *value, SANE_Int * info);
+SANE_Status sane_pieusb_get_parameters (SANE_Handle handle, SANE_Parameters * params);
+SANE_Status sane_pieusb_start (SANE_Handle handle);
+SANE_Status sane_pieusb_read (SANE_Handle handle, SANE_Byte * data, SANE_Int max_length, SANE_Int * length);
+void sane_pieusb_cancel (SANE_Handle handle);
+SANE_Status sane_pieusb_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking);
+SANE_Status sane_pieusb_get_select_fd (SANE_Handle handle, SANE_Int * fd);
 
 #define CAN_DO_4_CHANNEL_TIFF
 
@@ -48,87 +49,39 @@ extern void write_tiff_rgbi_header (FILE *fptr, int width, int height, int depth
 /* --------------------------------------------------------------------------
  *
  * DEFINES
- * 
+ *
  * --------------------------------------------------------------------------*/
 
 /* Build number of this backend */
-#define BUILD 1 
+#define BUILD 1
 
 /* Configuration filename */
 #define PIEUSB_CONFIG_FILE "pieusb.conf"
 
-/* Debug error levels */
-#define DBG_error        1      /* errors */
-#define DBG_warning      3      /* warnings */
-#define DBG_info         5      /* information */
-#define DBG_info_sane    7      /* information sane interface level */
-#define DBG_inquiry      8      /* inquiry data */
-#define DBG_info_proc    9      /* information pieusb backend functions */
-#define DBG_info_scan   11      /* information scanner commands */
-#define DBG_info_usb    13      /* information usb level functions */
-
-/* =========================================================================
- * 
- * Defines
- * 
- * ========================================================================= */
-
-/* Additional SANE status code */
-#define SANE_STATUS_CHECK_CONDITION 14 /* add to SANE_status enum */
-
-/* --------------------------------------------------------------------------
- *
- * SUPPORTED DEVICES SPECIFICS
- * 
- * --------------------------------------------------------------------------*/
-
-/* List of default supported scanners by vendor-id, product-id and model number.
- * A default list will be created in sane_init(), and entries in the config file
- *  will be added to it. */
-
-struct Pieusb_USB_Device_Entry
-{
-    SANE_Word vendor;		/* USB vendor identifier */
-    SANE_Word product;		/* USB product identifier */
-    SANE_Word model;		/* USB model number */
-    SANE_Int device_number;     /* USB device number if the device is present */
-};
-static struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list = NULL;
-static struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
-
-
-/* --------------------------------------------------------------------------
- *
- * FUNCTION PROTOTYPES & STRUCTURE DEFINITIONS
- * 
- * --------------------------------------------------------------------------*/
-
-#include "pieusb_usb.h"
-#include "pieusb_scancmd.h"
-#include "pieusb_buffer.h"
-#include "pieusb_specific.h"
+struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list = NULL;
+struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
 
 /* --------------------------------------------------------------------------
  *
  * LISTS OF ACTIVE DEVICE DEFINITIONS AND SCANNERS
- * 
+ *
  * --------------------------------------------------------------------------*/
 
-static Pieusb_Device_Definition *definition_list_head = NULL;
+Pieusb_Device_Definition *definition_list_head = NULL;
 static Pieusb_Scanner *first_handle = NULL;
 static const SANE_Device **devlist = NULL;
 
 /* --------------------------------------------------------------------------
  *
  * SANE INTERFACE
- * 
+ *
  * --------------------------------------------------------------------------*/
 
 /**
  * Initializes the debugging system, the USB system, the version code and
  * 'attaches' available scanners, i.e. creates device definitions for all
- * scanner devices found. 
- * 
+ * scanner devices found.
+ *
  * @param version_code
  * @param authorize
  * @return SANE_STATUS_GOOD
@@ -143,7 +96,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     SANE_Word model_number;
     SANE_Status status;
     int i;
-   
+
     /* Initialize debug logging */
     DBG_INIT ();
 
@@ -156,7 +109,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
 
     /* Initialize usb */
     sanei_usb_init ();
-    
+
     /* What's the use of a config file here, if all that is done with the information
      * is checking it against hard coded values? We should assume that the config
      * file contains appropriate scanner identifications, or we should ignore the
@@ -165,7 +118,9 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
      * that don't work. */
 
     /* Create default list */
-    pieusb_supported_usb_device_list = calloc(3,sizeof(struct Pieusb_USB_Device_Entry));
+    pieusb_supported_usb_device_list = calloc(4, sizeof(struct Pieusb_USB_Device_Entry));
+    if (pieusb_supported_usb_device_list == NULL)
+      return SANE_STATUS_NO_MEM;
     /* Reflecta CrystalScan 7200, model number 0x30 */
     pieusb_supported_usb_device_list[0].vendor = 0x05e3;
     pieusb_supported_usb_device_list[0].product = 0x0145;
@@ -175,13 +130,13 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     pieusb_supported_usb_device_list[1].product = 0x0145;
     pieusb_supported_usb_device_list[1].model = 0x36;
     /* Reflecta 6000 Multiple Slide Scanner */
-    pieusb_supported_usb_device_list[1].vendor = 0x05e3;
-    pieusb_supported_usb_device_list[1].product = 0x0142;
-    pieusb_supported_usb_device_list[1].model = 0x3a;
+    pieusb_supported_usb_device_list[2].vendor = 0x05e3;
+    pieusb_supported_usb_device_list[2].product = 0x0142;
+    pieusb_supported_usb_device_list[2].model = 0x3a;
     /* end of list */
-    pieusb_supported_usb_device_list[2].vendor = 0;
-    pieusb_supported_usb_device_list[2].product = 0;
-    pieusb_supported_usb_device_list[2].model = 0;
+    pieusb_supported_usb_device_list[3].vendor = 0;
+    pieusb_supported_usb_device_list[3].product = 0;
+    pieusb_supported_usb_device_list[3].model = 0;
 
 /*
     for (i=0; i<3; i++) {
@@ -191,7 +146,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
             pieusb_supported_usb_device_list[i].model);
     }
 */
-    
+
     /* Add entries from config file */
     fp = sanei_config_open (PIEUSB_CONFIG_FILE);
     if (!fp) {
@@ -220,7 +175,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
 	}
         fclose (fp);
     }
-        
+
     /* Loop through supported device list */
     i = 0;
     while (pieusb_supported_usb_device_list[i].vendor != 0) {
@@ -242,8 +197,8 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
         }
 */
         i++;
-    }    
-    return SANE_STATUS_GOOD;    
+    }
+    return SANE_STATUS_GOOD;
 }
 
 /**
@@ -259,9 +214,6 @@ sane_exit (void)
 
     for (dev = definition_list_head; dev; dev = next) {
         next = dev->next;
-        free((void *)dev->sane.name);
-        free((void *)dev->sane.vendor);
-        free((void *)dev->sane.model);
         free (dev->version);
         free (dev);
     }
@@ -275,7 +227,7 @@ sane_exit (void)
 
 /**
  * Create a SANE device list from the device list generated by sane_init().
- * 
+ *
  * @param device_list List of SANE_Device elements
  * @param local_only If true, disregard network scanners. Not applicable for USB scanners.
  * @return SANE_STATUS_GOOD, or SANE_STATUS_NO_MEM if the list cannot be allocated
@@ -313,7 +265,7 @@ sane_get_devices (const SANE_Device *** device_list, SANE_Bool __sane_unused__ l
  * Open the scanner with the given devicename and return a handle to it, which
  * is a pointer to a Pieusb_Scanner struct. The handle will be an input to
  * a couple of other functions of the SANE interface.
- * 
+ *
  * @param devicename Name of the device, corresponds to SANE_Device.name
  * @param handle handle to scanner (pointer to a Pieusb_Scanner struct)
  * @return SANE_STATUS_GOOD if the device has been opened
@@ -323,7 +275,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
 {
     Pieusb_Device_Definition *dev;
     SANE_Status status;
-    struct Pieusb_Command_Status cmd_status;
     Pieusb_Scanner *scanner, *s;
     struct Pieusb_Command_Status rs;
     SANE_Int shading_width;
@@ -348,7 +299,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
             if (status != SANE_STATUS_GOOD) {
                 DBG (DBG_error, "sane_open: sanei_usb_get_vendor_product_byname failed %s\n",devicename);
                 return status;
-            }            
+            }
             /* Get vendor-product-model & verify that is is supported */
             /* Loop through supported device list */
             while (pieusb_supported_usb_device_list[i].vendor != 0) {
@@ -376,7 +327,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
                     }
                 }
                 i++;
-            }    
+            }
             /* Now rescan the device list to see if it is present */
             for (dev = definition_list_head; dev; dev = dev->next) {
               if (strcmp (dev->sane.name, devicename) == 0) {
@@ -392,9 +343,9 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     if (!dev) {
         return SANE_STATUS_INVAL;
     }
-    
+
     /* Now create a scanner structure to return */
-    
+
     /* Check if we are not opening the same scanner again. */
     for (s = first_handle; s; s = s->next) {
         if (s->device->sane.name == devicename) {
@@ -402,7 +353,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
             return SANE_STATUS_GOOD;
         }
     }
-    
+
     /* Create a new scanner instance */
     scanner = malloc (sizeof (*scanner));
     if (!scanner) {
@@ -440,7 +391,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
 
 /**
  * Close the scanner and remove the scanner from the list of active scanners.
- * 
+ *
  * @param handle Scanner handle
  */
 void
@@ -465,12 +416,12 @@ sane_close (SANE_Handle handle)
         DBG (DBG_error, "sane_close(): invalid handle %p\n", handle);
         return;			
     }
-    
+
     /* Stop scan if still scanning */
     if (scanner->scanning) {
         pieusb_on_cancel(scanner);
     }
-    
+
     /* USB scanners may be still open here */
     if (scanner->device_number >= 0) {
         sanei_usb_reset (scanner->device_number);
@@ -485,7 +436,7 @@ sane_close (SANE_Handle handle)
 
     /* Free scanner related allocated memory and the scanner itself */
     /*TODO: check if complete */
-    if (scanner->buffer.data) buffer_delete(&scanner->buffer);
+    if (scanner->buffer.data) pieusb_buffer_delete(&scanner->buffer);
     free (scanner->ccd_mask);
     for (k=0; k<4; k++) free (scanner->shading_ref[k]);
     free (scanner->val[OPT_MODE].s);
@@ -498,7 +449,7 @@ sane_close (SANE_Handle handle)
 
 /**
  * Get option descriptor. Return the option descriptor with the given index
- * 
+ *
  * @param handle Scanner handle
  * @param option Index of option descriptor to return
  * @return The option descriptor
@@ -539,7 +490,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
     SANE_String_Const name;
 
     DBG(DBG_info_sane,"sane_control_option()\n");
-    
+
     if (info) {
         *info = 0;
     }
@@ -574,7 +525,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
     /* */
     switch (action) {
         case SANE_ACTION_GET_VALUE:
-            
+
             DBG (DBG_info_sane, "get %s [#%d]\n", name, option);
 
             switch (option) {
@@ -622,9 +573,9 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                     return SANE_STATUS_GOOD;
             }
             break;
-            
+
         case SANE_ACTION_SET_VALUE:
-            
+
             switch (scanner->opt[option].type) {
                 case SANE_TYPE_INT:
                     DBG (DBG_info_sane, "set %s [#%d] to %d, size=%d\n", name, option, *(SANE_Word *) val, scanner->opt[option].size);
@@ -719,14 +670,14 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 }
 
             }
-            
+
             /* Check the whole set */
             if (pieusb_analyse_options(scanner)) {
                 return SANE_STATUS_GOOD;
             } else {
                 return SANE_STATUS_INVAL;
             }
-            
+
             break;
         default:
             return SANE_STATUS_INVAL;
@@ -753,11 +704,11 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
     const char *mode;
     double resolution, width, height;
     SANE_Int colors;
-    
+
     DBG (DBG_info_sane, "sane_get_parameters\n");
-    
+
     if (params) {
-        
+
         if (scanner->scanning) {
             /* sane_start() initialized a SANE_Parameters struct in the scanner */
             DBG (DBG_info_sane, "sane_get_parameters from scanner values\n");
@@ -812,8 +763,8 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
                 params->bytes_per_line = 2 * colors * params->pixels_per_line;
             }
             params->last_frame = SANE_TRUE;
-        }        
-        
+        }
+
         DBG(DBG_info_sane,"sane_get_parameters(): SANE parameters\n");
         DBG(DBG_info_sane," format = %d\n",params->format);
         DBG(DBG_info_sane," last_frame = %d\n",params->last_frame);
@@ -823,10 +774,10 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
         DBG(DBG_info_sane," depth = %d\n",params->depth);
 
     } else {
-        
+
         DBG(DBG_info_sane," no params argument, no values returned\n");
-        
-    }   
+
+    }
 
     return SANE_STATUS_GOOD;
 }
@@ -839,7 +790,7 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
  * SCAN phase 4: scan slide and save data in scanner buffer
 
  * @param handle Scanner handle
- * @return 
+ * @return
  */
 SANE_Status
 sane_start (SANE_Handle handle)
@@ -850,13 +801,13 @@ sane_start (SANE_Handle handle)
     const char *mode;
     SANE_Bool shading_correction_relevant;
     SANE_Bool infrared_post_processing_relevant;
-    
+
     DBG(DBG_info_sane,"sane_start()\n");
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Exit if currently scanning
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (scanner->scanning) {
         DBG(DBG_error,"sane_start(): scanner is already scanning, exiting\n");
@@ -864,9 +815,9 @@ sane_start (SANE_Handle handle)
     }
 
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Exit with pause if not warmed up
-     * 
+     *
      * ---------------------------------------------------------------------- */
     cmdGetState(scanner->device_number, &(scanner->state), &status, 20);
     if (status.sane_status != SANE_STATUS_GOOD) {
@@ -881,7 +832,7 @@ sane_start (SANE_Handle handle)
     }
 
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Standard run does;
      * - set exposure time 0x0A/0x13
      * - set highlight shadow 0x0A/0x14
@@ -896,13 +847,13 @@ sane_start (SANE_Handle handle)
      *       size res  pass dpt frm    ord   bitmap       ptn thr
      *       15   300  RGB  8   inx    intel 1=sharpen    0   128
      *                                       3=skipshad
-     * 
+     *
      * ---------------------------------------------------------------------- */
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Show and check options
-     * 
+     *
      * ---------------------------------------------------------------------- */
     pieusb_print_options(scanner);
     if (!pieusb_analyse_options(scanner)) {
@@ -910,44 +861,44 @@ sane_start (SANE_Handle handle)
     }
 
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Set scan frame
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (pieusb_set_frame_from_options(scanner) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Set initial gains and offsets
      * There does not seem to be much reason to set exposure/gain/offset
      * now, but it does make a large difference in speed, because it
      * creates a small BADF-table. This is probably because without SET GAIN
      * OFFSET, extraEntries has a random value (it is not initialised).
-     * 
+     *
      * TODO: test if this may be done just once, in sane_open().
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (pieusb_set_gain_offset(scanner,SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Set mode
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (pieusb_set_mode_from_options(scanner) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
 
     /* Enter SCAN phase 1 */
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Start scan & wait until device ready
-     * 
+     *
      * ---------------------------------------------------------------------- */
     scanner->scanning = SANE_TRUE;
     scanner->cancel_request = SANE_FALSE;
@@ -981,41 +932,41 @@ sane_start (SANE_Handle handle)
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-    
+
     /* Process shading data if requested */
     if (!scanner->mode.skipShadingAnalysis) {
-        
+
         /* Handle cancel request */
         if (scanner->cancel_request) {
             return pieusb_on_cancel(scanner);
         }
 
         /* ------------------------------------------------------------------
-         * 
+         *
          * Get and set gain and offset
          * Get settings from scanner, from preview data, from options,
          * or use defaults.
-         * 
+         *
          * ------------------------------------------------------------------ */
         if (pieusb_set_gain_offset(scanner,scanner->val[OPT_CALIBRATION_MODE].s) != SANE_STATUS_GOOD) {
             cmdStopScan(scanner->device_number, &status, 5);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
-        }    
+        }
 
         /* ------------------------------------------------------------------
-         * 
+         *
          * Obtain shading data & wait until device ready
          * Get parameters from scanner->device->shading_parameters[0] although
          * it's 45 lines, 5340 pixels, 16 bit depth in all cases.
-         * 
+         *
          * ------------------------------------------------------------------ */
         if (pieusb_get_shading_data(scanner) != SANE_STATUS_GOOD) {
             cmdStopScan(scanner->device_number, &status, 5);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
-        
+
         /* Wait loop */
         cmdIsUnitReady(scanner->device_number, &status, 60);
         if (status.sane_status != SANE_STATUS_GOOD) {
@@ -1025,39 +976,39 @@ sane_start (SANE_Handle handle)
     }
 
     /* Enter SCAN phase 2 */
-    
+
     /* SCAN phase 2 (line-by-line scan) not implemented */
-    
+
     /* Enter SCAN phase 3 */
-    
+
     /* Handle cancel request */
     if (scanner->cancel_request) {
         return pieusb_on_cancel(scanner);
     }
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Get CCD mask
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (pieusb_get_ccd_mask(scanner) != SANE_STATUS_GOOD) {
         cmdStopScan(scanner->device_number, &status, 5);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
-    }    
-    
+    }
+
     /* Enter SCAN phase 4 */
 
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Read scan parameters & wait until ready for reading
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (pieusb_get_parameters(scanner) != SANE_STATUS_GOOD) {
         cmdStopScan(scanner->device_number, &status, 5);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
-    }    
+    }
     DBG(DBG_info_sane,"sane_start(): SANE parameters\n");
     DBG(DBG_info_sane," format = %d\n",scanner->scan_parameters.format);
     DBG(DBG_info_sane," last_frame = %d\n",scanner->scan_parameters.last_frame);
@@ -1065,13 +1016,13 @@ sane_start (SANE_Handle handle)
     DBG(DBG_info_sane," pixels_per_line = %d\n",scanner->scan_parameters.pixels_per_line);
     DBG(DBG_info_sane," lines = %d\n",scanner->scan_parameters.lines);
     DBG(DBG_info_sane," depth = %d\n",scanner->scan_parameters.depth);
-        
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Prepare read buffer
      * Currently this buffer is always a memory mapped buffer
      * Might be faster to use RAM buffers for small images (such as preview)
-     * 
+     *
      * ---------------------------------------------------------------------- */
     colors = 0x00;
     switch (scanner->mode.passes) {
@@ -1082,28 +1033,28 @@ sane_start (SANE_Handle handle)
         case SCAN_ONE_PASS_COLOR: colors = 0x07; break;
         case SCAN_ONE_PASS_RGBI: colors = 0x0F; break;
     }
-    buffer_create(&(scanner->buffer), scanner->scan_parameters.pixels_per_line,
+    pieusb_buffer_create(&(scanner->buffer), scanner->scan_parameters.pixels_per_line,
       scanner->scan_parameters.lines, colors, scanner->scan_parameters.depth);
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Read all image data into the buffer
-     * 
+     *
      * ---------------------------------------------------------------------- */
     if (pieusb_get_scan_data(scanner) != SANE_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-    
+
     /* ----------------------------------------------------------------------
-     * 
+     *
      * Post processing:
      * 1. Correct for shading
      * 2. Remove R-component from IR data
      * 3. Remove dust
-     * 
+     *
      * ---------------------------------------------------------------------- */
-    
+
     mode = scanner->val[OPT_MODE].s;
     if (strcmp(mode,SANE_VALUE_SCAN_MODE_LINEART) == 0) {
         shading_correction_relevant = SANE_FALSE; /* Shading correction irrelavant at bit depth 1 */
@@ -1145,7 +1096,7 @@ sane_start (SANE_Handle handle)
         planes[2] = scanner->buffer.data + 2 * N;
         planes[3] = scanner->buffer.data + 3 * N;
         sanei_ir_init();
-        pieusb_post (scanner, planes, scanner->buffer.colors, scanner->buffer.colors);
+        pieusb_post (scanner, planes, scanner->buffer.colors);
     }
 
     /* Save preview data. Preview data only used once to set gain and offset. */
@@ -1156,7 +1107,7 @@ sane_start (SANE_Handle handle)
         scanner->preview_done = SANE_FALSE;
     }
 */
-    
+
     /* Modify buffer in case the buffer has infrared, but no infrared should be returned */
     if (scanner->buffer.colors == 4 && (strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b)) {
         DBG(DBG_info_sane,"sane_start(): modifying buffer to ignore I\n");
@@ -1170,7 +1121,7 @@ sane_start (SANE_Handle handle)
     }
 
     return SANE_STATUS_GOOD;
-    
+
 }
 
 /**
@@ -1180,15 +1131,15 @@ sane_start (SANE_Handle handle)
  * @param buf
  * @param max_len
  * @param len
- * @return 
+ * @return
  */
 SANE_Status
 sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len)
 {
-    
+
     struct Pieusb_Scanner *scanner = handle;
     SANE_Int return_size;
-    
+
     DBG(DBG_info_sane,"sane_read(): requested %d bytes\n", max_len);
 
     /* No reading if not scanning */
@@ -1196,19 +1147,19 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
         *len = 0;
         return SANE_STATUS_IO_ERROR; /* SANE standard does not allow a SANE_STATUS_INVAL return */
     }
-    
+
     /* Handle cancel request */
     if (scanner->cancel_request) {
         return pieusb_on_cancel(scanner);
     }
-    
+
     /* Return image data, just read from scanner buffer */
     DBG(DBG_error,"sane_read():\n");
     DBG(DBG_error,"  image size %d\n",scanner->buffer.image_size_bytes);
     DBG(DBG_error,"  unread     %d\n",scanner->buffer.bytes_unread);
     DBG(DBG_error,"  read       %d\n",scanner->buffer.bytes_read);
     DBG(DBG_error,"  max_len    %d\n",max_len);
-    
+
     if (scanner->buffer.bytes_read > scanner->buffer.image_size_bytes) {
         /* Test if not reading past buffer boundaries */
         DBG(DBG_error,"sane_read(): reading past buffer boundaries (contains %d, read %d)\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
@@ -1233,14 +1184,14 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
         DBG(DBG_error,"sane_read(): shouldn't be here...\n");
         return SANE_STATUS_IO_ERROR;
     }
-    
+
     /* Check */
     if (return_size == 0 && scanner->buffer.bytes_read < scanner->buffer.image_size_bytes) {
         DBG(DBG_error,"sane_read(): unable to service read request, %d bytes in frame, %d read\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
     }
-    
+
     /* Return the available data: Output return_size bytes from buffer */
-    buffer_get(&scanner->buffer, buf, max_len, len);
+    pieusb_buffer_get(&scanner->buffer, buf, max_len, len);
     DBG(DBG_info_sane,"sane_read(): currently read %.2f lines of %d\n",
       (double)scanner->buffer.bytes_written/(scanner->buffer.line_size_bytes*scanner->buffer.colors),
       scanner->buffer.height);
@@ -1252,7 +1203,7 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
 
 /**
  * Request cancellation of current scanning process.
- * 
+ *
  * @param handle Scanner handle
  */
 void
@@ -1301,33 +1252,6 @@ sane_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking)
 SANE_Status
 sane_get_select_fd (SANE_Handle handle, SANE_Int * fd)
 {
-    DBG(DBG_info_sane,"sane_get_select_fd(): not supported (only for non-blocking IO)\n");
+    DBG(DBG_info_sane,"sane_get_select_fd(%p,%d): not supported (only for non-blocking IO)\n", handle, *fd);
     return SANE_STATUS_UNSUPPORTED;
 }
-
-
-/* --------------------------------------------------------------------------
- *
- * SPECIFIC PIEUSB 
- * 
- * --------------------------------------------------------------------------*/
-
-#include "pieusb_buffer.c"
-
-#include "pieusb_specific.c"
-
-/* =========================================================================
- * 
- * Pieusb scanner commands
- * 
- * ========================================================================= */
-
-#include "pieusb_scancmd.c"
-
-/* =========================================================================
- * 
- * USB functions
- * 
- * ========================================================================= */
-
-#include "pieusb_usb.c"

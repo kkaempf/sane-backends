@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   pieusb_specific.h
  * Author: Jan Vleeshouwers
  *
@@ -8,7 +8,10 @@
 #ifndef PIEUSB_SPECIFIC_H
 #define	PIEUSB_SPECIFIC_H
 
-#include "../include/sane/sanei_ir.h"
+#include <sane/sanei_ir.h>
+#include <sane/sanei_backend.h>
+#include "pieusb_scancmd.h"
+#include "pieusb_buffer.h"
 
 /* Settings for scan modes available to SANE */
 /* In addition to those defined in sane.h */
@@ -73,7 +76,7 @@
 /* --------------------------------------------------------------------------
  *
  * DEVICE DEFINITION STRUCTURES
- * 
+ *
  * --------------------------------------------------------------------------*/
 
 /* Options supported by the scanner */
@@ -128,7 +131,7 @@ struct Pieusb_Device_Definition
 {
     struct Pieusb_Device_Definition *next;
 
-    SANE_Device sane; 
+    SANE_Device sane;
       /* name = string like "libusb:001:006" == NO! this should be "CrystalScan 7200" or "ProScan 7200"...
        * vendor = "PIE/Pieusb"
        * model = "CrystalScan 7200" or "ProScan 7200"
@@ -141,7 +144,7 @@ struct Pieusb_Device_Definition
       /* USB id's like 0x05e3 0x0145, see pieusb.conf */
     SANE_String version; /* INQUIRY productRevision */
     SANE_Byte model; /* INQUIRY model */
-    
+
     /* Ranges for various quantities */
     SANE_Range dpi_range;
     SANE_Range x_range;
@@ -201,7 +204,7 @@ typedef struct Pieusb_Device_Definition Pieusb_Device_Definition;
 /* --------------------------------------------------------------------------
  *
  * CURRENTLY ACTIVE DEVICES
- * 
+ *
  * --------------------------------------------------------------------------*/
 
 /* This structure holds information about an instance of an active scanner */
@@ -214,14 +217,14 @@ struct Pieusb_Scanner
     int device_number; /* scanner device number (as determined by USB) */
 
     /* SANE option descriptions and settings for this scanner instance */
-    SANE_Option_Descriptor opt[NUM_OPTIONS]; 
+    SANE_Option_Descriptor opt[NUM_OPTIONS];
     Option_Value val[NUM_OPTIONS];
 
     /* Scan state */
     struct Pieusb_Scanner_State state;
     SANE_Int scanning; /* true if busy scanning */
     SANE_Int cancel_request; /* if true, scanner should terminate a scan */
-    
+
     /* Scan settings */
     struct Pieusb_Mode mode;
     struct Pieusb_Settings settings;
@@ -234,7 +237,7 @@ struct Pieusb_Scanner
     SANE_Int shading_mean[4]; /* mean shading value for each color (average all 45 lines)  */
     SANE_Int shading_max[4]; /* maximum shading value for each color (for all 45 lines)  */
     SANE_Int* shading_ref[4]; /* 4 arrays of shading references for each pixel on a line and for each color */
-    
+
     /* Calibration using preview */
 /*
     SANE_Bool preview_done;
@@ -244,7 +247,7 @@ struct Pieusb_Scanner
     SANE_Int preview_lower_bound[4]; lowest RGBI values in preview
     SANE_Int preview_upper_bound[4]; highest RGBI values in preview
 */
-    
+
     /* Post processing options */
 /*
     SANE_Int processing;
@@ -257,59 +260,28 @@ struct Pieusb_Scanner
 
 typedef struct Pieusb_Scanner Pieusb_Scanner;
 
-/* Pieusb specific */
-
-/* subs to sane_init() */
-static SANE_Status pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_id, SANE_Word* product_id, SANE_Word* model_number);
-static SANE_Status pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Word model_number);
-static SANE_Bool pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Word model_number);
-
-/* sub to sane_init() and sane_open() */
-static SANE_Status pieusb_find_device_callback (const char *devicename);
-/* sub to pieusb_find_device_callback() */
-static void pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scanner_Properties* inq, const char* devicename, SANE_Word vendor_id, SANE_Word product_id, SANE_Int devnr);
-static void pieusb_print_inquiry (Pieusb_Device_Definition * dev);
-
-/* sub to sane_open() */
-static SANE_Status pieusb_init_options (Pieusb_Scanner * scanner);
-
-/* sub to sane_start(), sane_read() and sane_close() */
-static SANE_Status pieusb_on_cancel (Pieusb_Scanner * scanner);
-
+SANE_Status pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_id, SANE_Word* product_id, SANE_Word* model_number);
+/* sub to sane_start() */
+SANE_Status pieusb_post (Pieusb_Scanner *scanner,  uint16_t **in_img, int planes);
+void pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer *buffer);
+SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner);
+SANE_Status pieusb_get_parameters(Pieusb_Scanner * scanner);
+SANE_Status pieusb_get_ccd_mask(Pieusb_Scanner * scanner);
+SANE_Status pieusb_get_shading_data(Pieusb_Scanner * scanner);
+SANE_Status pieusb_set_mode_from_options(Pieusb_Scanner * scanner);
+SANE_Status pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char* calibration_mode);
+SANE_Status pieusb_set_frame_from_options(Pieusb_Scanner * scanner);
+void pieusb_print_options(struct Pieusb_Scanner *scanner);
 /* sub to sane_control_option() and sane_start() */
-static int pieusb_analyse_options(struct Pieusb_Scanner *scanner);
-
-/* sub to sane_start() */
-static void pieusb_print_options(struct Pieusb_Scanner *scanner);
-static SANE_Status pieusb_set_frame_from_options(Pieusb_Scanner * scanner);
-static SANE_Status pieusb_set_mode_from_options(Pieusb_Scanner * scanner);
-static SANE_Status pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char* calibration_mode);
-static SANE_Status pieusb_get_shading_data(Pieusb_Scanner * scanner);
-static SANE_Status pieusb_get_ccd_mask(Pieusb_Scanner * scanner);
-static SANE_Status pieusb_get_parameters(Pieusb_Scanner * scanner);
-static SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner);
-/*
-static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner);
-*/
-
-/* sub to sane_start() */
-static void pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer *buffer);
-static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* buffer);
-
-/* MR */
-/* sub to sane_start() */
-static SANE_Status pieusb_post (Pieusb_Scanner *scanner,  uint16_t **in_img, int planes, int out_planes);
-/* sub to pieusb_post() */
-static SANE_Status pieusb_write_pnm_file (char *filename, uint16_t *data, int depth, int channels, int pixels_per_line, int lines);
-
-/* Auxilary */
-static size_t max_string_size (SANE_String_Const strings[]);
-static double getGain(int gain);
-static int getGainSetting(double gain);
-/*
-static void updateGain(Pieusb_Scanner *scanner, int color_index);
-*/
-static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_increase);
+int pieusb_analyse_options(struct Pieusb_Scanner *scanner);
+SANE_Bool pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Word model_number);
+SANE_Status pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Word model_number);
+/* sub to sane_init() and sane_open() */
+SANE_Status pieusb_find_device_callback (const char *devicename);
+/* sub to sane_open() */
+SANE_Status pieusb_init_options (Pieusb_Scanner * scanner);
+/* sub to sane_start(), sane_read() and sane_close() */
+SANE_Status pieusb_on_cancel (Pieusb_Scanner * scanner);
 
 #endif	/* PIEUSB_SPECIFIC_H */
 

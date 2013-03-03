@@ -1,6 +1,6 @@
-/* 
+/*
  * File:   pieusb.h
- * Author: jan
+ * Author: Jan Vleeshouwers
  *
  * Created on July 22, 2012, 2:22 PM
  */
@@ -8,19 +8,61 @@
 #ifndef PIEUSB_H
 #define	PIEUSB_H
 
-SANE_Status sane_pieusb_init (SANE_Int * version_code, SANE_Auth_Callback authorize);
-void sane_pieusb_exit (void);
-SANE_Status sane_pieusb_get_devices (const SANE_Device *** device_list, SANE_Bool local_only);
-SANE_Status sane_pieusb_open (SANE_String_Const devicename, SANE_Handle * handle);
-void sane_pieusb_close (SANE_Handle handle);
-const SANE_Option_Descriptor *sane_pieusb_get_option_descriptor (SANE_Handle handle, SANE_Int option);
-SANE_Status sane_pieusb_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action, void *value, SANE_Int * info);
-SANE_Status sane_pieusb_get_parameters (SANE_Handle handle, SANE_Parameters * params);
-SANE_Status sane_pieusb_start (SANE_Handle handle);
-SANE_Status sane_pieusb_read (SANE_Handle handle, SANE_Byte * data, SANE_Int max_length, SANE_Int * length);
-void sane_pieusb_cancel (SANE_Handle handle);
-SANE_Status sane_pieusb_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking);
-SANE_Status sane_pieusb_get_select_fd (SANE_Handle handle, SANE_Int * fd);
+#include <sane/config.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+
+#define BACKEND_NAME pieusb
+
+#include <sane/sane.h>
+#include <sane/sanei_usb.h>
+#include <sane/sanei_debug.h>
+
+
+#include "pieusb_usb.h"
+
+/* Additional SANE status code */
+#define SANE_STATUS_CHECK_CONDITION 14 /* add to SANE_status enum */
+
+/* --------------------------------------------------------------------------
+ *
+ * SUPPORTED DEVICES SPECIFICS
+ *
+ * --------------------------------------------------------------------------*/
+
+/* List of default supported scanners by vendor-id, product-id and model number.
+ * A default list will be created in sane_init(), and entries in the config file
+ *  will be added to it. */
+
+struct Pieusb_USB_Device_Entry
+{
+    SANE_Word vendor;		/* USB vendor identifier */
+    SANE_Word product;		/* USB product identifier */
+    SANE_Word model;		/* USB model number */
+    SANE_Int device_number;     /* USB device number if the device is present */
+};
+
+extern struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list;
+extern struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
+
+struct Pieusb_Device_Definition;
+extern struct Pieusb_Device_Definition *definition_list_head;
+
+void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status, int repeat);
+
+/* Debug error levels */
+#define DBG_error        1      /* errors */
+#define DBG_warning      3      /* warnings */
+#define DBG_info         5      /* information */
+#define DBG_info_sane    7      /* information sane interface level */
+#define DBG_inquiry      8      /* inquiry data */
+#define DBG_info_proc    9      /* information pieusb backend functions */
+#define DBG_info_scan   11      /* information scanner commands */
+#define DBG_info_usb    13      /* information usb level functions */
 
 #endif	/* PIEUSB_H */
 

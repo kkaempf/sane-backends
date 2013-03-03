@@ -1,9 +1,24 @@
 /*
- * INCLUDE FILE FOR PIEUSB.C
+ * File:   pieusb_usb.c
+ * Author: Jan Vleeshouwers
+ *
+ * Created on August 20, 2012, 7:47 PM
  */
 
+#define DEBUG_DECLARE_ONLY
+#include "pieusb.h"
+#include "pieusb_scancmd.h"
 #include "pieusb_usb.h"
 
+#include <sane/sanei_usb.h>
+
+/* USB functions */
+
+static SANE_Status ctrloutbyte(SANE_Int device_number, SANE_Int port, SANE_Byte b);
+static SANE_Status ctrloutint(SANE_Int device_number, unsigned int size);
+static SANE_Status ctrlinbyte(SANE_Int device_number, SANE_Byte* b);
+static SANE_Status bulkin(SANE_Int device_number, SANE_Byte* data, unsigned int size);
+static SANE_Status interpretStatus(SANE_Byte status[]);
 
 /* Defines for use in USB functions */
 
@@ -52,9 +67,9 @@
 #define SCSI_NO_ADDITIONAL_SENSE_INFORMATION 0x00
 
 /* =========================================================================
- * 
+ *
  * USB functions
- * 
+ *
  * ========================================================================= */
 
 /**
@@ -63,10 +78,10 @@
  * CONDITION response from the command.
  * If the REQUEST SENSE command fails, the SANE status code is unequal to
  * SANE_STATUS_GOOD and the sense fields are empty.
- * 
+ *
  * If repeat == 0, commandScannerRepeat() equals commandScanner() with an
  * included sense check in case of a check sense return.
- * 
+ *
  * @param device_number Device number
  * @param command Command array
  * @param data Input or output data buffer
@@ -74,21 +89,22 @@
  * @param status Pieusb_Command_Status
  * @param repeat Maximum number of tries after a busy state
  */
-void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status, int repeat)
+void
+commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status, int repeat)
 {
     int k = repeat;
     int tries = 0;
     SANE_Char* sd;
     struct Pieusb_Sense sense;
     struct Pieusb_Command_Status senseStatus;
-    
-    
+
+
     DBG(DBG_info_usb,"commandScannerRepeat(): enter, repeat=%d\n",repeat);
     do {
-        
+
         commandScanner(device_number, command, data, size, status);
         tries++;
-        
+
         switch (status->sane_status) {
 
             case SANE_STATUS_GOOD:
@@ -146,8 +162,8 @@ void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte
                 /* Keep current status */
                 break;
         }
-        
-     } while (k>0);  
+
+     } while (k>0);
      DBG(DBG_info_usb,"commandScannerRepeat(): ready, tries=%d\n",tries);
 }
 
@@ -155,15 +171,17 @@ void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte
  * Send a command to the device.
  * The command is a 6-byte array. The data-array is used for input and output.
  * The sense-fields of Pieusb_Command_Status are cleared.
- * 
+ *
  * @param device_number Device number
  * @param command Command array
  * @param data Input or output data buffer
  * @param size Size of the data buffer
  * @param status Pieusb_Command_Status
  */
-void commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status) {
-    
+void
+commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
+{
+
     SANE_Status st;
     /* Clear 2-byte status-array which contains 1 or 2 byte code returned from device */
     SANE_Byte usbstat[] = {0x00, 0x00};
@@ -172,7 +190,7 @@ void commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
     status->senseKey = SCSI_NO_SENSE;
     status->senseCode = SCSI_NO_ADDITIONAL_SENSE_INFORMATION;
     status->senseQualifier = 0x00;
-    
+
     /* 2 x 4 + 3 bytes preceding command, then 6 bytes command */
     st = ctrloutbyte(device_number, PORT_88, 0xff); /* CTRL_VAL_INIT */
     st = ctrloutbyte(device_number, PORT_88, 0xaa);
@@ -231,16 +249,16 @@ void commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
             break;
         case PIEUSB_STATUS_DATA_AVAILABLE:
             /* Intermediate status OK, device has made data available for reading */
-            /* Read data 
+            /* Read data
                must be done in parts if size is large; no verification inbetween
                max part size = 0xfff0 = 65520 */
             {
                 SANE_Int remsize = 0;
                 SANE_Int partsize = 0;
                 remsize = size;
-                
+
                 while (remsize>0) {
-                    partsize = remsize > 65520 ? 65520 : remsize; 
+                    partsize = remsize > 65520 ? 65520 : remsize;
                     ctrloutint(device_number, partsize);
                     bulkin(device_number, data+size-remsize, partsize);
                     remsize -= partsize;
@@ -285,7 +303,7 @@ void commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
 
 /**
  * Simplified control transfer: one byte to given port
- * 
+ *
  * @param device_number device number
  * @param b byte to send to device
  * @return SANE status
@@ -297,7 +315,7 @@ static SANE_Status ctrloutbyte(SANE_Int device_number, SANE_Int port, SANE_Byte 
 
 /**
  * Simplified control transfer for port/wValue = 0x82 - prepare bulk
- * 
+ *
  * @param device_number device number
  * @param size Size of bulk transfer which follows (numer of bytes)
  * @return SANE status
@@ -314,7 +332,7 @@ static SANE_Status ctrloutint(SANE_Int device_number, unsigned int size) {
  */
 /**
  * Inbound control transfer
- * 
+ *
  * @param device_number device number
  * @param b byte received from device
  * @return SANE status
@@ -327,7 +345,7 @@ static SANE_Status ctrlinbyte(SANE_Int device_number, SANE_Byte* b) {
 
 /**
  * Bulk in transfer for data, in parts of 0x4000 bytes max
- * 
+ *
  * @param device_number device number
  * @param data array holding or receiving data (must be preallocated)
  * @param size size of the data array
@@ -366,7 +384,7 @@ static SANE_Status bulkin(SANE_Int device_number, SANE_Byte data[], unsigned int
 
 /**
  * Interpret the 2-byte status returned from the device as a SANE status.
- * 
+ *
  * @param status Pieusb status
  * @return SANE status
  */
@@ -411,7 +429,7 @@ static SANE_Status interpretStatus(SANE_Byte status[])
 
 /**
  * Return a textual description of the given sense code.
- * 
+ *
  * @param sense
  * @return description
  */
@@ -455,14 +473,16 @@ SANE_String senseDescription(struct Pieusb_Sense* sense)
 /*
  * Get the unsigned char value in the array at given offset
  */
-static SANE_Byte getByte(SANE_Byte* array, SANE_Byte offset) {
+SANE_Byte
+getByte(SANE_Byte* array, SANE_Byte offset) {
     return *(array+offset);
 }
 
 /*
  * Set the array at given offset to the given unsigned char value
  */
-static void setByte(SANE_Byte val, SANE_Byte* array, SANE_Byte offset) {
+void
+setByte(SANE_Byte val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset) = val;
 }
 
@@ -472,7 +492,8 @@ static void setByte(SANE_Byte val, SANE_Byte* array, SANE_Byte offset) {
  * All data in structures is little-endian, so the LSB comes first
  * SANE_Int is 4 bytes, but that is not a problem.
  */
-static SANE_Int getShort(SANE_Byte* array, SANE_Byte offset) {
+SANE_Int
+getShort(SANE_Byte* array, SANE_Byte offset) {
     SANE_Int i = *(array+offset+1);
     i <<= 8;
     i += *(array+offset);
@@ -483,7 +504,8 @@ static SANE_Int getShort(SANE_Byte* array, SANE_Byte offset) {
  * Put the bytes of a short int value into an unsigned char array
  * All data in structures is little-endian, so start with LSB
  */
-static void setShort(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
+void
+setShort(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset) = val & 0xFF;
     *(array+offset+1) = (val>>8) & 0xFF;
 }
@@ -492,7 +514,8 @@ static void setShort(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
  * Get the signed int value in the array at given offset.
  * All data in structures is little-endian, so the LSB comes first
  */
-static SANE_Int getInt(SANE_Byte* array, SANE_Byte offset) {
+SANE_Int
+getInt(SANE_Byte* array, SANE_Byte offset) {
     SANE_Int i = *(array+offset+3);
     i <<= 8;
     i += *(array+offset+2);
@@ -507,7 +530,8 @@ static SANE_Int getInt(SANE_Byte* array, SANE_Byte offset) {
  * Put the bytes of a signed int value into an unsigned char array
  * All data in structures is little-endian, so start with LSB
  */
-static void setInt(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
+void
+setInt(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
     *(array+offset) = val & 0xFF;
     *(array+offset+1) = (val>>8) & 0xFF;
     *(array+offset+2) = (val>>16) & 0xFF;
@@ -517,7 +541,8 @@ static void setInt(SANE_Word val, SANE_Byte* array, SANE_Byte offset) {
 /*
  * Get count unsigned char values in the array at given offset.
  */
-static void getBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
+void
+getBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
     for (k=0; k<count; k++) {
         *(val+k) = *(array+offset+k);
@@ -527,7 +552,8 @@ static void getBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_By
 /*
  * Copy an unsigned char array of given size
  */
-static void setBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
+void
+setBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
     for (k=0; k<count; k++) {
         *(array+offset+k) = *(val+k);
@@ -539,7 +565,8 @@ static void setBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_By
  * All data in structures is little-endian, so the MSB comes first.
  * SANE_Word is 4 bytes, but that is not a problem.
  */
-static void getShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
+void
+getShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
     for (k=0; k<count; k++) {
         *(val+k) = *(array+offset+2*k+1);
@@ -553,7 +580,8 @@ static void getShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_B
  * All data in structures is little-endian, so start with MSB of each short.
  * SANE_Word is 4 bytes, but that is not a problem. All MSB 2 bytes are ignored.
  */
-static void setShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
+void
+setShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count) {
     SANE_Byte k;
     for (k=0; k<count; k++) {
         *(array+offset+2*k) = (*(val+k)) & 0xFF;

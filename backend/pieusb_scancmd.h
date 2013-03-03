@@ -1,4 +1,4 @@
-/* 
+/*
  * File:   pieusb_scancmd.h
  * Author: Jan Vleeshouwers
  *
@@ -8,10 +8,13 @@
 #ifndef PIEUSB_SCANCMD_H
 #define	PIEUSB_SCANCMD_H
 
+#include <sane/sane.h>
+#include "pieusb_usb.h"
+
 /* =========================================================================
- * 
+ *
  * Data-structures used by scanner commands
- * 
+ *
  * ========================================================================= */
 
 /* Data returned from a SCSI INQUIRY command. */
@@ -35,12 +38,12 @@ struct Pieusb_Scanner_Properties {
     SANE_Byte scanCapability;
       /* 0x4b = 01001011 PowerSave-ExtCal-0-FastPreview-DisableCal-[CalSpeeds=3]
        * PowerSave: no
-       * ExtCal: yes => 
+       * ExtCal: yes =>
        * FastPreview: no
        * DisableCal: yes => can calibration be disabled?
        * CalSpeeds: 3 => 1 line, 13 lines, 31 lines */
     SANE_Byte optionalDevices;
-      /* 0x61 = 01100001 MultiPageLoad-?-?-0-0-TransModule1-TransModule-AutoDocFeeder => additional? 
+      /* 0x61 = 01100001 MultiPageLoad-?-?-0-0-TransModule1-TransModule-AutoDocFeeder => additional?
        * MultiPageLoad: no
        * ?: yes
        * ?: yes
@@ -105,7 +108,7 @@ struct Pieusb_Mode {
     /* SANE_Byte size; of remaining data, not useful */
     SANE_Int resolution; /* in dpi */
     SANE_Byte passes;
-      /* 0x80 = One pass color; 0x90 = One pass RGBI; 
+      /* 0x80 = One pass color; 0x90 = One pass RGBI;
        * bit 7 : one-pass-color bit (equivalent to RGB all set?)
        * bit 6 & 5: unused
        * bit 4 : Infrared
@@ -173,7 +176,7 @@ struct Pieusb_Settings {
        * than 0x200). */
     SANE_Int minimumExposureTime;
       /* Fixed value: 0x0b79 (2937) */
-    SANE_Byte extraEntries; 
+    SANE_Byte extraEntries;
     SANE_Byte doubleTimes;
       /* Originally 20 unused bytes (uninitialized memory)
        * To complete the mapping to the Pieusb_Settings_Condensed struct,
@@ -222,7 +225,7 @@ struct Pieusb_Exposure_Time {
 struct Pieusb_Highlight_Shadow_Color {
     SANE_Int filter; /* color mask 0x02, 0x04 or 0x08 for R, G, B */
     SANE_Byte highlightValue; /* range unknown, value is not used */
-    SANE_Byte shadowValue; /* range unknown, value is not used */   
+    SANE_Byte shadowValue; /* range unknown, value is not used */
 };
 
 struct Pieusb_Highlight_Shadow {
@@ -236,7 +239,7 @@ struct Pieusb_Shading_Parameters_Info {
     SANE_Byte sendBits; /* 0x10 = 16 */
     SANE_Byte recieveBits; /* 0x10 = 16 */
     SANE_Byte nLines; /* 0x2D = 45 */
-    SANE_Int pixelsPerLine; /* 0x14dc = 5340 */  
+    SANE_Int pixelsPerLine; /* 0x14dc = 5340 */
 };
 
 struct Pieusb_Shading_Parameters {

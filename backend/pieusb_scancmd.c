@@ -1,15 +1,25 @@
 /*
- * INCLUDE FILE FOR PIEUSB.C
+ * File:   pieusb_scancmd.c
+ * Author: Jan Vleeshouwers
+ *
  */
 
+#define DEBUG_DECLARE_ONLY
+
+#include "pieusb.h"
 #include "pieusb_scancmd.h"
 #include "pieusb_usb.h"
 
+#ifdef HAVE_ALLOCA_H
+#include <alloca.h>
+#endif
+
+#define SCSI_COMMAND_LEN 6
 
 /* =========================================================================
- * 
+ *
  * Pieusb scanner commands
- * 
+ *
  * ========================================================================= */
 
 /* Standard SCSI command codes */
@@ -44,17 +54,18 @@
  *   returned a CHECK CONDITION
  * - other SANE status code if TEST UNIT READY failed or if it returned
  *   CHECK CONDITION and REQUEST SENSE failed
- * 
+ *
  * @param device_number Device number
  * @return SANE_status SANE_STATUS_GOOD if ready, SANE_STATUS_DEVICE_BUSY if not
  */
-void cmdIsUnitReady(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdIsUnitReady(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+
     DBG (DBG_info_scan, "cmdIsUnitReady()\n");
 
-    setCommand(command,SCSI_TEST_UNIT_READY,0);
+    setCommand(command, SCSI_TEST_UNIT_READY, 0);
 
     commandScannerRepeat(device_number, command, NULL, 0, status, repeat);
 
@@ -68,28 +79,30 @@ void cmdIsUnitReady(SANE_Int device_number, struct Pieusb_Command_Status *status
  * - other SANE status code if REQUEST SENSE fails
  * The sense fields in status are always 0. A REQUEST SENSE is not repeated if
  * the device returns SANE_STATUS_DEVICE_BUSY.
- * 
+ *
  * @param device_number Device number
  * @param sense Sense data
  * @param status Command result status
  * @see struc Pieusb_Sense
  */
-void cmdGetSense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Command_Status *status)
+void
+cmdGetSense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Command_Status *status)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 14;
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define DATA_SIZE 14
+    SANE_Int size = DATA_SIZE;
+    SANE_Byte data[DATA_SIZE];
+
     DBG (DBG_info_scan, "cmdGetSense()\n");
-    
-    setCommand(command,SCSI_REQUEST_SENSE,size);
-    
-    memset(data,'\0',size);
+
+    setCommand(command, SCSI_REQUEST_SENSE, size);
+
+    memset(data, '\0' ,size);
     commandScanner(device_number, command, data, size, status);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Decode data recieved */
     sense->errorCode = getByte(data,0);
     sense->segment = getByte(data,1);
@@ -98,85 +111,92 @@ void cmdGetSense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieu
     sense->addLength = getByte(data,7);
     getBytes(sense->cmdInfo,data,8,4);
     sense->senseCode = getByte(data,12);
-    sense->senseQualifier = getByte(data,13);   
+    sense->senseQualifier = getByte(data,13);
     status->sane_status = SANE_STATUS_GOOD;
+#undef DATA_SIZE
 }
 
 /**
  * Read the halftone pattern with the specified index. This requires two
  * commands, one to ask the device to prepare the pattern, and one to read it.
- * 
+ *
  * @param device_number Device number
  * @param index index of halftone pattern
  * @param pattern Halftone pattern (not implemented)
  * @return SANE_status
  * @see Pieusb_Halftone_Pattern
  */
-void cmdGetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 256; /* Assumed maximum pattern size */
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define PATTERN_SIZE 256 /* Assumed maximum pattern size */
+    SANE_Int size = PATTERN_SIZE;
+    SANE_Byte data[PATTERN_SIZE];
+    int psize = data[3];
+    SANE_Char* desc;
+
     DBG (DBG_info_scan, "cmdGetHalftonePattern()\n");
-    
-    /* Ask scanner to prepare the pattern with the given index. Only 6 bytes of data. */
-    setCommand(command,SCSI_WRITE,6);
-    memset(data,'\0',6);
+
+    /* Ask scanner to prepare the pattern with the given index. Only SCSI_COMMAND_LEN bytes of data. */
+    setCommand(command, SCSI_WRITE, SCSI_COMMAND_LEN);
+    memset(data, '\0', 6);
     data[0] = SCSI_HALFTONE_PATTERN | 0x80; /* set bit 7 means prepare read */
     data[4] = index;
-    
+
     commandScanner(device_number, command, data, 6, status);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Read pattern */
-    setCommand(command,SCSI_READ,size);
-    
+    setCommand(command, SCSI_READ, size);
+
     memset(data,'\0',size);
     commandScanner(device_number, command, data, size, status);
-    
+
     /*TODO: analyse */
     fprintf(stderr, "Halftone pattern %d:\n",index);
-    int psize = data[3];
     psize = (psize<<8) + data[2];
-    SANE_Char* desc = (SANE_Char*)(data+4+psize);
-    data[4+psize+16] = '\0';
+    desc = (SANE_Char*)(data + 4 + psize);
+    data[4 + psize + 16] = '\0';
     fprintf(stderr,"Descr. offset from byte 4 = %d, %16s, index = %d, size = %dx%d\n",psize,desc,data[4]&0x7F,data[6],data[7]);
+#undef PATTERN_SIZE
 }
 
 /**
  * Read the scan frame with the specified index. This requires two
  * commands, one to ask the device to prepare the pattern, and one to read it.
- * 
+ *
  * @param device_number Device number
  * @param frame Scan frame
  * @return SANE_status
  * @see Pieusb_Scan_Frame
  */
-void cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 256; /* Assumed maximum frame size */
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define FRAME_SIZE 256 /* Assumed maximum frame size */
+    SANE_Int size = FRAME_SIZE;
+    SANE_Byte data[FRAME_SIZE];
+
     DBG (DBG_info_scan, "cmdGetScanFrame()\n");
-    
-    /* Ask scanner to prepare the scan frame with the given index. Only 6 bytes of data. */
-    setCommand(command,SCSI_WRITE,6);
-    memset(data,'\0',6);
+
+    /* Ask scanner to prepare the scan frame with the given index. Only SCSI_COMMAND_LEN bytes of data. */
+    setCommand(command, SCSI_WRITE, SCSI_COMMAND_LEN);
+    memset(data, '\0', 6);
     data[0] = SCSI_SCAN_FRAME | 0x80; /* set bit 7 means prepare read */
     data[4] = index;
-    
+
     commandScanner(device_number, command, data, 6, status);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Read scan frame */
-    setCommand(command,SCSI_READ,size);
-    
+    setCommand(command, SCSI_READ, size);
+
     memset(data,'\0',size);
     commandScanner(device_number, command, data, size, status);
 
@@ -195,18 +215,20 @@ void cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_
     DBG (DBG_info_scan, " code = %d\n",frame->code);
     DBG (DBG_info_scan, " index = %d\n",frame->index);
     DBG (DBG_info_scan, " size = %d\n",frame->size);
+#undef FRAME_SIZE
 }
 
 /**
  * Read the relative exposure time for the specified colorbits. This requires two
  * commands, one to ask the device to prepare the value, and one to read it.
- * 
+ *
  * @param device_number Device number
  * @param time Relative exposure time(s)
  * @return SANE_status
  * @see Pieusb_Exposure_Time
  */
-void cmdGetRelativeExposureTime(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetRelativeExposureTime(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
     DBG (DBG_info_scan, "cmdGetRelativeExposureTime(): not implemented\n");
     status->sane_status = SANE_STATUS_INVAL;
@@ -215,13 +237,14 @@ void cmdGetRelativeExposureTime(SANE_Int device_number, SANE_Int colorbits, stru
 /**
  * Read the highlight and shadow levels with the specified colorbits. This requires two
  * commands, one to ask the device to prepare the value, and one to read it.
- * 
+ *
  * @param device_number Device number
  * @param hgltshdw Highlight and shadow level(s)
  * @return SANE_status
  * @see Pieusb_Highlight_Shadow
  */
-void cmdGetHighlightShadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetHighlightShadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
     DBG (DBG_info_scan, "cmdGetHighlightShadow(): not implemented\n");
     status->sane_status = SANE_STATUS_INVAL;
@@ -230,34 +253,36 @@ void cmdGetHighlightShadow(SANE_Int device_number, SANE_Int colorbits, struct Pi
 /**
  * Read the shading data parameters. This requires two
  * commands, one to ask the device to prepare the value, and one to read it.
- * 
+ *
  * @param device_number Device number
  * @param shading Shading data parameters
  * @return SANE_status
  * @see Pieusb_Shading_Parameters
  */
-void cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 32;
-    SANE_Byte data[size];
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define SHADING_SIZE 32
+    SANE_Int size = SHADING_SIZE;
+    SANE_Byte data[SHADING_SIZE];
     int k;
-    
+
     DBG (DBG_info_scan, "cmdGetShadingParameters()\n");
-    
-    /* Ask scanner to prepare the scan frame with the given index. Only 6 bytes of data. */
-    setCommand(command,SCSI_WRITE,6);
-    memset(data,'\0',6);
+
+    /* Ask scanner to prepare the scan frame with the given index. Only SCSI_COMMAND_LEN bytes of data. */
+    setCommand(command, SCSI_WRITE, SCSI_COMMAND_LEN);
+    memset(data, '\0', 6);
     data[0] = SCSI_CALIBRATION_INFO | 0x80; /* set bit 7 means prepare read */
-    
+
     commandScanner(device_number, command, data, 6, status);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Read shading parameters */
     setCommand(command,SCSI_READ,size);
-    
+
     memset(data,'\0',size);
     commandScanner(device_number, command, data, size, status);
 
@@ -269,6 +294,7 @@ void cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Param
         shading[k].nLines = getByte(data,11+6*k);
         shading[k].pixelsPerLine = getShort(data,12+6*k);
     }
+#undef SHADING_SIZE
 }
 
 /**
@@ -290,29 +316,31 @@ void cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Param
  * @param size
  * @return SANE_status
  */
-void cmdGetScannedLines(SANE_Int device_number, SANE_Byte* data, SANE_Int lines, SANE_Int size, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetScannedLines(SANE_Int device_number, SANE_Byte* data, SANE_Int lines, SANE_Int size, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
+    SANE_Byte command[SCSI_COMMAND_LEN];
 
-    DBG (DBG_info_scan, "cmdGetScannedLines(): %d (%d bytes)\n",lines,size);
-    
-    setCommand(command,SCSI_READ,lines);    
-    memset(data,'\0',size);
-    
+    DBG (DBG_info_scan, "cmdGetScannedLines(): %d (%d bytes)\n", lines, size);
+
+    setCommand(command, SCSI_READ, lines);
+    memset(data, '\0', size);
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
 }
 
 /**
  * Set the halftone pattern with the given index to the specified pattern. The
  * command is a SCSI WRITE command (code 0x0A, write code 0x11).
- * 
+ *
  * @param device_number Device number
  * @param index Pattern index (0-7)
  * @param pattern Halftone pattern (not implemented)
  * @return SANE_status
  * @see Pieusb_Halftone_Pattern
  */
-void cmdSetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
     DBG (DBG_info_scan, "cmdSetHalftonePattern(): not implemented\n");
     status->sane_status = SANE_STATUS_INVAL;
@@ -321,23 +349,25 @@ void cmdSetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb
 /**
  * Set the scan frame with the given index to the frame. The command is a SCSI
  * WRITE command (code 0x0A, write code 0x12).
- * 
+ *
  * @param device_number Device number
  * @param index Frame index (0-7)
  * @param frame Scan frame
  * @return SANE_status
  * @see Pieusb_Scan_Frame
  */
-void cmdSetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 14;
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define FRAME_SIZE 14
+    SANE_Int size = FRAME_SIZE;
+    SANE_Byte data[FRAME_SIZE];
+
     DBG (DBG_info_scan, "cmdSetScanFrame()\n");
-    
-    setCommand(command,SCSI_WRITE,size);
-    
+
+    setCommand(command, SCSI_WRITE, size);
+
     DBG (DBG_info_scan, "cmdSetScanFrame() set:\n");
     DBG (DBG_info_scan, " x0,y0 = %d,%d\n",frame->x0,frame->y0);
     DBG (DBG_info_scan, " x1,y1 = %d,%d\n",frame->x1,frame->y1);
@@ -346,29 +376,31 @@ void cmdSetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_
     DBG (DBG_info_scan, " size = %d\n",frame->size);
 
     /* Code data */
-    memset(data,'\0',size);
-    setShort(SCSI_SCAN_FRAME,data,0);
-    setShort(size-4,data,2); /* size: one frame, 5 shorts */
-    setShort(index,data,4);
-    setShort(frame->x0,data,6);
-    setShort(frame->y0,data,8);
-    setShort(frame->x1,data,10);
-    setShort(frame->y1,data,12);
-    
+    memset(data, '\0', size);
+    setShort(SCSI_SCAN_FRAME, data, 0);
+    setShort(size-4, data, 2); /* size: one frame, 5 shorts */
+    setShort(index, data, 4);
+    setShort(frame->x0, data, 6);
+    setShort(frame->y0, data, 8);
+    setShort(frame->x1, data, 10);
+    setShort(frame->y1, data, 12);
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
+#undef FRAME_SIZE
 }
 
 /**
  * Set the relative exposure time to the given values. Only the first
  * Pieusb_Exposure_Time_Color is used. The command is a SCSI
  * WRITE command (code 0x0A, write code 0x13).
- * 
+ *
  * @param device_number Device number
  * @param time Relative exposure time
  * @return SANE_status
  * @see Pieusb_Exposure_Time
  */
-void cmdSetRelativeExposureTime(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetRelativeExposureTime(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
     DBG (DBG_info_scan, "cmdSetRelativeExposureTime(): not implemented\n");
     status->sane_status = SANE_STATUS_INVAL;
@@ -378,13 +410,14 @@ void cmdSetRelativeExposureTime(SANE_Int device_number, struct Pieusb_Exposure_T
  * Set the highlight and shadow levels to the given values. Only the first
  * Pieusb_Highlight_Shadow_Color is used. The command is a SCSI
  * WRITE command (code 0x0A, write code 0x14).
- * 
+ *
  * @param device_number Device number
  * @param hgltshdw highlight and shadow level
  * @return SANE_status
  * @see Pieusb_Highlight_Shadow
  */
-void cmdSetHighlightShadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetHighlightShadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
     DBG (DBG_info_scan, "cmdSetHighlightShadow(): not implemented\n");
     status->sane_status = SANE_STATUS_INVAL;
@@ -393,15 +426,16 @@ void cmdSetHighlightShadow(SANE_Int device_number, struct Pieusb_Highlight_Shado
 /**
  * Set the CCD-mask for the colors set in the given color bit mask. The mask
  * array must contain 2x5340 = 10680 bytes. The command is a SCSI WRITE command
- * (code 0x0A, write code 0x16). 
+ * (code 0x0A, write code 0x16).
  * (The command is able to handle more masks at once, but that is not implemented.)
- * 
+ *
  * @param device_number Device number
  * @param colorbits 0000RGB0 color bit mask; at least one color bit must be set
  * @param mask CCD mask to use
  * @return SANE_status
  */
-void cmdSetCCDMask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetCCDMask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
     DBG (DBG_info_scan, "cmdSetCCDMask(): not implemented\n");
     status->sane_status = SANE_STATUS_INVAL;
@@ -418,22 +452,24 @@ void cmdSetCCDMask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask,
  * @return SANE_status
  * @see Pieusb_Scan_Parameters
  */
-void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 18;
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define PARAMETER_SIZE 18
+    SANE_Int size = PARAMETER_SIZE;
+    SANE_Byte data[PARAMETER_SIZE];
+
     DBG (DBG_info_scan, "cmdGetScanParameters()\n");
-    
-    setCommand(command,SCSI_PARAM,size);
-    memset(data,'\0',size);
-    
+
+    setCommand(command, SCSI_PARAM, size);
+    memset(data, '\0', size);
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Decode data recieved */
     parameters->width = getShort(data,0);
     parameters->lines = getShort(data,2);
@@ -443,7 +479,7 @@ void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
     parameters->period = getInt(data,8);
     parameters->scsiTransferRate = getShort(data,12);
     parameters->availableLines = getShort(data,14);
-    
+
     DBG (DBG_info_scan, "cmdGetScanParameters() read:\n");
     DBG (DBG_info_scan, " width = %d\n",parameters->width);
     DBG (DBG_info_scan, " lines = %d\n",parameters->lines);
@@ -451,6 +487,7 @@ void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
     DBG (DBG_info_scan, " offset1 = %d\n",parameters->filterOffset1);
     DBG (DBG_info_scan, " offset2 = %d\n",parameters->filterOffset2);
     DBG (DBG_info_scan, " available lines = %d\n",parameters->availableLines);
+#undef PARAMETER_SIZE
 }
 
 /**
@@ -463,29 +500,31 @@ void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
  *   returned a CHECK CONDITION
  * - other SANE status code if INQUIRY failed or if it returned CHECK CONDITION
  *   and REQUEST SENSE failed
- * 
+ *
  * @param device_number Device number
  * @param data Input or output data buffer
  * @param size Size of the data buffer
  * @return SANE_status
  * @see Pieusb_Scanner_Properties
  */
-void cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Byte data[256];
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define INQUIRY_SIZE 256
+    SANE_Byte data[INQUIRY_SIZE];
     int k;
-    
+
     DBG (DBG_info_scan, "cmdGetScannerProperties()\n");
-    
-    setCommand(command,SCSI_INQUIRY,size);
-    memset(data,'\0',256); /* size may be less than 256, so prevent returning noise */
-    
+
+    setCommand(command, SCSI_INQUIRY, size);
+    memset(data, '\0', INQUIRY_SIZE); /* size may be less than INQUIRY_SIZE, so prevent returning noise */
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Decode data recieved */
     inq->deviceType = getByte(data,0);
     inq->additionalLength = getByte(data,4);
@@ -524,6 +563,7 @@ void cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq,
     getBytes((SANE_Byte*)(inq->signature),data,144,40);
     /* remove newline in signature */
     for (k=0; k<40; k++) if (inq->signature[k]=='\n') inq->signature[k]=' ';
+#undef INQUIRY_SIZE
 }
 
 /**
@@ -531,23 +571,25 @@ void cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq,
  * color format, and a couple of scan quality settings (sharpen, skip
  * calibration, fast infrared). It performs the SCSI-command MODE SELECT,
  * code 0x15.
- * 
+ *
  * @param device_number Device number
  * @param mode Mode parameters
  * @return SANE_status
  * @see Pieusb_Mode
  */
-void cmdSetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 16;
-    SANE_Byte data[size];
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define MODE_SIZE 16
+    SANE_Int size = MODE_SIZE;
+    SANE_Byte data[MODE_SIZE];
     SANE_Byte quality;
-    
+
     DBG (DBG_info_scan, "cmdSetMode()\n");
-    
-    setCommand(command,SCSI_MODE_SELECT,size);
-    
+
+    setCommand(command, SCSI_MODE_SELECT, size);
+
     DBG (DBG_info_scan, "cmdSetMode() set:\n");
     DBG (DBG_info_scan, " resolution = %d\n",mode->resolution);
     DBG (DBG_info_scan, " passes = %02x\n",mode->passes);
@@ -576,6 +618,7 @@ void cmdSetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_
     setByte(mode->lineThreshold,data,13);
 
     commandScannerRepeat(device_number, command, data, size, status, repeat);
+#undef MODE_SIZE
 }
 
 /* SCSI COPY, code 0x18 */
@@ -590,21 +633,22 @@ void cmdSetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_
  * The SCSI-command COPY (code 0x18) is used for function.
  *
  * @param device_number Device number
- * @param mask 
+ * @param mask
  * @return SANE_status
  */
-void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
+    SANE_Byte command[SCSI_COMMAND_LEN];
     SANE_Int size = 5340;
-    
-    DBG (DBG_info_scan, "cmdGetCCDMask()\n");
-    
-    setCommand(command,SCSI_COPY,size);    
 
-    memset(mask,'\0',size);
+    DBG (DBG_info_scan, "cmdGetCCDMask()\n");
+
+    setCommand(command, SCSI_COPY, size);
+
+    memset(mask, '\0', size);
     commandScannerRepeat(device_number, command, mask, size, status, repeat);
-    
+
 /*
     int k;
     fprintf(stderr,"CCD mask:\n");
@@ -613,7 +657,7 @@ void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Comman
         if ((k+1) % 50 == 0) fprintf(stderr,"\n");
     }
 */
-    
+
 }
 
 /**
@@ -621,35 +665,37 @@ void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Comman
  * color format, and a couple of scan quality settings (sharpen, skip
  * calibration, fast infrared). It performs the SCSI-command MODE SELECT,
  * code 0x1A.
- * 
+ *
  * @param device_number Device number
  * @param mode Mode parameters
  * @return SANE_status
  * @see Pieusb_Mode
  */
-void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 16;
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define MODE_SIZE 16
+    SANE_Int size = MODE_SIZE;
+    SANE_Byte data[MODE_SIZE];
+    SANE_Byte quality;
+
     DBG (DBG_info_scan, "cmdGetMode()\n");
-    
-    setCommand(command,SCSI_MODE_SENSE,size);
-    memset(data,'\0',size);
-    
+
+    setCommand(command, SCSI_MODE_SENSE, size);
+    memset(data, '\0', size);
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Decode data recieved */
     mode->resolution = getShort(data,2);
     mode->passes = getByte(data,4);
     mode->colorDepth = getByte(data,5);
     mode->colorFormat = getByte(data,6);
     mode->byteOrder = getByte(data,8);
-    SANE_Byte quality;
     quality = getByte(data,9);
     mode->sharpen = (quality |= 0x02) ? SANE_TRUE : SANE_FALSE;
     mode->skipShadingAnalysis = (quality |= 0x08) ? SANE_TRUE : SANE_FALSE;
@@ -667,7 +713,7 @@ void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_
     DBG (DBG_info_scan, " fast infrared = %d\n",mode->fastInfrared);
     DBG (DBG_info_scan, " halftone pattern = %d\n",mode->halftonePattern);
     DBG (DBG_info_scan, " line threshold = %d\n",mode->lineThreshold);
-
+#undef MODE_SIZE
 }
 
 /**
@@ -678,7 +724,7 @@ void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_
  * 2. Line-by-line scan & read phase\n
  * 3. Output CCD-mask phase\n
  * 4. Scan and output scan data phase\n
- * 
+ *
  * The calibration phase is skipped if Pieusb_Mode.skipCalibration is set. If
  * the scanner determines a calibration is necessary, a CHECK CONDIDITION response
  * is returned. Available command during this phase:\n
@@ -699,17 +745,18 @@ void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_
  * 2. cmdGetScannedLines()\n
  * 2. cmdGetScanParameters()\n
  * 4. cmdStopScan: abort scanning process\n
- * 
+ *
  * @param device_number Device number
  * @return SANE_status
  */
-void cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+
     DBG (DBG_info_scan, "cmdStartScan()\n");
-    
-    setCommand(command,SCSI_SCAN,1);
+
+    setCommand(command, SCSI_SCAN, 1);
 
     commandScannerRepeat(device_number, command, NULL, 0, status, repeat);
 }
@@ -717,17 +764,18 @@ void cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, 
 /**
  * Stop a scan started with cmdStartScan(). It issues a SCSI SCAN command,
  * code 0x1B, with size byte = 0x00.
- * 
+ *
  * @param device_number Device number
  * @return SANE_status
  */
-void cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+
     DBG (DBG_info_scan, "cmdStopScan()\n");
-    
-    setCommand(command,SCSI_SCAN,0);
+
+    setCommand(command, SCSI_SCAN, 0);
 
     commandScannerRepeat(device_number, command, NULL, 0, status, repeat);
 }
@@ -744,24 +792,26 @@ void cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status, S
  * mode = 4 or 5: The command forwards (4) or retreats (5) the scan head the
  * given amount of steps (in size).\n
  * The SCSI code is 0xD2, there is no related command name.
- * 
+ *
  * @param device_number Device number
  * @param mode
  * @param size
  * @return SANE_status
  */
-void cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 4;
-    SANE_Byte data[size];
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define SCAN_HEAD_SIZE 4
+    SANE_Int size = SCAN_HEAD_SIZE;
+    SANE_Byte data[SCAN_HEAD_SIZE];
+
     DBG (DBG_info_scan, "cmdSetScanHead()\n");
-    
-    setCommand(command,SCSI_SET_SCAN_HEAD,size);
+
+    setCommand(command, SCSI_SET_SCAN_HEAD, size);
 
     /* Code data */
-    memset(data,'\0',size);
+    memset(data, '\0', size);
     switch (mode) {
         case 1:
             data[0] = 2;
@@ -784,8 +834,9 @@ void cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struc
             data[3] = steps & 0xFF;
             break;
     }
-    
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
+#undef SCAN_HEAD_SIZE
 }
 
 /**
@@ -793,30 +844,32 @@ void cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struc
  * procedure. This procedure only runs when calibrating (Scan phase 1), so the
  * data returned are relatively static.\n
  * The SCSI code is 0xD7, there is no related command name.
- * 
+ *
  * @param device_number Device number
  * @param settings Settings for gain and offset for the four colors RGBI
  * @return SANE_status
  * @see Pieusb_Settings
  */
-void cmdGetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 103;
-    SANE_Byte data[size];
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define GAIN_OFFSET_SIZE 103
+    SANE_Int size = GAIN_OFFSET_SIZE;
+    SANE_Byte data[GAIN_OFFSET_SIZE];
     int k;
     SANE_Byte val[3];
 
     DBG (DBG_info_scan, "cmdGetOptimizedSettings()\n");
-    
-    setCommand(command,SCSI_READ_GAIN_OFFSET,size);    
-    
+
+    setCommand(command, SCSI_READ_GAIN_OFFSET, size);
+
     memset(data,'\0',size);
     commandScannerRepeat(device_number, command, data, size, status, repeat);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }
-    
+
     /* Decode data received */
     getShorts(settings->saturationLevel,data,54,3);
     getShorts(settings->exposureTime,data,60,3);
@@ -839,7 +892,7 @@ void cmdGetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, 
     DBG (DBG_info_scan, " light = %02x\n",settings->light);
     DBG (DBG_info_scan, " double times = %02x\n",settings->doubleTimes);
     DBG (DBG_info_scan, " extra entries = %02x\n",settings->extraEntries);
-
+#undef GAIN_OFFSET_SIZE
 }
 
 
@@ -849,22 +902,24 @@ void cmdGetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, 
  * 1. For a scan without calibration phase: before the cmdStartScan() command;
  * 2. For a sccan with calibration phase: before (or during) reading the shading reference data.
  * The SCSI code is 0xDC, there is no related command name.
- * 
+ *
  * @param device_number Device number
  * @param settings Settings for gain and offset for the four colors RGBI
  * @return SANE_status
  * @see Pieusb_Settings
  */
-void cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Int size = 23;
-    SANE_Byte data[size];
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define GAIN_OFFSET_SIZE 23
+    SANE_Int size = GAIN_OFFSET_SIZE;
+    SANE_Byte data[GAIN_OFFSET_SIZE];
     int k;
     SANE_Byte val[3];
-    
+
     DBG (DBG_info_scan, "cmdSetGainOffset()\n");
-    
+
     setCommand(command,SCSI_WRITE_GAIN_OFFSET,size);
 
     DBG (DBG_info_scan, "cmdSetGainOffset() set:\n");
@@ -874,7 +929,7 @@ void cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, 
     DBG (DBG_info_scan, " light = %02x\n",settings->light);
     DBG (DBG_info_scan, " double times = %02x\n",settings->doubleTimes);
     DBG (DBG_info_scan, " extra entries = %02x\n",settings->extraEntries);
-   
+
     /* Code data */
     memset(data,'\0',size);
     setShorts(settings->exposureTime,data,0,3);
@@ -888,30 +943,33 @@ void cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, 
     setShort(settings->exposureTime[3],data,18);
     setByte(settings->offset[3],data,20);
     setByte(settings->gain[3],data,22);
-    
+
     commandScannerRepeat(device_number, command, data, size, status, repeat);
+#undef GAIN_OFFSET_SIZE
 }
 
 /**
  * Get scanner state information: button pushed,
  * warming up, scanning.
  * The SCSI code is 0xDD, there is no related command name.
- * 
+ *
  * @param device_number Device number
  * @param state State information
  * @return SANE_status
  */
-void cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status, SANE_Int repeat)
+void
+cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status, SANE_Int repeat)
 {
-    SANE_Byte command[6];
-    SANE_Byte data[11];
-    SANE_Int size = 11;
-    
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define GET_STATE_SIZE 11
+    SANE_Byte data[GET_STATE_SIZE];
+    SANE_Int size = GET_STATE_SIZE;
+
     /* Execute READ STATUS command */
     DBG (DBG_info_scan, "cmdGetState()\n");
-    
-    setCommand(command,SCSI_READ_STATE,size);
-    
+
+    setCommand(command, SCSI_READ_STATE, size);
+
     memset(data,'\0',size);
     commandScannerRepeat(device_number, command, data, size, status, repeat);
     if (status->sane_status != SANE_STATUS_GOOD) {
@@ -922,18 +980,20 @@ void cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, str
     state->buttonPushed = getByte(data,0);
     state->warmingUp = getByte(data,5);
     state->scanning = getByte(data,6);
+#undef GET_STATE_SIZE
 }
 
 /**
- * Prepare 6-byte command array with command code and size value
- * 
+ * Prepare SCSI_COMMAND_LEN-byte command array with command code and size value
+ *
  * @param command
  * @param code
  * @param size
  */
-void setCommand(SANE_Byte* command, SANE_Byte code, SANE_Word size)
+void
+setCommand(SANE_Byte* command, SANE_Byte code, SANE_Word size)
 {
-    memset(command,'\0',6);
+    memset(command,'\0',SCSI_COMMAND_LEN);
     command[0] = code;
     command[3] = (size>>8) & 0xFF;
     command[4] = size & 0xFF;
