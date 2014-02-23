@@ -750,7 +750,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * @return SANE_status
  */
 void
-cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
+cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 
@@ -758,7 +758,7 @@ cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_
 
     setCommand(command, SCSI_SCAN, 1);
 
-    commandScannerRepeat(device_number, command, NULL, 0, status, repeat);
+    commandScannerRepeat(device_number, command, NULL, 0, status, 5);
 }
 
 /**
@@ -769,7 +769,7 @@ cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_
  * @return SANE_status
  */
 void
-cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat)
+cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 
@@ -777,7 +777,7 @@ cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_I
 
     setCommand(command, SCSI_SCAN, 0);
 
-    commandScannerRepeat(device_number, command, NULL, 0, status, repeat);
+    commandScannerRepeat(device_number, command, NULL, 0, status, 10);
 }
 
 /**

@@ -963,7 +963,7 @@ pieusb_on_cancel (Pieusb_Scanner * scanner)
 
     DBG(DBG_info_proc,"pieusb_on_cancel()\n");
 
-    cmdStopScan(scanner->device_number, &status, 5);
+    cmdStopScan(scanner->device_number, &status);
     cmdSetScanHead(scanner->device_number, 1, 0, &status, 10);
     pieusb_buffer_delete(&scanner->buffer);
     scanner->scanning = SANE_FALSE;

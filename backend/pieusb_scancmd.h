@@ -290,8 +290,8 @@ void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Comman
 
 void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status, SANE_Int repeat);
 
-void cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat);
-void cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status, SANE_Int repeat);
+void cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status);
+void cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status);
 
 void cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pieusb_Command_Status *status, SANE_Int repeat);
 
