@@ -58,6 +58,7 @@
 #include <sys/socket.h>
 #endif
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #ifdef HAVE_OS2_H
 # define INCL_DOS
@@ -112,13 +113,24 @@ sanei_debug_msg
   (int level, int max_level, const char *be, const char *fmt, va_list ap)
 {
   char *msg;
-	
+  static struct timeval start_t; /* track time since start */
+  if (start_t.tv_sec == 0) {
+    gettimeofday(&start_t, NULL);
+  }
   if (max_level >= level)
     {
+      struct timeval elapsed_t;
+      gettimeofday(&elapsed_t, NULL);
+      elapsed_t.tv_usec -= start_t.tv_usec;
+      elapsed_t.tv_sec -= start_t.tv_sec;
+      if (elapsed_t.tv_usec < 0) {
+	elapsed_t.tv_usec += 1000000;
+	elapsed_t.tv_sec -= 1;
+      }
 #ifdef S_IFSOCK
       if ( 1 == isfdtype(fileno(stderr), S_IFSOCK) )
 	{
-	  msg = (char *)malloc (sizeof(char) * (strlen(be) + strlen(fmt) + 4));
+	  msg = (char *)malloc (sizeof(char) * (strlen(be) + strlen(fmt) + 4 + 10));
 	  if (msg == NULL)
 	    {
 	      syslog (LOG_DEBUG, "[sanei_debug] malloc() failed\n");
@@ -126,7 +138,7 @@ sanei_debug_msg
 	    }
 	  else
 	    {
-	      sprintf (msg, "[%s] %s", be, fmt);
+	      sprintf (msg, "[%s+%3d.%06d] %s", be, (int)elapsed_t.tv_sec, (int)elapsed_t.tv_usec, fmt);
               vsyslog(LOG_DEBUG, msg, ap);
 	      free (msg);
 	    }
@@ -134,7 +146,7 @@ sanei_debug_msg
       else
 #endif
 	{
-	  fprintf (stderr, "[%s] ", be);
+	  fprintf (stderr, "[%s+%3d.%06d] ", be, (int)elapsed_t.tv_sec, (int)elapsed_t.tv_usec);
           vfprintf (stderr, fmt, ap);
 	}
 	 
