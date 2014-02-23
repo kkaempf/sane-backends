@@ -280,7 +280,7 @@ void cmdPrepareHighlightShadow(SANE_Int device_number, SANE_Int colorbits, struc
 void cmdPrepareShadingParameters(SANE_Int device_number, struct Pieusb_Command_Status *status);
 */
 
-void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status, SANE_Int repeat);
+void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status);
 
 void cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status, SANE_Int repeat);
 

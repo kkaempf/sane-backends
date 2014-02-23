@@ -453,7 +453,7 @@ cmdSetCCDMask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, stru
  * @see Pieusb_Scan_Parameters
  */
 void
-cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status, SANE_Int repeat)
+cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define PARAMETER_SIZE 18
@@ -465,7 +465,7 @@ cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* para
     setCommand(command, SCSI_PARAM, size);
     memset(data, '\0', size);
 
-    commandScannerRepeat(device_number, command, data, size, status, repeat);
+    commandScannerRepeat(device_number, command, data, size, status, 5);
     if (status->sane_status != SANE_STATUS_GOOD) {
         return;
     }

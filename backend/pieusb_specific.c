@@ -1904,7 +1904,7 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     struct Pieusb_Scan_Parameters parameters;
     const char *mode;
 
-    cmdGetScanParameters(scanner->device_number,&parameters, &status, 5);
+    cmdGetScanParameters(scanner->device_number,&parameters, &status);
     if (status.sane_status != SANE_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
@@ -1978,7 +1978,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
     }
 */
     while (lines_read < lines_to_read) {
-        cmdGetScanParameters(scanner->device_number,&parameters, &status, 5);
+        cmdGetScanParameters(scanner->device_number,&parameters, &status);
         if (status.sane_status != SANE_STATUS_GOOD) {
             /* Error, return */
             return SANE_STATUS_INVAL;
