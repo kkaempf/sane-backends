@@ -219,7 +219,7 @@ pieusb_buffer_put_single_color_line(struct Pieusb_Read_Buffer* buffer, SANE_Byte
 
     SANE_Int c, k, m, n;
 
-    DBG(DBG_info, "pieusb_buffer_put_single_color_line() entered\n");
+    DBG(DBG_info_proc, "pieusb_buffer_put_single_color_line() entered\n");
 
     /* Check index code */
     c = -1;
@@ -241,7 +241,7 @@ pieusb_buffer_put_single_color_line(struct Pieusb_Read_Buffer* buffer, SANE_Byte
         DBG(DBG_error, "pieusb_buffer_put_single_color_line(): color '%c' not specified when buffer was created\n", color);
         return 0;
     }
-    DBG(DBG_info, "pieusb_buffer_put_single_color_line() line color = %d (0=R, 1=G, 2=B, 3=I)\n",c);
+    DBG(DBG_info_proc, "pieusb_buffer_put_single_color_line() line color = %d (0=R, 1=G, 2=B, 3=I)\n",c);
 
     /* Check line size (for a line with a single color) */
     if (buffer->line_size_bytes != size) {
@@ -330,7 +330,7 @@ pieusb_buffer_put_full_color_line(struct Pieusb_Read_Buffer* buffer, void* line,
 {
     int k, c, m, n;
 
-    DBG(DBG_info,"pieusb_buffer_put_full_color_line() entered\n");
+    DBG(DBG_info_proc,"pieusb_buffer_put_full_color_line() entered\n");
 
     /* Check line size */
     if (buffer->line_size_bytes * buffer->colors != size) {
@@ -433,7 +433,7 @@ pieusb_buffer_get(struct Pieusb_Read_Buffer* buffer, SANE_Byte* data, SANE_Int m
     SANE_Byte *pdata;
     SANE_Int n, i, n_bits, N;
 
-    DBG(DBG_info,"pieusb_buffer_get() entered\n");
+    DBG(DBG_info_proc,"pieusb_buffer_get() entered\n");
 
     /* Read from the p_read locations */
     pdata = data;

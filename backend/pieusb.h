@@ -64,5 +64,8 @@ void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte
 #define DBG_info_scan   11      /* information scanner commands */
 #define DBG_info_usb    13      /* information usb level functions */
 
+/* R G B I */
+#define PLANES 4
+
 #endif	/* PIEUSB_H */
 

@@ -1088,7 +1088,7 @@ sane_start (SANE_Handle handle)
     }
     if ((scanner->val[OPT_CORRECT_INFRARED].b || scanner->val[OPT_CLEAN_IMAGE].b) && !scanner->val[OPT_PREVIEW].b && infrared_post_processing_relevant) {
         /* Create array of pointers to color planes R, G, B, I */
-        SANE_Uint *planes[4];
+        SANE_Uint *planes[PLANES];
         SANE_Int N;
         N = scanner->buffer.width * scanner->buffer.height;
         planes[0] = scanner->buffer.data;
@@ -1109,7 +1109,7 @@ sane_start (SANE_Handle handle)
 */
 
     /* Modify buffer in case the buffer has infrared, but no infrared should be returned */
-    if (scanner->buffer.colors == 4 && (strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b)) {
+    if (scanner->buffer.colors == PLANES && (strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b)) {
         DBG(DBG_info_sane,"sane_start(): modifying buffer to ignore I\n");
         /* Base buffer parameters */
         scanner->buffer.colors = 3;
@@ -1154,11 +1154,11 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
     }
 
     /* Return image data, just read from scanner buffer */
-    DBG(DBG_error,"sane_read():\n");
-    DBG(DBG_error,"  image size %d\n",scanner->buffer.image_size_bytes);
-    DBG(DBG_error,"  unread     %d\n",scanner->buffer.bytes_unread);
-    DBG(DBG_error,"  read       %d\n",scanner->buffer.bytes_read);
-    DBG(DBG_error,"  max_len    %d\n",max_len);
+    DBG(DBG_info_sane,"sane_read():\n");
+    DBG(DBG_info_sane,"  image size %d\n",scanner->buffer.image_size_bytes);
+    DBG(DBG_info_sane,"  unread     %d\n",scanner->buffer.bytes_unread);
+    DBG(DBG_info_sane,"  read       %d\n",scanner->buffer.bytes_read);
+    DBG(DBG_info_sane,"  max_len    %d\n",max_len);
 
     if (scanner->buffer.bytes_read > scanner->buffer.image_size_bytes) {
         /* Test if not reading past buffer boundaries */

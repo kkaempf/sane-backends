@@ -64,11 +64,11 @@ sanei_ir_create_norm_histo (const SANE_Parameters * params,
   SANE_Uint *img_data16;
   int is, i;
   int num_pixels;
-  int *histo_data = NULL;
-  double *histo = NULL;
+  int *histo_data;
+  double *histo;
   double term;
 
-  DBG (10, "sanei_ir_create_histo\n");
+  DBG (10, "sanei_ir_create_norm_histo\n");
 
   if ((params->format != SANE_FRAME_GRAY)
       && (params->format != SANE_FRAME_RED)
@@ -93,9 +93,9 @@ sanei_ir_create_norm_histo (const SANE_Parameters * params,
   num_pixels = params->pixels_per_line * params->lines;
 
   DBG (1, "sanei_ir_create_norm_histo: %d pixels_per_line, %d lines => %d num_pixels\n", params->pixels_per_line, params->lines, num_pixels);
-  DBG (1, "sanei_ir_create_norm_histo: histo_data[] with %d x %d bytes\n", HISTOGRAM_SIZE, sizeof(int));
+  DBG (1, "sanei_ir_create_norm_histo: histo_data[] with %d x %ld bytes\n", HISTOGRAM_SIZE, sizeof(int));
   /* Populate the histogram */
-  is = params->depth - HISTOGRAM_SHIFT; /* Number of data bits to ignore */
+  is = 16 - HISTOGRAM_SHIFT; /*params->depth - HISTOGRAM_SHIFT; /* Number of data bits to ignore */
   DBG (1, "sanei_ir_create_norm_histo: depth %d, HISTOGRAM_SHIFT %d => ignore %d bits\n", params->depth, HISTOGRAM_SHIFT, is);
   for (i = num_pixels; i > 0; i--) {
       histo_data[*img_data++ >> is]++;
@@ -120,7 +120,7 @@ sanei_ir_create_norm_histogram (const SANE_Parameters * params,
 {
   double *histo;
 
-  DBG (10, "sanei_ir_create_histogram\n");
+  DBG (10, "sanei_ir_create_norm_histogram\n");
 
   histo = sanei_ir_create_norm_histo (params, img_data);
   if (!histo)

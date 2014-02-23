@@ -1054,7 +1054,7 @@ pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer
 SANE_Status
 pieusb_post (Pieusb_Scanner *scanner, uint16_t **in_img, int planes)
 {
-  uint16_t *cplane[4];    /* R, G, B, I gray scale planes */
+  uint16_t *cplane[PLANES];    /* R, G, B, I gray scale planes */
   SANE_Parameters parameters;   /* describes the image */
   int winsize_smooth;           /* for adapting replaced pixels */
   char filename[64];
@@ -1068,9 +1068,14 @@ pieusb_post (Pieusb_Scanner *scanner, uint16_t **in_img, int planes)
     parameters.bytes_per_line *= 2;
   parameters.last_frame = 0;
 
-  DBG (DBG_info, "pie_usb_sw_post: %d ppl, %d lines, %d bits, %d planes, %d dpi\n",
+  DBG (DBG_info, "pie_usb_post: %d ppl, %d lines, %d bits, %d planes, %d dpi\n",
        parameters.pixels_per_line, parameters.lines,
        parameters.depth, planes, scanner->mode.resolution);
+
+  if (planes > PLANES) {
+    DBG (DBG_error, "pie_usb_post: too many planes: %d (max %d)\n", planes, PLANES);
+    return SANE_STATUS_INVAL;
+  }
 
   for (i = 0; i < planes; i++)
     cplane[i] = in_img[i];
