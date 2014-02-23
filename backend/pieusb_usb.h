@@ -8,6 +8,8 @@
 #ifndef PIEUSB_USB_H
 #define	PIEUSB_USB_H
 
+#define PIEUSB_WAIT_BUSY 2 /* seconds to wait on busy condition */
+
 /* Structures used by the USB functions */
 
 struct Pieusb_Command_Status {

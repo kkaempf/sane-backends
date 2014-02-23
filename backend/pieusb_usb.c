@@ -98,8 +98,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
     struct Pieusb_Sense sense;
     struct Pieusb_Command_Status senseStatus;
 
-
-    DBG(DBG_info_usb,"commandScannerRepeat(): enter, repeat=%d\n",repeat);
+    DBG(DBG_info_usb,"commandScannerRepeat(%02x): enter, repeat=%d\n", command[0], repeat);
     do {
 
         commandScanner(device_number, command, data, size, status);
@@ -115,13 +114,14 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
             case SANE_STATUS_DEVICE_BUSY:
                 /* Decrement number of remaining retries and pause */
                 k--;
-                DBG(DBG_info_usb,"commandScannerRepeat(): repeat %d\n",k);
-                if (k>0) sleep(2);
+                DBG(DBG_info_usb,"commandScannerRepeat(): busy - repeat %d\n",k);
+                if (k>0) sleep(PIEUSB_WAIT_BUSY);
                 break;
 
             case SANE_STATUS_IO_ERROR:
             case SANE_STATUS_INVAL:
                 /* Unexpected data returned by device */
+	        DBG(DBG_info_usb,"commandScannerRepeat(): error/invalid - exit: status %d\n", status->sane_status);
                 k = 0;
                 break;
 
@@ -139,8 +139,8 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                          * Decrement number of remaining retries and pause */
                         status->sane_status = SANE_STATUS_DEVICE_BUSY;
                         k--;
-                        DBG(DBG_info_usb,"commandScannerRepeat(): repeat %d\n",k);
-                        if (k>0) sleep(2);
+                        DBG(DBG_info_usb,"commandScannerRepeat(): checked - busy - repeat %d\n",k);
+                        if (k>0) sleep(PIEUSB_WAIT_BUSY);
                     } else {
                         status->sane_status = SANE_STATUS_CHECK_CONDITION;
                         status->senseKey = sense.senseKey;
