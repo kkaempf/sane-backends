@@ -219,8 +219,6 @@ pieusb_buffer_put_single_color_line(struct Pieusb_Read_Buffer* buffer, SANE_Byte
 
     SANE_Int c, k, m, n;
 
-    DBG(DBG_info_proc, "pieusb_buffer_put_single_color_line() entered\n");
-
     /* Check index code */
     c = -1;
     switch (color) {
