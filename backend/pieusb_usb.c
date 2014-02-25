@@ -14,11 +14,11 @@
 
 /* USB functions */
 
-static SANE_Status ctrloutbyte(SANE_Int device_number, SANE_Int port, SANE_Byte b);
-static SANE_Status ctrloutint(SANE_Int device_number, unsigned int size);
-static SANE_Status ctrlinbyte(SANE_Int device_number, SANE_Byte* b);
-static SANE_Status bulkin(SANE_Int device_number, SANE_Byte* data, unsigned int size);
-static SANE_Status interpretStatus(SANE_Byte status[]);
+static SANE_Status _ctrl_out_byte(SANE_Int device_number, SANE_Int port, SANE_Byte b);
+static SANE_Status _ctrl_out_int(SANE_Int device_number, unsigned int size);
+static SANE_Status _ctrl_in_byte(SANE_Int device_number, SANE_Byte* b);
+static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte* data, unsigned int size);
+static SANE_Status _interprete_status(SANE_Byte status[]);
 
 /* Defines for use in USB functions */
 
@@ -27,11 +27,21 @@ static SANE_Status interpretStatus(SANE_Byte status[]);
 #define REQUEST_REGISTER 0x0c
 #define REQUEST_BUFFER 0x04
 #define ANYINDEX 0x00 /* wIndex value for USB control transfer - value is irrelevant */
-#define PORT_82 0x0082
-#define PORT_84 0x0084
-#define PORT_85 0x0085
-#define PORT_87 0x0087
-#define PORT_88 0x0088
+
+/* from libieee1284 */
+#define C1284_NSTROBE 0x01
+#define C1284_NINIT   0x04
+
+/* usb via ieee1284 */
+#define IEEE1284_ADDR  x00
+#define IEEE1284_RESET 0x30
+#define IEEE1284_SCSI  0xe0
+
+#define PORT_SCSI_SIZE 0x0082
+#define PORT_SCSI_STATUS 0x0084
+#define PORT_SCSI_CMD 0x0085
+#define PORT_PAR_CTRL 0x0087 /* IEEE1284 parallel control */
+#define PORT_PAR_DATA 0x0088 /* IEEE1284 parallel data */
 
 /* USB-internal status codes */
 
@@ -229,25 +239,25 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
     status->senseQualifier = 0x00;
 
     /* 2 x 4 + 3 bytes preceding command, then 6 bytes command */
-    st = ctrloutbyte(device_number, PORT_88, 0xff); /* CTRL_VAL_INIT */
-    st = ctrloutbyte(device_number, PORT_88, 0xaa);
-    st = ctrloutbyte(device_number, PORT_88, 0x55);
-    st = ctrloutbyte(device_number, PORT_88, 0x00);
-    st = ctrloutbyte(device_number, PORT_88, 0xff);
-    st = ctrloutbyte(device_number, PORT_88, 0x87);
-    st = ctrloutbyte(device_number, PORT_88, 0x78);
-    st = ctrloutbyte(device_number, PORT_88, 0xe0);
-    st = ctrloutbyte(device_number, PORT_87, 0x05); /* CTRL_VAL_FINAL */
-    st = ctrloutbyte(device_number, PORT_87, 0x04);
-    st = ctrloutbyte(device_number, PORT_88, 0xff);
-    st = ctrloutbyte(device_number, PORT_85, command[0]); /* CTRL_VAL_CMD */
-    st = ctrloutbyte(device_number, PORT_85, command[1]);
-    st = ctrloutbyte(device_number, PORT_85, command[2]);
-    st = ctrloutbyte(device_number, PORT_85, command[3]);
-    st = ctrloutbyte(device_number, PORT_85, command[4]);
-    st = ctrloutbyte(device_number, PORT_85, command[5]);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff); /* CTRL_VAL_INIT */
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xaa);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x55);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x00);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x87);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x78);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, IEEE1284_SCSI);
+    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, 0x05); /* CTRL_VAL_FINAL */
+    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, 0x04);
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff);
+    st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[0]); /* CTRL_VAL_CMD */
+    st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[1]);
+    st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[2]);
+    st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[3]);
+    st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[4]);
+    st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[5]);
     /* Verify this sequence */
-    st = ctrlinbyte(device_number, &usbstat[0]);
+    st = _ctrl_in_byte(device_number, &usbstat[0]);
     if (st != SANE_STATUS_GOOD) {
         DBG(DBG_error, "commandScanner() fails 1st verification, 1st byte\n");
         status->sane_status = st;
@@ -260,9 +270,9 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
             /* Write data */
             {
                 SANE_Int k = 0;
-                for (k=0; k<size; k++) ctrloutbyte(device_number, PORT_85, data[k]);
+                for (k=0; k<size; k++) _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[k]);
                 /* Verify again */
-                st = ctrlinbyte(device_number, &usbstat[0]);
+                st = _ctrl_in_byte(device_number, &usbstat[0]);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "commandScanner() fails 2nd verification after write, 1st byte\n");
                     status->sane_status = st;
@@ -270,7 +280,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 }
                 switch (usbstat[0]) {
                     case PIEUSB_STATUS_COMMAND_COMPLETE:
-                        st = ctrlinbyte(device_number,&usbstat[1]);
+                        st = _ctrl_in_byte(device_number,&usbstat[1]);
                         if (st != SANE_STATUS_GOOD) {
                             DBG(DBG_error, "commandScanner() fails 2nd verification after write, 2nd byte\n");
                             status->sane_status = st;
@@ -296,12 +306,12 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 
                 while (remsize>0) {
                     partsize = remsize > 65520 ? 65520 : remsize;
-                    ctrloutint(device_number, partsize);
-                    bulkin(device_number, data+size-remsize, partsize);
+                    _ctrl_out_int(device_number, partsize);
+                    _bulk_in(device_number, data+size-remsize, partsize);
                     remsize -= partsize;
                 }
                 /* Verify again */
-                st = ctrlinbyte(device_number,&usbstat[0]);
+                st = _ctrl_in_byte(device_number,&usbstat[0]);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "commandScanner() fails 2nd verification after read, 1st byte\n");
                     status->sane_status = st;
@@ -309,7 +319,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 }
                 switch (usbstat[0]) {
                     case PIEUSB_STATUS_COMMAND_COMPLETE:
-                        st = ctrlinbyte(device_number,&usbstat[1]);
+                        st = _ctrl_in_byte(device_number,&usbstat[1]);
                         if (st != SANE_STATUS_GOOD) {
                             DBG(DBG_error, "commandScanner() fails 2nd verification after read, 2nd byte\n");
                             status->sane_status = st;
@@ -325,7 +335,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
             break;
         case PIEUSB_STATUS_COMMAND_COMPLETE: /* Next byte needed */
             {
-                st = ctrlinbyte(device_number,&usbstat[1]);
+                st = _ctrl_in_byte(device_number,&usbstat[1]);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "commandScanner() fails 1st verification, 2nd byte\n");
                     status->sane_status = st;
@@ -335,7 +345,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
             }
     }
 
-    status->sane_status = interpretStatus(usbstat);
+    status->sane_status = _interprete_status(usbstat);
 }
 
 /**
@@ -345,7 +355,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
  * @param b byte to send to device
  * @return SANE status
  */
-static SANE_Status ctrloutbyte(SANE_Int device_number, SANE_Int port, SANE_Byte b) {
+static SANE_Status _ctrl_out_byte(SANE_Int device_number, SANE_Int port, SANE_Byte b) {
     /* int r = libusb_control_transfer(scannerHandle, CTRL_OUT, 0x0C, 0x0088, ANYINDEX, &b, 1, TIMEOUT); */
     return sanei_usb_control_msg(device_number, REQUEST_TYPE_OUT, REQUEST_REGISTER, port, ANYINDEX, 1, &b);
 }
@@ -357,11 +367,11 @@ static SANE_Status ctrloutbyte(SANE_Int device_number, SANE_Int port, SANE_Byte 
  * @param size Size of bulk transfer which follows (numer of bytes)
  * @return SANE status
  */
-static SANE_Status ctrloutint(SANE_Int device_number, unsigned int size) {
+static SANE_Status _ctrl_out_int(SANE_Int device_number, unsigned int size) {
     SANE_Byte bulksize[] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00};
     bulksize[4] = size & 0xFF;
     bulksize[5] = (size & 0xFF00) >> 8;
-    return sanei_usb_control_msg(device_number, REQUEST_TYPE_OUT, REQUEST_BUFFER, PORT_82, ANYINDEX, 8, bulksize);
+    return sanei_usb_control_msg(device_number, REQUEST_TYPE_OUT, REQUEST_BUFFER, PORT_SCSI_SIZE, ANYINDEX, 8, bulksize);
 }
 
 /*
@@ -374,10 +384,10 @@ static SANE_Status ctrloutint(SANE_Int device_number, unsigned int size) {
  * @param b byte received from device
  * @return SANE status
  */
-static SANE_Status ctrlinbyte(SANE_Int device_number, SANE_Byte* b) {
+static SANE_Status _ctrl_in_byte(SANE_Int device_number, SANE_Byte* b) {
     /* int r = libusb_control_transfer(scannerHandle, CTRL_IN, 0x0C, 0x0084, ANYINDEX, &b, 1, TIMEOUT); */
     /* int r = libusb_control_transfer(scannerHandle, CTRL_IN, 0x0C, 0x0084, ANYINDEX, &b, 1, TIMEOUT); */
-    return sanei_usb_control_msg(device_number, REQUEST_TYPE_IN, REQUEST_REGISTER, PORT_84, ANYINDEX, 1, b);
+    return sanei_usb_control_msg(device_number, REQUEST_TYPE_IN, REQUEST_REGISTER, PORT_SCSI_STATUS, ANYINDEX, 1, b);
 }
 
 /**
@@ -388,7 +398,7 @@ static SANE_Status ctrlinbyte(SANE_Int device_number, SANE_Byte* b) {
  * @param size size of the data array
  * @return SANE status
  */
-static SANE_Status bulkin(SANE_Int device_number, SANE_Byte data[], unsigned int size) {
+static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte data[], unsigned int size) {
     unsigned int total = 0;
     SANE_Status r = SANE_STATUS_GOOD;
     SANE_Byte * buffer = malloc(0x4000);
@@ -398,11 +408,11 @@ static SANE_Status bulkin(SANE_Int device_number, SANE_Byte data[], unsigned int
         /* Get bulk data */
         /* r = libusb_bulk_transfer(scannerHandle, BULK_ENDPOINT, buffer, part, &N, TIMEOUT); */
 /*
-        fprintf(stderr,"[pieusb] bulkin() calling sanei_usb_read_bulk(), size=%d, current total=%d, this part=%d\n",size,total,part);
+        fprintf(stderr,"[pieusb] _bulk_in() calling sanei_usb_read_bulk(), size=%d, current total=%d, this part=%d\n",size,total,part);
 */
         r = sanei_usb_read_bulk(device_number, buffer, &part);
 /*
-        fprintf(stderr,"[pieusb] bulkin() called sanei_usb_read_bulk(), result=%d (expected 0)\n",r);
+        fprintf(stderr,"[pieusb] _bulk_in() called sanei_usb_read_bulk(), result=%d (expected 0)\n",r);
 */
         if (r==0) {
             /* Read data into buffer, part = # bytes actually read */
@@ -425,7 +435,7 @@ static SANE_Status bulkin(SANE_Int device_number, SANE_Byte data[], unsigned int
  * @param status Pieusb status
  * @return SANE status
  */
-static SANE_Status interpretStatus(SANE_Byte status[])
+static SANE_Status _interprete_status(SANE_Byte status[])
 {
     SANE_Status s = SANE_STATUS_INVAL;
     switch (status[0]) {
