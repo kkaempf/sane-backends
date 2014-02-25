@@ -33,7 +33,7 @@ static SANE_Status _interprete_status(SANE_Byte status[]);
 #define C1284_NINIT   0x04
 
 /* usb via ieee1284 */
-#define IEEE1284_ADDR  x00
+#define IEEE1284_ADDR  0x00
 #define IEEE1284_RESET 0x30
 #define IEEE1284_SCSI  0xe0
 
@@ -239,6 +239,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
     status->senseQualifier = 0x00;
 
     /* 2 x 4 + 3 bytes preceding command, then 6 bytes command */
+    /* IEEE1284 command, see hpsj5s.c:cpp_daisy() */
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff); /* CTRL_VAL_INIT */
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xaa);
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x55);
@@ -247,8 +248,8 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x87);
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x78);
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, IEEE1284_SCSI);
-    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, 0x05); /* CTRL_VAL_FINAL */
-    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, 0x04);
+    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT|C1284_NSTROBE); /* CTRL_VAL_FINAL */
+    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT);
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff);
     st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[0]); /* CTRL_VAL_CMD */
     st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[1]);
