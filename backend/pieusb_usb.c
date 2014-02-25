@@ -66,6 +66,43 @@ static SANE_Status interpretStatus(SANE_Byte status[]);
 /* Standard SCSI Sense codes*/
 #define SCSI_NO_ADDITIONAL_SENSE_INFORMATION 0x00
 
+struct scsi_cmd_text_t { int cmd; char *text; };
+static struct scsi_cmd_text_t scsi_cmd_text[] = {
+  { 0x00, "Test Unit Ready" }
+  ,{ 0x01, "Calibrate" }
+  ,{ 0x03, "Request Sense" }
+  ,{ 0x04, "Format" }
+  ,{ 0x08, "Read" }
+  ,{ 0x0a, "Write" }
+  ,{ 0x0f, "Get Param" }
+  ,{ 0x10, "Mark" }
+  ,{ 0x11, "Space" }
+  ,{ 0x12, "Inquiry" }
+  ,{ 0x15, "Mode Select" }
+  ,{ 0x16, "Reserve Unit" }
+  ,{ 0x18, "Copy" }
+  ,{ 0x1a, "Mode Sense" }
+  ,{ 0x1b, "Scan" }
+  ,{ 0x1d, "Diagnose" }
+  ,{ 0xa8, "Read Extended" }
+  ,{ 0xd1, "Slide" }
+  ,{ 0xd2, "Set Scan Head" }
+  ,{ 0xd7, "Read Gain Offset" }
+  ,{ 0xdc, "Write Gain Offset" }
+  ,{ 0xdd, "Read State" }
+  ,{ -1, NULL }
+};
+
+static char *scsi_cmd_to_text(int cmd)
+{
+  int i = 0;
+  while (scsi_cmd_text[i].text) {
+    if (scsi_cmd_text[i].cmd == cmd)
+      return scsi_cmd_text[i].text;
+    i++;
+  }
+  return "**unknown**";
+}
 /* =========================================================================
  *
  * USB functions
@@ -98,7 +135,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
     struct Pieusb_Sense sense;
     struct Pieusb_Command_Status senseStatus;
 
-    DBG(DBG_info_usb,"commandScannerRepeat(%02x): enter, repeat=%d\n", command[0], repeat);
+    DBG(DBG_info_usb,"commandScannerRepeat(%02x:%s): enter, repeat=%d\n", command[0], scsi_cmd_to_text(command[0]), repeat);
     do {
 
         commandScanner(device_number, command, data, size, status);
