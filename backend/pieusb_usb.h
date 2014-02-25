@@ -21,16 +21,5 @@ struct Pieusb_Command_Status {
 
 void commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status);
 
-SANE_Byte getByte(SANE_Byte* array, SANE_Byte offset);
-void setByte(SANE_Byte val, SANE_Byte* array, SANE_Byte offset);
-SANE_Int getShort(SANE_Byte* array, SANE_Byte offset);
-void setShort(SANE_Word val, SANE_Byte* array, SANE_Byte offset);
-SANE_Int getInt(SANE_Byte* array, SANE_Byte offset);
-void setInt(SANE_Word val, SANE_Byte* array, SANE_Byte offset);
-void getBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count);
-void setBytes(SANE_Byte* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count);
-void getShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count);
-void setShorts(SANE_Word* val, SANE_Byte* array, SANE_Byte offset, SANE_Byte count);
-
 #endif	/* PIEUSB_USB_H */
 
