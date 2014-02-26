@@ -212,14 +212,16 @@ cmdGetSense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Co
 #define DATA_SIZE 14
     SANE_Int size = DATA_SIZE;
     SANE_Byte data[DATA_SIZE];
+    PIEUSB_SCSI_Status sst;
 
     DBG (DBG_info_scan, "cmdGetSense()\n");
 
     setCommand(command, SCSI_REQUEST_SENSE, size);
 
     memset(data, '\0', size);
-    pieusb_scsi_command(device_number, command, data, size, status);
-    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
+    sst = pieusb_scsi_command(device_number, command, data, size);
+    if (sst != SCSI_STATUS_OK) {
+      /*FIXME*/
         return;
     }
 
@@ -255,6 +257,7 @@ cmdGetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Half
     SANE_Byte data[PATTERN_SIZE];
     int psize;
     SANE_Char* desc;
+    PIEUSB_SCSI_Status sst;
 
     DBG (DBG_info_scan, "cmdGetHalftonePattern()\n");
 
@@ -264,8 +267,9 @@ cmdGetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Half
     data[0] = SCSI_HALFTONE_PATTERN | 0x80; /* set bit 7 means prepare read */
     data[4] = index;
 
-    pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN, status);
-    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
+    sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
+    if (sst != SCSI_STATUS_OK) {
+      /* FIXME */
         return;
     }
 
@@ -273,9 +277,9 @@ cmdGetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Half
     setCommand(command, SCSI_READ, size);
 
     memset(data, '\0', size);
-    pieusb_scsi_command(device_number, command, data, size, status);
+    sst = pieusb_scsi_command(device_number, command, data, size);
 
-    /*TODO: analyse */
+    /*FIXME: analyse */
     fprintf(stderr, "Halftone pattern %d:\n", index);
     psize = (data[3]<<8) + data[2];
     desc = (SANE_Char*)(data + 4 + psize);
@@ -300,6 +304,7 @@ cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame
 #define FRAME_SIZE 256 /* Assumed maximum frame size */
     SANE_Int size = FRAME_SIZE;
     SANE_Byte data[FRAME_SIZE];
+    PIEUSB_SCSI_Status sst;
 
     DBG (DBG_info_scan, "cmdGetScanFrame()\n");
 
@@ -309,8 +314,9 @@ cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame
     data[0] = SCSI_SCAN_FRAME | 0x80; /* set bit 7 means prepare read */
     data[4] = index;
 
-    pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN, status);
-    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
+    sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
+    if (sst != SCSI_STATUS_OK) {
+      /* FIXME */
         return;
     }
 
@@ -318,8 +324,8 @@ cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame
     setCommand(command, SCSI_READ, size);
 
     memset(data, '\0', size);
-    pieusb_scsi_command(device_number, command, data, size, status);
-
+    sst = pieusb_scsi_command(device_number, command, data, size);
+    /* FIXME */
     /* Decode data */
     frame->code = _get_byte(data, 0);
     frame->size = _get_short(data, 2);
@@ -387,6 +393,7 @@ cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters
     SANE_Int size = SHADING_SIZE;
     SANE_Byte data[SHADING_SIZE];
     int k;
+    PIEUSB_SCSI_Status sst;
 
     DBG (DBG_info_scan, "cmdGetShadingParameters()\n");
 
@@ -395,8 +402,9 @@ cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters
     memset(data, '\0', SCSI_COMMAND_LEN);
     data[0] = SCSI_CALIBRATION_INFO | 0x80; /* set bit 7 means prepare read */
 
-    pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN, status);
-    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
+    sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
+    if (sst != SCSI_STATUS_OK) {
+      /* FIXME */
         return;
     }
 
@@ -404,8 +412,8 @@ cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters
     setCommand(command, SCSI_READ, size);
 
     memset(data, '\0', size);
-    pieusb_scsi_command(device_number, command, data, size, status);
-
+    sst = pieusb_scsi_command(device_number, command, data, size);
+    /* FIXME */
     /* Decode data */
     for (k=0; k<data[4]; k++) {
         shading[k].type = _get_byte(data, 8+6*k);

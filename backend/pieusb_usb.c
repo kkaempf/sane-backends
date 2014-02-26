@@ -43,14 +43,6 @@ SANE_Status _interprete_status(SANE_Byte status[]);
 #define PORT_PAR_CTRL 0x0087 /* IEEE1284 parallel control */
 #define PORT_PAR_DATA 0x0088 /* IEEE1284 parallel data */
 
-/* SCSI status codes */
-
-#define SCSI_STATUS_OK 0x00
-#define SCSI_STATUS_SENSE 0x02
-#define SCSI_STATUS_BUSY 0x08
-#define SCSI_STATUS_WRITE_ERROR 0x0A
-#define SCSI_STATUS_READ_ERROR 0x0B
-
 #define USB_STATUS_READY_TO_ACCEPT_DATA 0x00
 #define USB_STATUS_DATA_AVAILABLE 0x01
 #define USB_STATUS_COMMAND_COMPLETE 0x03
@@ -165,34 +157,42 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
     struct Pieusb_Sense sense;
     struct Pieusb_Command_Status senseStatus;
 
+
     DBG(DBG_info_usb,"commandScannerRepeat(%02x:%s): enter\n", command[0], scsi_cmd_to_text(command[0]));
     do {
-
-        pieusb_scsi_command(device_number, command, data, size, status);
+      PIEUSB_SCSI_Status sst;
+      sst = pieusb_scsi_command(device_number, command, data, size);
         tries++;
 
-        switch (status->pieusb_status) {
+        switch (sst) {
 
-            case PIEUSB_STATUS_GOOD:
+            case SCSI_STATUS_OK:
                 /* Command executed succesfully */
                 k = 0;
+	        status->pieusb_status = PIEUSB_STATUS_GOOD;
                 break;
 
-            case PIEUSB_STATUS_DEVICE_BUSY:
+            case SCSI_STATUS_BUSY:
                 /* Decrement number of remaining retries and pause */
                 k--;
                 DBG(DBG_info_usb,"commandScannerRepeat(): busy - try %d\n", k);
-                if (k>0) sleep(PIEUSB_WAIT_BUSY);
+                if (k>0) {
+		  sleep(PIEUSB_WAIT_BUSY);
+		}
+	        else {
+		  status->pieusb_status = PIEUSB_STATUS_DEVICE_BUSY;
+		}
                 break;
 
-            case PIEUSB_STATUS_IO_ERROR:
-            case PIEUSB_STATUS_INVAL:
+            case SCSI_STATUS_WRITE_ERROR:
+            case SCSI_STATUS_READ_ERROR:
                 /* Unexpected data returned by device */
 	        DBG(DBG_info_usb,"commandScannerRepeat(): error/invalid - exit: status %d\n", status->pieusb_status);
                 k = 0;
+	        status->pieusb_status = PIEUSB_STATUS_IO_ERROR;
                 break;
 
-            case PIEUSB_STATUS_CHECK_CONDITION:
+            case SCSI_STATUS_SENSE:
                 /* A check sense may be a busy state in disguise
                  * It is also practical to execute a request sense command by
                  * default. The calling function should interpret
@@ -226,6 +226,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                 break;
 
             default:
+	      DBG(DBG_info_usb, "commandScannerRepeat(): unhandled status %02x\n", sst);
                 /* Keep current status */
                 break;
         }
@@ -277,24 +278,18 @@ pieusb_ieee_command(SANE_Int device_number, SANE_Byte command)
  * @param size Size of the data buffer
  * @param status Pieusb_Command_Status
  */
-void
-pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
+PIEUSB_SCSI_Status
+pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size)
 {
 
     SANE_Status st;
     /* Clear 2-byte status-array which contains 1 or 2 byte code returned from device */
     SANE_Byte usbstat = 0x00;
-    /* Clear status structure to be returned */
-    status->pieusb_status = PIEUSB_STATUS_GOOD;
-    status->senseKey = SCSI_NO_SENSE;
-    status->senseCode = SCSI_NO_ADDITIONAL_SENSE_INFORMATION;
-    status->senseQualifier = 0x00;
 
   DBG(DBG_info_usb, "pieusb_scsi_command(): %02x:%s\n", command[0], scsi_cmd_to_text(command[0]));
     st = pieusb_ieee_command(device_number, IEEE1284_SCSI);
   if (st != SANE_STATUS_GOOD) {
-    status->pieusb_status = st;
-    return;
+    return SCSI_IEEE1284_ERROR;
   }
     st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[0]); /* CTRL_VAL_CMD */
     st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[1]);
@@ -306,8 +301,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
     st = _ctrl_in_byte(device_number, &usbstat);
     if (st != SANE_STATUS_GOOD) {
         DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 1st byte: %d\n", st);
-        status->pieusb_status = st;
-        return;
+        return SCSI_IEEE1284_ERROR;
     }
     /* Process rest of the data, if present; either input or output, possibly bulk */
     switch (usbstat) {
@@ -323,22 +317,20 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
                 st = _ctrl_in_byte(device_number, &usbstat);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after write, 1st byte: %d\n", st);
-                    status->pieusb_status = st;
-                    return;
+                    return SCSI_READ_ERROR;
                 }
                 switch (usbstat) {
                     case USB_STATUS_COMMAND_COMPLETE:
                         st = _ctrl_in_byte(device_number, &usbstat);
                         if (st != SANE_STATUS_GOOD) {
                             DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after write, 2nd byte: %d\n", st);
-                            status->pieusb_status = st;
-                            return;
+			    return SCSI_READ_ERROR;
                         }
                         break;
                     default:
                         /* Error, use special code for 2nd status byte */
-                        usbstat = SCSI_STATUS_WRITE_ERROR;
-                        break;
+		        DBG(DBG_error, "pieusb_scsi_command() fails verification after write, usbstat: %d\n", usbstat);
+                        return SCSI_STATUS_WRITE_ERROR;
                 }
             }
             break;
@@ -362,22 +354,20 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
                 st = _ctrl_in_byte(device_number, &usbstat);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after read, 1st byte: %d\n", st);
-                    status->pieusb_status = st;
-                    return;
+                    return SCSI_READ_ERROR;
                 }
                 switch (usbstat) {
                     case USB_STATUS_COMMAND_COMPLETE:
                         st = _ctrl_in_byte(device_number, &usbstat);
                         if (st != SANE_STATUS_GOOD) {
                             DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after read, 2nd byte: %d\n", st);
-                            status->pieusb_status = st;
-                            return;
+			    return SCSI_READ_ERROR;
                         }
                         break;
                     default:
                         /* Error, use special code */
-                        usbstat = SCSI_STATUS_READ_ERROR;
-                        break;
+		        DBG(DBG_error, "pieusb_scsi_command() fails verification after read, usbstat: %d\n", usbstat);
+                        return SCSI_READ_ERROR;
                 }
             }
             break;
@@ -386,15 +376,14 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
                 st = _ctrl_in_byte(device_number, &usbstat);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 2nd byte: %d\n", st);
-                    status->pieusb_status = st;
-                    return;
+		    return SCSI_READ_ERROR;
                 }
                 break;
             }
     }
 
-    status->pieusb_status = usbstat;
-  DBG(DBG_info_usb, "pieusb_scsi_command() returns with %02x\n", usbstat);
+    DBG(DBG_info_usb, "pieusb_scsi_command(): Ok\n");
+    return SCSI_STATUS_OK;
 }
 
 
