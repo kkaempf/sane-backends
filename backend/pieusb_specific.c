@@ -158,18 +158,18 @@ pieusb_find_device_callback (const char *devicename)
     /* Get device properties */
 
     cmdDoInquiry(device_number,&inq,5,&status,5);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         free (dev);
         DBG (DBG_error, "find_device_callback: get scanner properties (5 bytes) failed\n");
         sanei_usb_close (device_number);
-        return status.sane_status;
+        return status.pieusb_status;
     }
     cmdDoInquiry(device_number,&inq,inq.additionalLength+4,&status,5);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         free (dev);
         DBG (DBG_error, "find_device_callback: get scanner properties failed\n");
         sanei_usb_close (device_number);
-        return status.sane_status;
+        return status.pieusb_status;
     }
 
     /* Close the device again */
@@ -1580,8 +1580,8 @@ pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
     scanner->frame.index = 0x00;
     scanner->frame.size = 0x0A;
     cmdSetScanFrame(scanner->device_number,0,&(scanner->frame), &status, 0);
-    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): cmdSetScanFrame status %s\n",sane_strstatus(status.sane_status));
-    return status.sane_status;
+    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): cmdSetScanFrame status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    return status.pieusb_status;
 }
 
 /*
@@ -1646,8 +1646,8 @@ pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
     }
     scanner->mode.lineThreshold = SANE_UNFIX(scanner->val[OPT_THRESHOLD].w) / 100 * 0xFF; /* 0xFF = 100% */
     cmdSetMode(scanner->device_number,&(scanner->mode), &status, 0);
-    DBG(DBG_info_sane,"pieusb_set_mode_from_options(): cmdSetMode status %s\n",sane_strstatus(status.sane_status));
-    return status.sane_status;
+    DBG(DBG_info_sane,"pieusb_set_mode_from_options(): cmdSetMode status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    return status.pieusb_status;
 }
 
 /**
@@ -1686,7 +1686,7 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         scanner->settings.light = DEFAULT_LIGHT;
         scanner->settings.extraEntries = DEFAULT_ADDITIONAL_ENTRIES;
         scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
-        status.sane_status = SANE_STATUS_GOOD;
+        status.pieusb_status = PIEUSB_STATUS_GOOD;
     } else if (0) { /* (strcmp(calibration_mode,SCAN_CALIBRATION_PREVIEW) == 0 && scanner->preview_done) { */
         /* If no preview data availble, do the auto-calibration. */
 /*
@@ -1747,7 +1747,7 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
             case SCAN_FILTER_NEUTRAL:
                 break;
         }
-        status.sane_status = SANE_STATUS_GOOD;
+        status.pieusb_status = PIEUSB_STATUS_GOOD;
 */
     } else if (strcmp(calibration_mode,SCAN_CALIBRATION_OPTIONS) == 0) {
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from options\n");
@@ -1770,13 +1770,13 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         scanner->settings.light = DEFAULT_LIGHT;
         scanner->settings.extraEntries = DEFAULT_ADDITIONAL_ENTRIES;
         scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
-        status.sane_status = SANE_STATUS_GOOD;
+        status.pieusb_status = PIEUSB_STATUS_GOOD;
     } else {
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from scanner\n");
         cmdGetGainOffset(scanner->device_number, &scanner->settings, &status, 10);
     }
     /* Check status */
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     /* Adjust gain */
@@ -1821,8 +1821,8 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     }
     /* Now set values for gain, offset and exposure */
     cmdSetGainOffset(scanner->device_number, &(scanner->settings), &status, 0);
-    DBG(DBG_info_sane,"pieusb_set_gain_offset(): status %s\n",sane_strstatus(status.sane_status));
-    return status.sane_status;
+    DBG(DBG_info_sane,"pieusb_set_gain_offset(): status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    return status.pieusb_status;
 }
 
 /*
@@ -1852,12 +1852,12 @@ pieusb_get_shading_data(Pieusb_Scanner * scanner)
             DBG(DBG_error,"pieusb_get_shading_data(): color format %d not implemented\n",scanner->mode.colorFormat);
             return SANE_STATUS_INVAL;
     }
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     pieusb_calculate_shading(scanner, buffer);
     free(buffer);
-    return status.sane_status;
+    return status.pieusb_status;
 }
 
 /*
@@ -1870,12 +1870,12 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
     struct Pieusb_Command_Status status;
 
     cmdGetCCDMask(scanner->device_number, scanner->ccd_mask, &status, 20);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     /* Wait loop */
     cmdIsUnitReady(scanner->device_number, &status, 60);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
 
@@ -1886,7 +1886,7 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
         fclose(fs);
     }
 
-    return status.sane_status;
+  return pieusb_convert_status(status.pieusb_status);
 
 }
 
@@ -1905,12 +1905,12 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     const char *mode;
 
     cmdGetScanParameters(scanner->device_number,&parameters, &status);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     /* Wait loop */
     cmdIsUnitReady(scanner->device_number, &status, 60);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     /* Use response from cmdGetScanParameters() for initialization of SANE parameters.
@@ -1979,7 +1979,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
 */
     while (lines_read < lines_to_read) {
         cmdGetScanParameters(scanner->device_number,&parameters, &status);
-        if (status.sane_status != SANE_STATUS_GOOD) {
+        if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
             /* Error, return */
             return SANE_STATUS_INVAL;
         }
@@ -2001,7 +2001,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
             DBG(DBG_info_sane,"pieusb_get_scan_data(): reading lines: already %d, now %d (bytes per line = %d)\n",lines_read,parameters.availableLines,bpl);
             linebuf = malloc(parameters.availableLines*bpl);
             cmdGetScannedLines(scanner->device_number, linebuf, parameters.availableLines, parameters.availableLines*bpl, &status, 5);
-            if (status.sane_status != SANE_STATUS_GOOD ) {
+            if (status.pieusb_status != PIEUSB_STATUS_GOOD ) {
                 /* Error, return */
                 free(linebuf);
                 return SANE_STATUS_INVAL;

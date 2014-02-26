@@ -371,7 +371,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     /* Options and buffers */
     pieusb_init_options (scanner);
     cmdGetShadingParameters(scanner->device_number,scanner->device->shading_parameters,&rs,1);
-    if (rs.sane_status != SANE_STATUS_GOOD) {
+    if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
@@ -820,8 +820,8 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
     cmdGetState(scanner->device_number, &(scanner->state), &status, 20);
-    if (status.sane_status != SANE_STATUS_GOOD) {
-        DBG(DBG_error,"sane_start(): warmed up check returns status %s\n",  sane_strstatus(status.sane_status));
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+        DBG(DBG_error,"sane_start(): warmed up check returns status %s\n",  sane_strstatus(pieusb_convert_status(status.pieusb_status)));
         return SANE_STATUS_IO_ERROR;
     }
     if (scanner->state.warmingUp) {
@@ -904,9 +904,9 @@ sane_start (SANE_Handle handle)
     scanner->cancel_request = SANE_FALSE;
     cmdStartScan(scanner->device_number, &status);
     /* Default status check */
-    if (status.sane_status == SANE_STATUS_GOOD) {
+    if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
         /* OK, proceed */
-    } else if (status.sane_status == SANE_STATUS_CHECK_CONDITION) {
+    } else if (status.pieusb_status == PIEUSB_STATUS_CHECK_CONDITION) {
         /* May be a case of overriding skip calibration */
         if (scanner->mode.skipShadingAnalysis && status.senseKey==0x06 && status.senseCode==0x82 && status.senseQualifier==0x00) {
             scanner->mode.skipShadingAnalysis = SANE_FALSE;
@@ -922,13 +922,13 @@ sane_start (SANE_Handle handle)
     }
     /* Wait loop 1 */
     cmdIsUnitReady(scanner->device_number, &status, 60);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
     /* Wait loop 2*/
     cmdIsUnitReady(scanner->device_number, &status, 60);
-    if (status.sane_status != SANE_STATUS_GOOD) {
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
@@ -969,7 +969,7 @@ sane_start (SANE_Handle handle)
 
         /* Wait loop */
         cmdIsUnitReady(scanner->device_number, &status, 60);
-        if (status.sane_status != SANE_STATUS_GOOD) {
+        if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }

@@ -18,7 +18,7 @@ static SANE_Status _ctrl_out_byte(SANE_Int device_number, SANE_Int port, SANE_By
 static SANE_Status _ctrl_out_int(SANE_Int device_number, unsigned int size);
 static SANE_Status _ctrl_in_byte(SANE_Int device_number, SANE_Byte* b);
 static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte* data, unsigned int size);
-static SANE_Status _interprete_status(SANE_Byte status[]);
+SANE_Status _interprete_status(SANE_Byte status[]);
 
 /* Defines for use in USB functions */
 
@@ -43,17 +43,17 @@ static SANE_Status _interprete_status(SANE_Byte status[]);
 #define PORT_PAR_CTRL 0x0087 /* IEEE1284 parallel control */
 #define PORT_PAR_DATA 0x0088 /* IEEE1284 parallel data */
 
-/* USB-internal status codes */
+/* SCSI status codes */
 
-#define PIEUSB_STATUS_OK 0x00
-#define PIEUSB_STATUS_SENSE 0x02
-#define PIEUSB_STATUS_BUSY 0x08
-#define PIEUSB_STATUS_WRITE_ERROR 0x0A
-#define PIEUSB_STATUS_READ_ERROR 0x0B
+#define SCSI_STATUS_OK 0x00
+#define SCSI_STATUS_SENSE 0x02
+#define SCSI_STATUS_BUSY 0x08
+#define SCSI_STATUS_WRITE_ERROR 0x0A
+#define SCSI_STATUS_READ_ERROR 0x0B
 
-#define PIEUSB_STATUS_READY_TO_ACCEPT_DATA 0x00
-#define PIEUSB_STATUS_DATA_AVAILABLE 0x01
-#define PIEUSB_STATUS_COMMAND_COMPLETE 0x03
+#define USB_STATUS_READY_TO_ACCEPT_DATA 0x00
+#define USB_STATUS_DATA_AVAILABLE 0x01
+#define USB_STATUS_COMMAND_COMPLETE 0x03
 
 /* Standard SCSI Sense keys */
 #define SCSI_NO_SENSE 0x00
@@ -103,7 +103,8 @@ static struct scsi_cmd_text_t scsi_cmd_text[] = {
   ,{ -1, NULL }
 };
 
-static char *scsi_cmd_to_text(int cmd)
+static char *
+scsi_cmd_to_text(int cmd)
 {
   int i = 0;
   while (scsi_cmd_text[i].text) {
@@ -113,6 +114,25 @@ static char *scsi_cmd_to_text(int cmd)
   }
   return "**unknown**";
 }
+
+
+SANE_Status
+pieusb_convert_status(PIEUSB_Status status)
+{
+  switch (status) {
+    case PIEUSB_STATUS_CHECK_CONDITION:
+      return PIEUSB_STATUS_DEVICE_BUSY;
+      break;
+    case PIEUSB_MAX_SANE_STATUS:
+    /*fallthru*/
+    default:
+      if (status < PIEUSB_MAX_SANE_STATUS) {
+        return (SANE_Status)status;
+      }
+  }
+  return SANE_STATUS_INVAL;
+}
+
 /* =========================================================================
  *
  * USB functions
@@ -124,7 +144,7 @@ static char *scsi_cmd_to_text(int cmd)
  * and return SENSE data in the sense fields of status if there is a CHECK
  * CONDITION response from the command.
  * If the REQUEST SENSE command fails, the SANE status code is unequal to
- * SANE_STATUS_GOOD and the sense fields are empty.
+ * PIEUSB_STATUS_GOOD and the sense fields are empty.
  *
  * If repeat == 0, commandScannerRepeat() equals commandScanner() with an
  * included sense check in case of a check sense return.
@@ -151,45 +171,45 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
         commandScanner(device_number, command, data, size, status);
         tries++;
 
-        switch (status->sane_status) {
+        switch (status->pieusb_status) {
 
-            case SANE_STATUS_GOOD:
+            case PIEUSB_STATUS_GOOD:
                 /* Command executed succesfully */
                 k = 0;
                 break;
 
-            case SANE_STATUS_DEVICE_BUSY:
+            case PIEUSB_STATUS_DEVICE_BUSY:
                 /* Decrement number of remaining retries and pause */
                 k--;
                 DBG(DBG_info_usb,"commandScannerRepeat(): busy - repeat %d\n",k);
                 if (k>0) sleep(PIEUSB_WAIT_BUSY);
                 break;
 
-            case SANE_STATUS_IO_ERROR:
-            case SANE_STATUS_INVAL:
+            case PIEUSB_STATUS_IO_ERROR:
+            case PIEUSB_STATUS_INVAL:
                 /* Unexpected data returned by device */
-	        DBG(DBG_info_usb,"commandScannerRepeat(): error/invalid - exit: status %d\n", status->sane_status);
+	        DBG(DBG_info_usb,"commandScannerRepeat(): error/invalid - exit: status %d\n", status->pieusb_status);
                 k = 0;
                 break;
 
-            case SANE_STATUS_CHECK_CONDITION:
+            case PIEUSB_STATUS_CHECK_CONDITION:
                 /* A check sense may be a busy state in disguise
                  * It is also practical to execute a request sense command by
                  * default. The calling function should interpret
-                 * SANE_STATUS_CHECK_SENSE as 'sense data available'. */
-                cmdGetSense(device_number,&sense,&senseStatus);
-                if (senseStatus.sane_status == SANE_STATUS_GOOD) {
+                 * PIEUSB_STATUS_CHECK_SENSE as 'sense data available'. */
+                cmdGetSense(device_number, &sense, &senseStatus);
+                if (senseStatus.pieusb_status == PIEUSB_STATUS_GOOD) {
                     if (sense.senseKey == SCSI_NOT_READY ||
                         sense.senseCode == 4 ||
                         sense.senseQualifier == 1) {
                         /* This is a busy condition.
                          * Decrement number of remaining retries and pause */
-                        status->sane_status = SANE_STATUS_DEVICE_BUSY;
+                        status->pieusb_status = PIEUSB_STATUS_DEVICE_BUSY;
                         k--;
                         DBG(DBG_info_usb,"commandScannerRepeat(): checked - busy - repeat %d\n",k);
                         if (k>0) sleep(PIEUSB_WAIT_BUSY);
                     } else {
-                        status->sane_status = SANE_STATUS_CHECK_CONDITION;
+                        status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
                         status->senseKey = sense.senseKey;
                         status->senseCode = sense.senseCode;
                         status->senseQualifier = sense.senseQualifier;
@@ -200,7 +220,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                     }
                 } else {
                     DBG(DBG_error,"commandScannerRepeat(): CHECK CONDITION, but REQUEST SENSE fails\n");
-                    status->sane_status = SANE_STATUS_INVAL;
+                    status->pieusb_status = PIEUSB_STATUS_INVAL;
                     k = 0;
                 }
                 break;
@@ -233,7 +253,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
     /* Clear 2-byte status-array which contains 1 or 2 byte code returned from device */
     SANE_Byte usbstat[] = {0x00, 0x00};
     /* Clear status structure to be returned */
-    status->sane_status = SANE_STATUS_GOOD;
+    status->pieusb_status = PIEUSB_STATUS_GOOD;
     status->senseKey = SCSI_NO_SENSE;
     status->senseCode = SCSI_NO_ADDITIONAL_SENSE_INFORMATION;
     status->senseQualifier = 0x00;
@@ -261,12 +281,12 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
     st = _ctrl_in_byte(device_number, &usbstat[0]);
     if (st != SANE_STATUS_GOOD) {
         DBG(DBG_error, "commandScanner() fails 1st verification, 1st byte\n");
-        status->sane_status = st;
+        status->pieusb_status = st;
         return;
     }
     /* Process rest of the data, if present; either input or output, possibly bulk */
     switch (usbstat[0]) {
-        case PIEUSB_STATUS_READY_TO_ACCEPT_DATA:
+        case USB_STATUS_READY_TO_ACCEPT_DATA:
             /* Intermediate status OK, device is ready to accept additional command data */
             /* Write data */
             {
@@ -276,26 +296,26 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 st = _ctrl_in_byte(device_number, &usbstat[0]);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "commandScanner() fails 2nd verification after write, 1st byte\n");
-                    status->sane_status = st;
+                    status->pieusb_status = st;
                     return;
                 }
                 switch (usbstat[0]) {
-                    case PIEUSB_STATUS_COMMAND_COMPLETE:
+                    case USB_STATUS_COMMAND_COMPLETE:
                         st = _ctrl_in_byte(device_number,&usbstat[1]);
                         if (st != SANE_STATUS_GOOD) {
                             DBG(DBG_error, "commandScanner() fails 2nd verification after write, 2nd byte\n");
-                            status->sane_status = st;
+                            status->pieusb_status = st;
                             return;
                         }
                         break;
                     default:
                         /* Error, use special code for 2nd status byte */
-                        usbstat[1] = PIEUSB_STATUS_WRITE_ERROR;
+                        usbstat[1] = SCSI_STATUS_WRITE_ERROR;
                         break;
                 }
             }
             break;
-        case PIEUSB_STATUS_DATA_AVAILABLE:
+        case USB_STATUS_DATA_AVAILABLE:
             /* Intermediate status OK, device has made data available for reading */
             /* Read data
                must be done in parts if size is large; no verification inbetween
@@ -315,39 +335,40 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 st = _ctrl_in_byte(device_number,&usbstat[0]);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "commandScanner() fails 2nd verification after read, 1st byte\n");
-                    status->sane_status = st;
+                    status->pieusb_status = st;
                     return;
                 }
                 switch (usbstat[0]) {
-                    case PIEUSB_STATUS_COMMAND_COMPLETE:
+                    case USB_STATUS_COMMAND_COMPLETE:
                         st = _ctrl_in_byte(device_number,&usbstat[1]);
                         if (st != SANE_STATUS_GOOD) {
                             DBG(DBG_error, "commandScanner() fails 2nd verification after read, 2nd byte\n");
-                            status->sane_status = st;
+                            status->pieusb_status = st;
                             return;
                         }
                         break;
                     default:
                         /* Error, use special code */
-                        usbstat[1] = PIEUSB_STATUS_READ_ERROR;
+                        usbstat[1] = SCSI_STATUS_READ_ERROR;
                         break;
                 }
             }
             break;
-        case PIEUSB_STATUS_COMMAND_COMPLETE: /* Next byte needed */
+        case USB_STATUS_COMMAND_COMPLETE: /* Next byte needed */
             {
                 st = _ctrl_in_byte(device_number,&usbstat[1]);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "commandScanner() fails 1st verification, 2nd byte\n");
-                    status->sane_status = st;
+                    status->pieusb_status = st;
                     return;
                 }
                 break;
             }
     }
 
-    status->sane_status = _interprete_status(usbstat);
+    status->pieusb_status = usbstat[0];
 }
+
 
 /**
  * Simplified control transfer: one byte to given port
@@ -360,6 +381,7 @@ static SANE_Status _ctrl_out_byte(SANE_Int device_number, SANE_Int port, SANE_By
     /* int r = libusb_control_transfer(scannerHandle, CTRL_OUT, 0x0C, 0x0088, ANYINDEX, &b, 1, TIMEOUT); */
     return sanei_usb_control_msg(device_number, REQUEST_TYPE_OUT, REQUEST_REGISTER, port, ANYINDEX, 1, &b);
 }
+
 
 /**
  * Simplified control transfer for port/wValue = 0x82 - prepare bulk
@@ -374,6 +396,7 @@ static SANE_Status _ctrl_out_int(SANE_Int device_number, unsigned int size) {
     bulksize[5] = (size & 0xFF00) >> 8;
     return sanei_usb_control_msg(device_number, REQUEST_TYPE_OUT, REQUEST_BUFFER, PORT_SCSI_SIZE, ANYINDEX, 8, bulksize);
 }
+
 
 /*
  * Ctrl inbound, single byte
@@ -390,6 +413,7 @@ static SANE_Status _ctrl_in_byte(SANE_Int device_number, SANE_Byte* b) {
     /* int r = libusb_control_transfer(scannerHandle, CTRL_IN, 0x0C, 0x0084, ANYINDEX, &b, 1, TIMEOUT); */
     return sanei_usb_control_msg(device_number, REQUEST_TYPE_IN, REQUEST_REGISTER, PORT_SCSI_STATUS, ANYINDEX, 1, b);
 }
+
 
 /**
  * Bulk in transfer for data, in parts of 0x4000 bytes max
@@ -430,28 +454,29 @@ static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte data[], unsigned i
     return r;
 }
 
+
 /**
  * Interpret the 2-byte status returned from the device as a SANE status.
  *
  * @param status Pieusb status
  * @return SANE status
  */
-static SANE_Status _interprete_status(SANE_Byte status[])
+SANE_Status _interprete_status(SANE_Byte status[])
 {
     SANE_Status s = SANE_STATUS_INVAL;
     switch (status[0]) {
-        case PIEUSB_STATUS_COMMAND_COMPLETE:
+        case USB_STATUS_COMMAND_COMPLETE:
             /* Command completed */
             switch (status[1]) {
-                case PIEUSB_STATUS_OK:
+                case SCSI_STATUS_OK:
                     /* OK*/
                     s = SANE_STATUS_GOOD;
                     break;
-                case PIEUSB_STATUS_SENSE:
+                case SCSI_STATUS_SENSE:
                     /* Check condition */
                     s = SANE_STATUS_CHECK_CONDITION;
                     break;
-                case PIEUSB_STATUS_BUSY:
+                case SCSI_STATUS_BUSY:
                     /* Busy*/
                     s = SANE_STATUS_DEVICE_BUSY;
                     break;
@@ -464,8 +489,8 @@ static SANE_Status _interprete_status(SANE_Byte status[])
         default:
             /* IO-erro or unexpected code */
             switch (status[1]) {
-                case PIEUSB_STATUS_WRITE_ERROR:
-                case PIEUSB_STATUS_READ_ERROR:
+                case SCSI_STATUS_WRITE_ERROR:
+                case SCSI_STATUS_READ_ERROR:
                     s = SANE_STATUS_IO_ERROR;
                 default:
                     s = SANE_STATUS_INVAL;
