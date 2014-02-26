@@ -140,13 +140,13 @@ pieusb_convert_status(PIEUSB_Status status)
  * ========================================================================= */
 
 /**
- * Send a command to the device, retry at most repeat times if device is busy
+ * Send a command to the device, retry 10 times if device is busy
  * and return SENSE data in the sense fields of status if there is a CHECK
  * CONDITION response from the command.
  * If the REQUEST SENSE command fails, the SANE status code is unequal to
  * PIEUSB_STATUS_GOOD and the sense fields are empty.
  *
- * If repeat == 0, commandScannerRepeat() equals commandScanner() with an
+ * If repeat == 0, commandScannerRepeat() equals pieusb_scsi_command() with an
  * included sense check in case of a check sense return.
  *
  * @param device_number Device number
@@ -157,18 +157,18 @@ pieusb_convert_status(PIEUSB_Status status)
  * @param repeat Maximum number of tries after a busy state
  */
 void
-commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status, int repeat)
+commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
 {
-    int k = repeat;
+    int k = 10;
     int tries = 0;
     SANE_Char* sd;
     struct Pieusb_Sense sense;
     struct Pieusb_Command_Status senseStatus;
 
-    DBG(DBG_info_usb,"commandScannerRepeat(%02x:%s): enter, repeat=%d\n", command[0], scsi_cmd_to_text(command[0]), repeat);
+    DBG(DBG_info_usb,"commandScannerRepeat(%02x:%s): enter\n", command[0], scsi_cmd_to_text(command[0]));
     do {
 
-        commandScanner(device_number, command, data, size, status);
+        pieusb_scsi_command(device_number, command, data, size, status);
         tries++;
 
         switch (status->pieusb_status) {
@@ -181,7 +181,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
             case PIEUSB_STATUS_DEVICE_BUSY:
                 /* Decrement number of remaining retries and pause */
                 k--;
-                DBG(DBG_info_usb,"commandScannerRepeat(): busy - repeat %d\n",k);
+                DBG(DBG_info_usb,"commandScannerRepeat(): busy - try %d\n", k);
                 if (k>0) sleep(PIEUSB_WAIT_BUSY);
                 break;
 
@@ -206,7 +206,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                          * Decrement number of remaining retries and pause */
                         status->pieusb_status = PIEUSB_STATUS_DEVICE_BUSY;
                         k--;
-                        DBG(DBG_info_usb,"commandScannerRepeat(): checked - busy - repeat %d\n",k);
+                        DBG(DBG_info_usb,"commandScannerRepeat(): checked - busy - try %d\n", k);
                         if (k>0) sleep(PIEUSB_WAIT_BUSY);
                     } else {
                         status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
@@ -214,7 +214,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                         status->senseCode = sense.senseCode;
                         status->senseQualifier = sense.senseQualifier;
                         sd = senseDescription(&sense);
-                        DBG(DBG_info_usb,"commandScannerRepeat(): CHECK CONDITION: %s\n",sd);
+                        DBG(DBG_info_usb,"commandScannerRepeat(): CHECK CONDITION: %s\n", sd);
                         free(sd);
                         k = 0;
                     }
@@ -231,7 +231,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
         }
 
      } while (k>0);
-     DBG(DBG_info_usb,"commandScannerRepeat(): ready, tries=%d\n",tries);
+     DBG(DBG_info_usb,"commandScannerRepeat(): ready, tries=%d\n", tries);
 }
 
 /**
@@ -246,7 +246,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
  * @param status Pieusb_Command_Status
  */
 void
-commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
+pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
 {
 
     SANE_Status st;
@@ -280,7 +280,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
     /* Verify this sequence */
     st = _ctrl_in_byte(device_number, &usbstat[0]);
     if (st != SANE_STATUS_GOOD) {
-        DBG(DBG_error, "commandScanner() fails 1st verification, 1st byte\n");
+        DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 1st byte\n");
         status->pieusb_status = st;
         return;
     }
@@ -295,7 +295,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 /* Verify again */
                 st = _ctrl_in_byte(device_number, &usbstat[0]);
                 if (st != SANE_STATUS_GOOD) {
-                    DBG(DBG_error, "commandScanner() fails 2nd verification after write, 1st byte\n");
+                    DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after write, 1st byte\n");
                     status->pieusb_status = st;
                     return;
                 }
@@ -303,7 +303,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                     case USB_STATUS_COMMAND_COMPLETE:
                         st = _ctrl_in_byte(device_number,&usbstat[1]);
                         if (st != SANE_STATUS_GOOD) {
-                            DBG(DBG_error, "commandScanner() fails 2nd verification after write, 2nd byte\n");
+                            DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after write, 2nd byte\n");
                             status->pieusb_status = st;
                             return;
                         }
@@ -334,7 +334,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 /* Verify again */
                 st = _ctrl_in_byte(device_number,&usbstat[0]);
                 if (st != SANE_STATUS_GOOD) {
-                    DBG(DBG_error, "commandScanner() fails 2nd verification after read, 1st byte\n");
+                    DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after read, 1st byte\n");
                     status->pieusb_status = st;
                     return;
                 }
@@ -342,7 +342,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                     case USB_STATUS_COMMAND_COMPLETE:
                         st = _ctrl_in_byte(device_number,&usbstat[1]);
                         if (st != SANE_STATUS_GOOD) {
-                            DBG(DBG_error, "commandScanner() fails 2nd verification after read, 2nd byte\n");
+                            DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after read, 2nd byte\n");
                             status->pieusb_status = st;
                             return;
                         }
@@ -358,7 +358,7 @@ commandScanner(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
             {
                 st = _ctrl_in_byte(device_number,&usbstat[1]);
                 if (st != SANE_STATUS_GOOD) {
-                    DBG(DBG_error, "commandScanner() fails 1st verification, 2nd byte\n");
+                    DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 2nd byte\n");
                     status->pieusb_status = st;
                     return;
                 }

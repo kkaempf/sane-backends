@@ -52,7 +52,7 @@ extern struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for search
 struct Pieusb_Device_Definition;
 extern struct Pieusb_Device_Definition *definition_list_head;
 
-void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status, int repeat);
+void commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status);
 
 /* Debug error levels */
 #define DBG_error        1      /* errors */
