@@ -125,8 +125,8 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     buffer->image_size_bytes = buffer->colors * buffer->height * buffer->line_size_bytes;
 
     /* Create empty file */
-    tmpnam(buffer_name); /* see man tmpnam => add O_EXCL */
-    buffer->data_file = open(buffer_name, O_RDWR | O_CREAT | O_EXCL | O_TRUNC, (mode_t)0600);
+    snprintf(buffer_name, L_tmpnam, "/tmp/sane.XXXXXX");
+    buffer->data_file = mkostemp(buffer_name, O_RDWR | O_CREAT | O_EXCL | O_TRUNC);
     if (buffer->data_file == -1) {
         buffer->data = NULL;
 	perror("pieusb_buffer_create(): error opening image buffer file");
