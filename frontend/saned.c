@@ -1428,7 +1428,7 @@ start_scan (Wire * w, int h, SANE_Start_Reply * reply)
   SANE_Handle be_handle;
   int fd, len;
   in_port_t data_port;
-  int ret;
+  int ret = 0;
 
   be_handle = handle[h].handle;
 
