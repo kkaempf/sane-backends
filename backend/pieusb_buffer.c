@@ -76,6 +76,21 @@
 
 #define DEBUG_DECLARE_ONLY
 
+/* Configuration defines */
+#include "../include/sane/config.h"
+
+/* SANE includes */
+#include "../include/sane/sane.h"
+#include "../include/sane/saneopts.h"
+#include "../include/sane/sanei_usb.h"
+#include "../include/sane/sanei_config.h"
+#include "../include/sane/sanei_thread.h"
+
+/* Backend includes */
+#define BACKEND_NAME pieusb
+#include "../include/sane/sanei_backend.h"
+#include "pieusb.h"
+
 #include "pieusb_specific.h"
 #include "pieusb_buffer.h"
 
@@ -95,6 +110,8 @@
 #else
  #define le16toh(x) __bswap_16 (x)
 #endif
+
+static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int increment);
 
 /* READER */
 

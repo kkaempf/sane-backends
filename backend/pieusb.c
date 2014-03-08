@@ -62,8 +62,6 @@
 #include <stdio.h> /* for FILE */
 #include <string.h> /* for strlen */
 #include <stdlib.h> /* for NULL */
-extern char *strdup (const char *s);
-extern char *strndup (const char *s, size_t n);
 #include <unistd.h> /* usleep */
 extern int usleep (__useconds_t useconds);
 #include <stdint.h>
@@ -83,6 +81,7 @@ extern int usleep (__useconds_t useconds);
 #define BACKEND_NAME pieusb
 #include "../include/sane/sanei_backend.h"
 #include "pieusb.h"
+#include "pieusb_specific.h"
 
 #define CAN_DO_4_CHANNEL_TIFF
 
@@ -121,19 +120,8 @@ extern void write_tiff_rgbi_header (FILE *fptr, int width, int height, int depth
  * 
  * --------------------------------------------------------------------------*/
 
-/* List of default supported scanners by vendor-id, product-id and model number.
- * A default list will be created in sane_init(), and entries in the config file
- *  will be added to it. */
-
-struct Pieusb_USB_Device_Entry
-{
-    SANE_Word vendor;		/* USB vendor identifier */
-    SANE_Word product;		/* USB product identifier */
-    SANE_Word model;		/* USB model number */
-    SANE_Int device_number;     /* USB device number if the device is present */
-};
-static struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list = NULL;
-static struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
+struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list = NULL;
+struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
 
 /* --------------------------------------------------------------------------
  *
@@ -141,9 +129,9 @@ static struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for search
  *
  * --------------------------------------------------------------------------*/
 
-static Pieusb_Device_Definition *definition_list_head = NULL;
-static Pieusb_Scanner *first_handle = NULL;
-static const SANE_Device **devlist = NULL;
+Pieusb_Device_Definition *definition_list_head = NULL;
+Pieusb_Scanner *first_handle = NULL;
+const SANE_Device **devlist = NULL;
 
 /* --------------------------------------------------------------------------
  *
