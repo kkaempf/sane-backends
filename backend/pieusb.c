@@ -52,35 +52,37 @@
  * ========================================================================= */
 
 #define DEBUG_NOT_STATIC
-#include "pieusb.h"
+/* --------------------------------------------------------------------------
+ *
+ * INCLUDES
+ * 
+ * --------------------------------------------------------------------------*/
 
+/* Standard includes for various utiliy functions */
+#include <stdio.h> /* for FILE */
+#include <string.h> /* for strlen */
+#include <stdlib.h> /* for NULL */
+extern char *strdup (const char *s);
+extern char *strndup (const char *s, size_t n);
+#include <unistd.h> /* usleep */
+extern int usleep (__useconds_t useconds);
 #include <stdint.h>
 #include <math.h>
 
+/* Configuration defines */
+#include "../include/sane/config.h"
+
 /* SANE includes */
-#include <sane/saneopts.h>
-#include <sane/sanei_config.h>
-#include <sane/sanei_thread.h>
-#include <sane/sanei_ir.h>
-#include <sane/sanei_backend.h>
+#include "../include/sane/sane.h"
+#include "../include/sane/saneopts.h"
+#include "../include/sane/sanei_usb.h"
+#include "../include/sane/sanei_config.h"
+#include "../include/sane/sanei_thread.h"
 
-#include "pieusb_scancmd.h"
-#include "pieusb_buffer.h"
-#include "pieusb_specific.h"
-
-SANE_Status sane_pieusb_init (SANE_Int * version_code, SANE_Auth_Callback authorize);
-void sane_pieusb_exit (void);
-SANE_Status sane_pieusb_get_devices (const SANE_Device *** device_list, SANE_Bool local_only);
-SANE_Status sane_pieusb_open (SANE_String_Const devicename, SANE_Handle * handle);
-void sane_pieusb_close (SANE_Handle handle);
-const SANE_Option_Descriptor *sane_pieusb_get_option_descriptor (SANE_Handle handle, SANE_Int option);
-SANE_Status sane_pieusb_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action, void *value, SANE_Int * info);
-SANE_Status sane_pieusb_get_parameters (SANE_Handle handle, SANE_Parameters * params);
-SANE_Status sane_pieusb_start (SANE_Handle handle);
-SANE_Status sane_pieusb_read (SANE_Handle handle, SANE_Byte * data, SANE_Int max_length, SANE_Int * length);
-void sane_pieusb_cancel (SANE_Handle handle);
-SANE_Status sane_pieusb_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking);
-SANE_Status sane_pieusb_get_select_fd (SANE_Handle handle, SANE_Int * fd);
+/* Backend includes */
+#define BACKEND_NAME pieusb
+#include "../include/sane/sanei_backend.h"
+#include "pieusb.h"
 
 #define CAN_DO_4_CHANNEL_TIFF
 
@@ -100,8 +102,38 @@ extern void write_tiff_rgbi_header (FILE *fptr, int width, int height, int depth
 /* Configuration filename */
 #define PIEUSB_CONFIG_FILE "pieusb.conf"
 
-struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list = NULL;
-struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
+/* Debug error levels */
+#define DBG_error        1      /* errors */
+#define DBG_warning      3      /* warnings */
+#define DBG_info         5      /* information */
+#define DBG_info_sane    7      /* information sane interface level */
+#define DBG_inquiry      8      /* inquiry data */
+#define DBG_info_proc    9      /* information pieusb backend functions */
+#define DBG_info_scan   11      /* information scanner commands */
+#define DBG_info_usb    13      /* information usb level functions */
+
+/* Additional SANE status code */
+#define SANE_STATUS_CHECK_CONDITION 14 /* add to SANE_status enum */
+
+/* --------------------------------------------------------------------------
+ *
+ * SUPPORTED DEVICES SPECIFICS
+ * 
+ * --------------------------------------------------------------------------*/
+
+/* List of default supported scanners by vendor-id, product-id and model number.
+ * A default list will be created in sane_init(), and entries in the config file
+ *  will be added to it. */
+
+struct Pieusb_USB_Device_Entry
+{
+    SANE_Word vendor;		/* USB vendor identifier */
+    SANE_Word product;		/* USB product identifier */
+    SANE_Word model;		/* USB model number */
+    SANE_Int device_number;     /* USB device number if the device is present */
+};
+static struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list = NULL;
+static struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
 
 /* --------------------------------------------------------------------------
  *
@@ -109,7 +141,7 @@ struct Pieusb_USB_Device_Entry pieusb_supported_usb_device; /* for searching */
  *
  * --------------------------------------------------------------------------*/
 
-Pieusb_Device_Definition *definition_list_head = NULL;
+static Pieusb_Device_Definition *definition_list_head = NULL;
 static Pieusb_Scanner *first_handle = NULL;
 static const SANE_Device **devlist = NULL;
 
@@ -152,12 +184,12 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     /* Initialize usb */
     sanei_usb_init ();
 
-    /* What's the use of a config file here, if all that is done with the information
-     * is checking it against hard coded values? We should assume that the config
-     * file contains appropriate scanner identifications, or we should ignore the
-     * config file altogether. Let's adopt the first option. A user who modifies
-     * the config file, may use the backend to address any USB device, even ones
-     * that don't work. */
+    /* There are currently 3 scanners hardcoded into this backend, see below.
+     * The config file may add other scanners using a line like
+     * usb 0x1234 0x5678 0x9A
+     * where the first two hex numbers are vendor and product id, and the last
+     * number is the model number. Unfortunately, this is not according to the
+     * config file standard. Anyone any suggestions? */
 
     /* Create default list */
     pieusb_supported_usb_device_list = calloc(4, sizeof(struct Pieusb_USB_Device_Entry));
@@ -179,15 +211,6 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     pieusb_supported_usb_device_list[3].vendor = 0;
     pieusb_supported_usb_device_list[3].product = 0;
     pieusb_supported_usb_device_list[3].model = 0;
-
-/*
-    for (i=0; i<3; i++) {
-        DBG(DBG_info,"%03d: %04x %04x %02x\n", i,
-            pieusb_supported_usb_device_list[i].vendor,
-            pieusb_supported_usb_device_list[i].product,
-            pieusb_supported_usb_device_list[i].model);
-    }
-*/
 
     /* Add entries from config file */
     fp = sanei_config_open (PIEUSB_CONFIG_FILE);
@@ -231,13 +254,6 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
         pieusb_supported_usb_device.device_number = -1; /* No device number (yet) */
         DBG( DBG_info_sane, "sane_init() looking for Reflecta scanner %04x %04x model %02x\n",pieusb_supported_usb_device.vendor,pieusb_supported_usb_device.product,pieusb_supported_usb_device.model);
         sanei_usb_find_devices (pieusb_supported_usb_device_list[i].vendor, pieusb_supported_usb_device_list[i].product, pieusb_find_device_callback);
-        /* If opened, close it again here.
-         * sanei_usb_find_devices() ignores errors from find_device_callback(), so the device may already be closed. */
-/* not necessary, callback closes device
-        if (pieusb_supported_usb_device.device_number >= 0) {
-            sanei_usb_close (pieusb_supported_usb_device.device_number);
-        }
-*/
         i++;
     }
     return SANE_STATUS_GOOD;
@@ -256,6 +272,9 @@ sane_exit (void)
 
     for (dev = definition_list_head; dev; dev = next) {
         next = dev->next;
+        free((void *)dev->sane.name);
+        free((void *)dev->sane.vendor);
+        free((void *)dev->sane.model);
         free (dev->version);
         free (dev);
     }
@@ -362,10 +381,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
                          * it here. */
                         DBG (DBG_error, "sane_open: sanei_usb_find_devices did not open device %s\n",devicename);
                         return SANE_STATUS_INVAL;
-/* not necessary, callback closes device
-                    } else {
-                        sanei_usb_close(pieusb_supported_usb_device.device_number);
-*/
                     }
                 }
                 i++;
@@ -406,10 +421,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     sanei_usb_open(dev->sane.name, &scanner->device_number);
     scanner->cancel_request = 0;
     scanner->shading_data_present = SANE_FALSE;
-    /* No preview data available */
-/*
-    scanner->preview_done = SANE_FALSE;
-*/
     /* Options and buffers */
     pieusb_init_options (scanner);
     cmdGetShadingParameters(scanner->device_number, scanner->device->shading_parameters, &rs);
@@ -1285,7 +1296,8 @@ sane_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking)
 /**
  * Obtain a file-descriptor for the scanner that is readable if image data is
  * available. The select file-descriptor is returned in *fd.
- * The function has not been implemented yet.
+ * The function has not been implemented since USB-device only operate in
+ * blocking mode.
  *
  * @param handle Scanner handle
  * @param fd File descriptor with imae data
@@ -1294,6 +1306,6 @@ sane_set_io_mode (SANE_Handle handle, SANE_Bool non_blocking)
 SANE_Status
 sane_get_select_fd (SANE_Handle handle, SANE_Int * fd)
 {
-    DBG(DBG_info_sane,"sane_get_select_fd(%p,%d): not supported (only for non-blocking IO)\n", handle, *fd);
+    DBG(DBG_info_sane,"sane_get_select_fd(): not supported (only for non-blocking IO)\n");
     return SANE_STATUS_UNSUPPORTED;
 }
