@@ -6,7 +6,7 @@
 
 EXTRA_PROGRAMS = test tstbackend
 
-bin_PROGRAMS = scanimage
+bin_PROGRAMS = scanimage scanimage_pieusb
 
 if COMPILE_SANED
 sbin_PROGRAMS = saned
@@ -18,6 +18,10 @@ AM_CPPFLAGS = -I. -I$(srcdir) -I$(top_builddir)/include -I$(top_srcdir)/include
 
 scanimage_SOURCES = scanimage.c stiff.c stiff.h
 scanimage_LDADD = ../backend/libsane.la ../sanei/libsanei.la ../lib/liblib.la \
+             ../lib/libfelib.la
+
+scanimage_pieusb_SOURCES = scanimage_pieusb.c stiff.c stiff.h
+scanimage_pieusb_LDADD = ../backend/libsane.la ../sanei/libsanei.la ../lib/liblib.la \
              ../lib/libfelib.la
 
 saned_SOURCES = saned.c
