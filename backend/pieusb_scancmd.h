@@ -49,14 +49,16 @@
 #include "pieusb_usb.h"
 
 /* =========================================================================
- *
+ * 
  * Data-structures used by scanner commands
+ * 
+ * For SENSE descriptions, see SCSI-2 p158, table 67 (p469 ASC/Q alphabetically)
+ * For the INQUIRY command, see SCSI-2 p141 table 45, 46, 47
  *
+ * 2-byte short ints are represented by 4-byte SANE_Int types
+ * 
  * ========================================================================= */
 
-/* Data returned from a SCSI INQUIRY command. */
-/* See SCSI-2 p141 table 45, 46, 47 */
-/* 2-byte short ints are represented by 4-byte SANE_Int types*/
 struct Pieusb_Scanner_Properties {
     SANE_Byte deviceType; /* 0x06 = scanner */
     SANE_Byte additionalLength; /* including this byte: 0xb4 = 180, so total structure 184 bytes */
