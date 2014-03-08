@@ -42,65 +42,46 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
+/* =========================================================================
+ *
+ * Read buffer
+ * 
+ * Data obtained from the scanner cannot be presented to the frontend immediately.
+ * The scanner returns data in the 'index' or 'line' color format, which means it
+ * returns data in batches which contain a single color of a scan line.
+ * 
+ * These must finally be converted into the SANE data format (data for a single
+ * pixel in consecutive bytes). Apart from that, sane_read() must be able to
+ * return any amount of data bytes.
+ * 
+ * In between, data processing may be necessary, usually requiring the whole
+ * image to be available.
+ * 
+ * To accommodate all this, the buffer stores all samples as 16-bit values, even
+ * if the original values are 8-bit or even 1 bit. This is a waste of space, but
+ * makes processing much easier, and it is only temporary.
+ * 
+ * The read buffer is constructed by a call to buffer_create(), which initializes
+ * the buffer based on width, height, number of colors and depth. The buffer
+ * contains data organized in color planes, with each plane consisting of lines,
+ * each line of a fixed number of (single color) pixels, and each pixel of a fixed
+ * number of bits (or bytes). 
+ * 
+ * The buffer maintains read and write pointers.
+ * 
+ * Multi-color data with a bit depth of 1 are packed in single color bytes, so
+ * the data obtained from the scanner does not need conversion.
+ *
+ * ========================================================================= */
+
 #define DEBUG_DECLARE_ONLY
 
-#include "pieusb.h"
+#include "pieusb_specific.h"
 #include "pieusb_buffer.h"
 
 #ifdef HAVE_ALLOCA_H
 #include <alloca.h>
 #endif
-
-/*static void buffer_output_state(struct Pieusb_Read_Buffer* buffer);*/
-
-/* Auxiliary */
-static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int increment);
-/*
-SANE_Byte* buffer_pack(const SANE_Uint* data, SANE_Int size, SANE_Int depth, SANE_Int* pack_size);
-SANE_Uint* buffer_unpack(const SANE_Byte* data, SANE_Int size, SANE_Int depth, SANE_Int* unpack_size);
-*/
-
-/*
- * Read buffer
- *
- * Data obtained from the scanner cannot be presented to the frontend immediately.
- * The scanner returns data in the 'index' color format, which means it returns
- * data in batches which contain a single color of a scan line.
- *
- * These must finally be converted into the SANE data format (data for a single
- * pixel in consecutive bytes). Apart from that, sane_read() must be able to
- * return any amount of data bytes.
- *
- * In between, data processing may be necessary, usually requiring the whole
- * image to be available.
- *
- * To accommodate all this, the buffer stores all samples as 16-bit values, even
- * if the original values are 8-bit or even 1 bit. This is a waste of space, but
- * makes processing much easier, and it is only temporary.
- *
- * The read buffer is constructed by a call to buffer_create(), which initializes
- * the buffer based on width, height, number of colors and depth. The buffer
- * contains bytes organized in lines, where each line consists of a fixed number
- * of pixels, each pixel of a fixed number of colors, and each color of a fixed
- * number of bits (or bytes).
- *
- * Reading from the buffer only requires incrementing a byte pointer. Reading
- * should check that data is returned from complete lines. The buffer maintains
- * a read pointer and a current read line index.
- *
- * Writing data into the buffer is somewhat more complex since the data must be
- * converted. The buffer maintains current write line indices for each color in
- * the buffer, and derives a free line index and a incomplete line index from
- * these. The free line index indicates the first line which contains no data
- * yet, the incomplete line index indicates the first line which data is incomplete
- * (at least one color has been written).
- *
- * Multi-color data with a bit depth of 1 are packed in single color bytes, so
- * the data obtained from the scanner does not need conversion.
- */
-
-#include "pieusb_specific.h"
-#include "pieusb_buffer.h"
 
 #include <stdio.h>
 #include <fcntl.h>
@@ -541,6 +522,12 @@ pieusb_buffer_get(struct Pieusb_Read_Buffer* buffer, SANE_Byte* data, SANE_Int m
     /* buffer_output_state(buffer); */
 }
 
+/**
+ * Update read index to point a given number of bytes past the current position.
+ * 
+ * @param buffer the buffer to initialize
+ * @param increment the amount of bytes to move the index
+ */
 static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int increment)
 {
     /* Update read indices
@@ -565,11 +552,10 @@ static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int incr
 }
 
 #if 0
-/*
- * buffer_output_state
- *
- * debug function
- *
+/**
+ * Display the buffer state.
+ * 
+ * @param buffer the buffer to initialize
  */
 
 static void buffer_output_state(struct Pieusb_Read_Buffer* buffer)
