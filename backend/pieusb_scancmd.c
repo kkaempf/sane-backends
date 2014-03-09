@@ -424,7 +424,7 @@ cmdGetHighlightShadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_
  * @see Pieusb_Shading_Parameters
  */
 void
-cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define SHADING_SIZE 32
@@ -433,7 +433,7 @@ cmdGetShadingParameters(SANE_Int device_number, struct Pieusb_Shading_Parameters
     int k;
     PIEUSB_SCSI_Status sst;
 
-    DBG (DBG_info_scan, "cmdGetShadingParameters()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_shading_parms()\n");
 
     /* Ask scanner to prepare the scan frame with the given index. Only SCSI_COMMAND_LEN bytes of data. */
     setCommand(command, SCSI_WRITE, SCSI_COMMAND_LEN);

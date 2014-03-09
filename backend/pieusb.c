@@ -411,7 +411,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     scanner->shading_data_present = SANE_FALSE;
     /* Options and buffers */
     pieusb_init_options (scanner);
-    cmdGetShadingParameters(scanner->device_number, scanner->device->shading_parameters, &rs);
+    pieusb_cmd_get_shading_parms(scanner->device_number, scanner->device->shading_parameters, &rs);
     if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
