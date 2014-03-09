@@ -544,7 +544,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
 {
     int i;
 
-    DBG (DBG_info_proc, "init_options\n");
+    DBG (DBG_info_proc, "pieusb_init_options\n");
 
     memset (scanner->opt, 0, sizeof (scanner->opt));
     memset (scanner->val, 0, sizeof (scanner->val));
