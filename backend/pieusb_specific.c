@@ -1639,8 +1639,8 @@ pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
     scanner->frame.code = 0x12;
     scanner->frame.index = 0x00;
     scanner->frame.size = 0x0A;
-    cmdSetScanFrame(scanner->device_number,0,&(scanner->frame), &status);
-    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): cmdSetScanFrame status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    pieusb_cmd_set_scan_frame(scanner->device_number,0,&(scanner->frame), &status);
+    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): pieusb_cmd_set_scan_frame status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
     return status.pieusb_status;
 }
 
@@ -1692,7 +1692,7 @@ pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
         case 8: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_8; break;
         case 16: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_16; break;
         default: /* 4, 10 & 12 */
-            DBG(DBG_error,"pieusb_set_mode_from_options(): cmdSetScanFrame untested bit depth %d\n",scanner->val[OPT_BIT_DEPTH].w);
+            DBG(DBG_error,"pieusb_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n",scanner->val[OPT_BIT_DEPTH].w);
             return SANE_STATUS_INVAL;
     }
     scanner->mode.byteOrder = 0x01; /* 0x01 = Intel; only bit 0 used */

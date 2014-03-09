@@ -577,18 +577,18 @@ cmdSetHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Half
  * @see Pieusb_Scan_Frame
  */
 void
-cmdSetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status)
+pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define FRAME_SIZE 14
     SANE_Int size = FRAME_SIZE;
     SANE_Byte data[FRAME_SIZE];
 
-    DBG (DBG_info_scan, "cmdSetScanFrame()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_set_scan_frame()\n");
 
     _prep_scsi_cmd(command, SCSI_WRITE, size);
 
-    DBG (DBG_info_scan, "cmdSetScanFrame() set:\n");
+    DBG (DBG_info_scan, "pieusb_cmd_set_scan_frame() set:\n");
     DBG (DBG_info_scan, " x0,y0 = %d,%d\n",frame->x0,frame->y0);
     DBG (DBG_info_scan, " x1,y1 = %d,%d\n",frame->x1,frame->y1);
     DBG (DBG_info_scan, " code = %d\n",frame->code);
