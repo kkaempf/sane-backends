@@ -42,6 +42,15 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
+/* =========================================================================
+ * 
+ * Pieusb scanner commands
+ *
+ * Each scanner command has its own function.
+ * See the sort description preceeding each function.
+ * 
+ * ========================================================================= */
+
 #define DEBUG_DECLARE_ONLY
 
 #include "pieusb.h"
