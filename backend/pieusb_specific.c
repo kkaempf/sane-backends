@@ -169,8 +169,9 @@ pieusb_find_device_callback (const char *devicename)
     Pieusb_Device_Definition *dev;
     int device_number; /* index in usb devices list maintained by sani_usb */
     Pieusb_Scanner_Properties inq;
+    int retry;
 
-    DBG (DBG_info_proc, "find_device_callback: %s\n", devicename);
+    DBG (DBG_info_proc, "pieusb_find_device_callback: %s\n", devicename);
 
     /* Check if device is present in the Pieusb device list */
     for (dev = definition_list_head; dev; dev = dev->next) {
@@ -189,23 +190,33 @@ pieusb_find_device_callback (const char *devicename)
     r = sanei_usb_open (devicename, &device_number);
     if (r != SANE_STATUS_GOOD) {
         free (dev);
-        DBG (DBG_error, "find_device_callback: sanei_usb_open failed for device %s: %s\n",devicename,sane_strstatus(r));
+        DBG (DBG_error, "pieusb_find_device_callback: sanei_usb_open failed for device %s: %s\n",devicename,sane_strstatus(r));
         return r;
     }
 
     /* Get device properties */
 
-    pieusb_cmd_inquiry(device_number, &inq, 5, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        free (dev);
-        DBG (DBG_error, "find_device_callback: get scanner properties (5 bytes) failed\n");
-        sanei_usb_close (device_number);
-        return status.pieusb_status;
+    retry = 2;
+    while (retry > 0) {
+      retry--;
+      pieusb_cmd_inquiry (device_number, &inq, 5, &status);
+      if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
+	break;
+      }
+      if (retry > 0) {
+	if (sanei_usb_reset(device_number) == SANE_STATUS_GOOD) {
+	  continue; /* retry after USB reset */
+	}
+      }
+      free (dev);
+      DBG (DBG_error, "pieusb_find_device_callback: get scanner properties (5 bytes) failed\n");
+      sanei_usb_close (device_number);
+      return status.pieusb_status;
     }
     pieusb_cmd_inquiry(device_number, &inq, inq.additionalLength+4, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         free (dev);
-        DBG (DBG_error, "find_device_callback: get scanner properties failed\n");
+        DBG (DBG_error, "pieusb_find_device_callback: get scanner properties failed\n");
         sanei_usb_close (device_number);
         return status.pieusb_status;
     }
@@ -225,12 +236,12 @@ pieusb_find_device_callback (const char *devicename)
     /* Check model number */
     if (inq.model != pieusb_supported_usb_device.model) {
         free (dev);
-        DBG (DBG_error, "find_device_callback: wrong model number %d\n", inq.model);
+        DBG (DBG_error, "pieusb_find_device_callback: wrong model number %d\n", inq.model);
         return SANE_STATUS_INVAL;
     }
 
     /* Found a supported scanner, put it in the definitions list*/
-    DBG (DBG_info_proc, "find_device_callback: success\n");
+    DBG (DBG_info_proc, "pieusb_find_device_callback: success\n");
     dev->next = definition_list_head;
     definition_list_head = dev;
     return SANE_STATUS_GOOD;
