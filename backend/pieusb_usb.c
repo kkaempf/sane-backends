@@ -175,7 +175,7 @@ pieusb_convert_status(PIEUSB_Status status)
  * If the REQUEST SENSE command fails, the SANE status code is unequal to
  * PIEUSB_STATUS_GOOD and the sense fields are empty.
  *
- * If repeat == 0, commandScannerRepeat() equals pieusb_scsi_command() with an
+ * If repeat == 0, pieusb_command() equals pieusb_scsi_command() with an
  * included sense check in case of a check sense return.
  *
  * @param device_number Device number
@@ -186,7 +186,7 @@ pieusb_convert_status(PIEUSB_Status status)
  * @param repeat Maximum number of tries after a busy state
  */
 void
-commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
+pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size, struct Pieusb_Command_Status *status)
 {
     int k = 10;
     int tries = 0;
@@ -195,7 +195,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
     struct Pieusb_Command_Status senseStatus;
 
 
-    DBG(DBG_info_usb,"commandScannerRepeat(%02x:%s): enter\n", command[0], scsi_cmd_to_text(command[0]));
+    DBG(DBG_info_usb,"pieusb_command(%02x:%s): enter\n", command[0], scsi_cmd_to_text(command[0]));
     do {
       PIEUSB_SCSI_Status sst;
       sst = pieusb_scsi_command(device_number, command, data, size);
@@ -212,7 +212,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
             case SCSI_STATUS_BUSY:
                 /* Decrement number of remaining retries and pause */
                 k--;
-                DBG(DBG_info_usb,"commandScannerRepeat(): busy - try %d\n", k);
+                DBG(DBG_info_usb,"pieusb_command(): busy - try %d\n", k);
                 if (k>0) {
 		  sleep(PIEUSB_WAIT_BUSY);
 		}
@@ -224,7 +224,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
             case SCSI_STATUS_WRITE_ERROR:
             case SCSI_STATUS_READ_ERROR:
                 /* Unexpected data returned by device */
-	        DBG(DBG_info_usb,"commandScannerRepeat(): error/invalid - exit: status %d\n", status->pieusb_status);
+	        DBG(DBG_info_usb,"pieusb_command(): error/invalid - exit: status %d\n", status->pieusb_status);
                 k = 0;
 	        status->pieusb_status = PIEUSB_STATUS_IO_ERROR;
                 break;
@@ -243,7 +243,7 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                          * Decrement number of remaining retries and pause */
                         status->pieusb_status = PIEUSB_STATUS_DEVICE_BUSY;
                         k--;
-                        DBG(DBG_info_usb,"commandScannerRepeat(): checked - busy - try %d\n", k);
+                        DBG(DBG_info_usb,"pieusb_command(): checked - busy - try %d\n", k);
                         if (k>0) sleep(PIEUSB_WAIT_BUSY);
                     } else {
                         status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
@@ -251,25 +251,25 @@ commandScannerRepeat(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
                         status->senseCode = sense.senseCode;
                         status->senseQualifier = sense.senseQualifier;
                         sd = senseDescription(&sense);
-                        DBG(DBG_info_usb,"commandScannerRepeat(): CHECK CONDITION: %s\n", sd);
+                        DBG(DBG_info_usb,"pieusb_command(): CHECK CONDITION: %s\n", sd);
                         free(sd);
                         k = 0;
                     }
                 } else {
-                    DBG(DBG_error,"commandScannerRepeat(): CHECK CONDITION, but REQUEST SENSE fails\n");
+                    DBG(DBG_error,"pieusb_command(): CHECK CONDITION, but REQUEST SENSE fails\n");
                     status->pieusb_status = PIEUSB_STATUS_INVAL;
                     k = 0;
                 }
                 break;
 
             default:
-	      DBG(DBG_info_usb, "commandScannerRepeat(): unhandled status %02x\n", sst);
+	      DBG(DBG_info_usb, "pieusb_command(): unhandled status %02x\n", sst);
                 /* Keep current status */
                 break;
         }
 
      } while (k>0);
-     DBG(DBG_info_usb, "commandScannerRepeat(): ready, tries=%d\n", tries);
+     DBG(DBG_info_usb, "pieusb_command(): ready, tries=%d\n", tries);
 }
 
 /**

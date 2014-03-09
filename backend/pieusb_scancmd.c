@@ -225,7 +225,7 @@ cmdIsUnitReady(SANE_Int device_number, struct Pieusb_Command_Status *status)
 
     setCommand(command, SCSI_TEST_UNIT_READY, 0);
 
-    commandScannerRepeat(device_number, command, NULL, 0, status);
+    pieusb_command(device_number, command, NULL, 0, status);
 
     DBG (DBG_info_scan, "cmdIsUnitReady() return status = %s\n", sane_strstatus(status->pieusb_status));
 }
@@ -492,7 +492,7 @@ cmdGetScannedLines(SANE_Int device_number, SANE_Byte* data, SANE_Int lines, SANE
     setCommand(command, SCSI_READ, lines);
     memset(data, '\0', size);
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
 }
 
 /**
@@ -551,7 +551,7 @@ cmdSetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame
     _set_short(frame->x1, data, 10);
     _set_short(frame->y1, data, 12);
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
 #undef FRAME_SIZE
 }
 
@@ -631,7 +631,7 @@ cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* para
     setCommand(command, SCSI_PARAM, size);
     memset(data, '\0', size);
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
@@ -686,7 +686,7 @@ pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq
     setCommand(command, SCSI_INQUIRY, size);
     memset(data, '\0', INQUIRY_SIZE); /* size may be less than INQUIRY_SIZE, so prevent returning noise */
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
@@ -783,7 +783,7 @@ cmdSetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
     _set_byte(mode->halftonePattern, data, 12);
     _set_byte(mode->lineThreshold, data, 13);
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
 #undef MODE_SIZE
 }
 
@@ -813,7 +813,7 @@ cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Sta
     setCommand(command, SCSI_COPY, size);
 
     memset(mask, '\0', size);
-    commandScannerRepeat(device_number, command, mask, size, status);
+    pieusb_command(device_number, command, mask, size, status);
 
 /*
     int k;
@@ -851,7 +851,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
     setCommand(command, SCSI_MODE_SENSE, size);
     memset(data, '\0', size);
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
@@ -924,7 +924,7 @@ cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 
     setCommand(command, SCSI_SCAN, 1);
 
-    commandScannerRepeat(device_number, command, NULL, 0, status);
+    pieusb_command(device_number, command, NULL, 0, status);
 }
 
 /**
@@ -943,7 +943,7 @@ cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 
     setCommand(command, SCSI_SCAN, 0);
 
-    commandScannerRepeat(device_number, command, NULL, 0, status);
+    pieusb_command(device_number, command, NULL, 0, status);
 }
 
 /**
@@ -1001,7 +1001,7 @@ cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pie
             break;
     }
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
 #undef SCAN_HEAD_SIZE
 }
 
@@ -1031,7 +1031,7 @@ cmdGetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struc
     setCommand(command, SCSI_READ_GAIN_OFFSET, size);
 
     memset(data, '\0', size);
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
@@ -1110,7 +1110,7 @@ cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struc
     _set_byte(settings->offset[3], data, 20);
     _set_byte(settings->gain[3], data, 22);
 
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
 #undef GAIN_OFFSET_SIZE
 }
 
@@ -1137,7 +1137,7 @@ cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct P
     setCommand(command, SCSI_READ_STATE, size);
 
     memset(data, '\0', size);
-    commandScannerRepeat(device_number, command, data, size, status);
+    pieusb_command(device_number, command, data, size, status);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
