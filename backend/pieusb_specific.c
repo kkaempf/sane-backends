@@ -1926,16 +1926,17 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
 
-    cmdGetCCDMask(scanner->device_number, scanner->ccd_mask, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        return SANE_STATUS_INVAL;
-    }
+    DBG(DBG_info_proc, "pieusb_get_ccd_mask()");
     /* Wait loop */
-    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
+    pieusb_wait_ready(scanner->device_number, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
 
+    cmdGetCCDMask(scanner->device_number, scanner->ccd_mask, &status);
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+        return SANE_STATUS_INVAL;
+    }
     /* Save CCD mask */
     if (scanner->val[OPT_SAVE_CCDMASK].b) {
         FILE* fs = fopen("pieusb.ccd", "w");
@@ -1961,12 +1962,14 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     struct Pieusb_Scan_Parameters parameters;
     const char *mode;
 
-    pieusb_cmd_get_parameters (scanner->device_number, &parameters, &status);
+    DBG(DBG_info_proc, "pieusb_get_parameters()");
+    /* Wait loop */
+    pieusb_wait_ready(scanner->device_number, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
-    /* Wait loop */
-    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
+
+    pieusb_cmd_get_parameters (scanner->device_number, &parameters, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
