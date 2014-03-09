@@ -661,8 +661,28 @@ pieusb_cmd_set_exposure_time(SANE_Int device_number, struct Pieusb_Exposure_Time
 void
 pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status)
 {
-    DBG (DBG_info_scan, "pieusb_cmd_set_highlight_shadow(): not implemented\n");
-    status->pieusb_status = PIEUSB_STATUS_INVAL;
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define HIGHLIGHT_SHADOW_SIZE 8
+    SANE_Byte data[HIGHLIGHT_SHADOW_SIZE];
+    struct Pieusb_Highlight_Shadow_Color *color;
+    int i;
+
+    DBG (DBG_info_scan, "pieusb_cmd_set_highlight_shadow()\n");
+
+    for (i = 0; i < 3; ++i) { /* R, G, B */
+      _prep_scsi_cmd(command, SCSI_WRITE, HIGHLIGHT_SHADOW_SIZE);
+      memset(data, '\0', HIGHLIGHT_SHADOW_SIZE);
+      color = &(hgltshdw->color[i]);
+      _set_short(SCSI_SET_HIGHLIGHT_SHADOW, data, 0);
+      _set_short(HIGHLIGHT_SHADOW_SIZE-4, data, 2); /* short: RGB, short: value */
+      _set_short(color->filter, data, 4);      /* 1: neutral, 2: R, 4: G, 8: B */
+      _set_short(color->value, data, 6);
+      pieusb_command(device_number, command, data, HIGHLIGHT_SHADOW_SIZE, status);
+      if (status->pieusb_status != PIEUSB_STATUS_GOOD)
+	break;
+    }
+
+#undef HIGHLIGHT_SHADOW_SIZE
 }
 
 /**

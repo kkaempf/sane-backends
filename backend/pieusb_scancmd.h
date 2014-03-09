@@ -263,8 +263,7 @@ struct Pieusb_Exposure_Time {
 
 struct Pieusb_Highlight_Shadow_Color {
     SANE_Int filter; /* color mask 0x02, 0x04 or 0x08 for R, G, B */
-    SANE_Byte highlightValue; /* range unknown, value is not used */
-    SANE_Byte shadowValue; /* range unknown, value is not used */
+    SANE_Int value; /* 0-100 */
 };
 
 struct Pieusb_Highlight_Shadow {

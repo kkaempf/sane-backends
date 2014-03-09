@@ -898,6 +898,23 @@ sane_start (SANE_Handle handle)
     } while (0);
 
     /* ----------------------------------------------------------------------
+     * set highlight shadow
+     * ---------------------------------------------------------------------- */
+
+    do {
+      struct Pieusb_Highlight_Shadow shadow = {
+	0x93, /* code 0x94 */
+        3 * 2 * sizeof(SANE_Int), /* number of bytes in rest of structure */
+	{ { 0x02, 100 }, { 0x04, 100 }, { 0x08, 100 } }
+      };
+      pieusb_cmd_set_highlight_shadow(scanner->device_number, &shadow, &status);
+      if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+        DBG (DBG_error,"sane_start(): pieusb_cmd_set_highlight_shadow failed: %d\n", status.pieusb_status);
+        return SANE_STATUS_IO_ERROR;
+      }
+    } while (0);
+
+    /* ----------------------------------------------------------------------
      *
      * Standard run does;
      * - set exposure time 0x0A/0x13
