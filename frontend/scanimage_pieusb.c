@@ -166,7 +166,7 @@ sighandler (int signum)
 	{
 	  first_time = SANE_FALSE;
 	  fprintf (stderr, "%s: trying to stop scanner\n", prog_name);
-	  sane_pieusb_cancel (device);
+	  sane_cancel (device);
 	}
       else
 	{
@@ -386,7 +386,7 @@ print_option (SANE_Device * device, int opt_num, const SANE_Option_Descriptor *o
       if (SANE_OPTION_IS_ACTIVE (opt->cap))
 	{
 	  void *val = alloca (opt->size);
-	  sane_pieusb_control_option (device, opt_num, SANE_ACTION_GET_VALUE, val,
+	  sane_control_option (device, opt_num, SANE_ACTION_GET_VALUE, val,
 			       0);
 	  fputs (" [", stdout);
 	  switch (opt->type)
@@ -456,13 +456,13 @@ print_option (SANE_Device * device, int opt_num, const SANE_Option_Descriptor *o
 	    }
 	  fputc (']', stdout);
 	}
-    } else if (opt->size <= 4*sizeof (SANE_Word)) {
+    } else if (opt->size <= (int)(4*sizeof (SANE_Word))) {
         /* Added to give some more information about arrays */
         void *val = alloca (opt->size);
-	sane_pieusb_control_option (device, opt_num, SANE_ACTION_GET_VALUE, val, 0);
         int size = opt->size/sizeof (SANE_Word);
         int k;
         SANE_Word * vali = (SANE_Word *)val;
+	sane_control_option (device, opt_num, SANE_ACTION_GET_VALUE, val, 0);
 /*
         char *valc = (char *)val;
         int *valj = (int *)val;
@@ -492,7 +492,7 @@ print_option (SANE_Device * device, int opt_num, const SANE_Option_Descriptor *o
         printf ("%d", *vali);
         fputc(']', stdout);
     } else {
-        printf ("[%d-element array]", opt->size/sizeof (SANE_Word));
+        printf ("[%lu-element array]", opt->size/sizeof (SANE_Word));
     }
 
   if (!SANE_OPTION_IS_ACTIVE (opt->cap))
@@ -755,14 +755,14 @@ fetch_options (SANE_Device * device)
   int i, option_count;
   SANE_Status status;
 
-  opt = sane_pieusb_get_option_descriptor (device, 0);
+  opt = sane_get_option_descriptor (device, 0);
   if (opt == NULL)
     {
       fprintf (stderr, "Could not get option descriptor for option 0\n");
       exit (1);
     }
 
-  status = sane_pieusb_control_option (device, 0, SANE_ACTION_GET_VALUE,
+  status = sane_control_option (device, 0, SANE_ACTION_GET_VALUE,
                                 &num_dev_options, 0);
   if (status != SANE_STATUS_GOOD)
     {
@@ -775,7 +775,7 @@ fetch_options (SANE_Device * device)
   option_count = 0;
   for (i = 1; i < num_dev_options; ++i)
     {
-      opt = sane_pieusb_get_option_descriptor (device, i);
+      opt = sane_get_option_descriptor (device, i);
       if (opt == NULL)
 	{
 	  fprintf (stderr, "Could not get option descriptor for option %d\n",i);
@@ -859,11 +859,11 @@ fetch_options (SANE_Device * device)
     {
       if (window[i] && !window_val_user[i])
 	{
-	  sane_pieusb_control_option (device, window[i],
+	  sane_control_option (device, window[i],
                                 SANE_ACTION_GET_VALUE, &window_val[i], 0);
           if (window[i + 2]){
 	    SANE_Word pos;
-	    sane_pieusb_control_option (device, window[i + 2],
+	    sane_control_option (device, window[i + 2],
 			       SANE_ACTION_GET_VALUE, &pos, 0);
 	    window_val[i] -= pos;
           }
@@ -883,7 +883,7 @@ set_option (SANE_Handle device, int optnum, void *valuep)
   fprintf(stderr,"set_option(): option %d\n",optnum);
 */
   
-  opt = sane_pieusb_get_option_descriptor (device, optnum);
+  opt = sane_get_option_descriptor (device, optnum);
   if (opt && (!SANE_OPTION_IS_ACTIVE (opt->cap)))
     {
       if (verbose > 0)
@@ -895,7 +895,7 @@ set_option (SANE_Handle device, int optnum, void *valuep)
   if (opt->size == sizeof (SANE_Word) && opt->type != SANE_TYPE_STRING)
     orig = *(SANE_Word *) valuep;
 
-  status = sane_pieusb_control_option (device, optnum, SANE_ACTION_SET_VALUE,
+  status = sane_control_option (device, optnum, SANE_ACTION_SET_VALUE,
 				valuep, &info);
   if (status != SANE_STATUS_GOOD)
     {
@@ -929,13 +929,12 @@ process_backend_option (SANE_Handle device, int optnum, const char *optarg)
   SANE_Status status;
   SANE_Word value;
   void *valuep;
-  int k;
 
-  opt = sane_pieusb_get_option_descriptor (device, optnum);
+  opt = sane_get_option_descriptor (device, optnum);
 
   if (opt->type == SANE_TYPE_BOOL && !optarg) {
       /* NULL option argument interpreted as 'yes' for boolean options */
-      fprintf(stderr,"Setting backend option %d (%s) to yes\n",optnum,opt->name,optarg);
+      fprintf(stderr,"Setting backend option %d (%s) to yes\n",optnum,opt->name);
   } else {
       fprintf(stderr,"Setting backend option %d (%s) to %s\n",optnum,opt->name,optarg);
   }
@@ -948,7 +947,7 @@ process_backend_option (SANE_Handle device, int optnum, const char *optarg)
     }
 
   if ((opt->cap & SANE_CAP_AUTOMATIC) && optarg && strncasecmp (optarg, "auto", 4) == 0) {
-      status = sane_pieusb_control_option (device, optnum, SANE_ACTION_SET_AUTO, 0, 0);
+      status = sane_control_option (device, optnum, SANE_ACTION_SET_AUTO, 0, 0);
       if (status != SANE_STATUS_GOOD) {
 	  fprintf (stderr, "%s: failed to set option --%s to automatic (%s)\n", prog_name, opt->name, sane_strstatus (status));
 	  exit (1);
@@ -990,7 +989,7 @@ process_backend_option (SANE_Handle device, int optnum, const char *optarg)
       }
       /* Get current values in order to retain those not set now */
       if (vector_length>1) {
-          status = sane_pieusb_control_option (device, optnum, SANE_ACTION_GET_VALUE, vector, 0);
+          status = sane_control_option (device, optnum, SANE_ACTION_GET_VALUE, vector, 0);
           if (status != SANE_STATUS_GOOD) {
 	      fprintf (stderr, "%s: failed to get option value %s (%s)\n", prog_name, opt->name, sane_strstatus (status));
 	      exit (1);
@@ -1103,24 +1102,24 @@ scan_it (void)
 #ifdef SANE_STATUS_WARMING_UP
           do
 	    {
-	      status = sane_pieusb_start (device);
+	      status = sane_start (device);
 	    }
 	  while(status == SANE_STATUS_WARMING_UP);
 #else
-	  status = sane_pieusb_start (device);
+	  status = sane_start (device);
 #endif
 	  if (status != SANE_STATUS_GOOD)
 	    {
-	      fprintf (stderr, "%s: sane_pieusb_start: %s\n",
+	      fprintf (stderr, "%s: sane_start: %s\n",
 		       prog_name, sane_strstatus (status));
 	      goto cleanup;
 	    }
 	}
 
-      status = sane_pieusb_get_parameters (device, &parm);
+      status = sane_get_parameters (device, &parm);
       if (status != SANE_STATUS_GOOD)
 	{
-	  fprintf (stderr, "%s: sane_pieusb_get_parameters: %s\n",
+	  fprintf (stderr, "%s: sane_get_parameters: %s\n",
 		   prog_name, sane_strstatus (status));
 	  goto cleanup;
 	}
@@ -1152,7 +1151,7 @@ scan_it (void)
 
       if (first_frame)
 	{
-	  switch (parm.format)
+	  switch ((int)parm.format)
 	    {
 	    case SANE_FRAME_RED:
 	    case SANE_FRAME_GREEN:
@@ -1229,7 +1228,7 @@ scan_it (void)
       while (1)
 	{
 	  double progr;
-	  status = sane_pieusb_read (device, buffer, buffer_size, &len);
+	  status = sane_read (device, buffer, buffer_size, &len);
 	  total_bytes += (SANE_Word) len;
           progr = ((total_bytes * 100.) / (double) hundred_percent);
           if (progr > 100.)
@@ -1244,7 +1243,7 @@ scan_it (void)
 			 prog_name, min, max);
 	      if (status != SANE_STATUS_EOF)
 		{
-		  fprintf (stderr, "%s: sane_pieusb_read: %s\n",
+		  fprintf (stderr, "%s: sane_read: %s\n",
 			   prog_name, sane_strstatus (status));
 		  return status;
 		}
@@ -1312,7 +1311,7 @@ scan_it (void)
 #if !defined(WORDS_BIGENDIAN)
 		  int i, start = 0;
 
-		  /* check if we have saved one byte from the last sane_pieusb_read */
+		  /* check if we have saved one byte from the last sane_read */
 		  if (hang_over > -1)
 		    {
 		      if (len > 0)
@@ -1446,24 +1445,24 @@ test_it (void)
 #ifdef SANE_STATUS_WARMING_UP
   do
     {
-      status = sane_pieusb_start (device);
+      status = sane_start (device);
     }
   while(status == SANE_STATUS_WARMING_UP);
 #else
-  status = sane_pieusb_start (device);
+  status = sane_start (device);
 #endif
 
   if (status != SANE_STATUS_GOOD)
     {
-      fprintf (stderr, "%s: sane_pieusb_start: %s\n",
+      fprintf (stderr, "%s: sane_start: %s\n",
 	       prog_name, sane_strstatus (status));
       goto cleanup;
     }
 
-  status = sane_pieusb_get_parameters (device, &parm);
+  status = sane_get_parameters (device, &parm);
   if (status != SANE_STATUS_GOOD)
     {
-      fprintf (stderr, "%s: sane_pieusb_get_parameters: %s\n",
+      fprintf (stderr, "%s: sane_get_parameters: %s\n",
 	       prog_name, sane_strstatus (status));
       goto cleanup;
     }
@@ -1486,14 +1485,14 @@ test_it (void)
   clean_buffer (image.data, parm.bytes_per_line * 2);
   fprintf (stderr, "%s: reading one scanline, %d bytes...\t", prog_name,
 	   parm.bytes_per_line);
-  status = sane_pieusb_read (device, image.data, parm.bytes_per_line, &len);
+  status = sane_read (device, image.data, parm.bytes_per_line, &len);
   pass_fail (parm.bytes_per_line, len, image.data, status);
   if (status != SANE_STATUS_GOOD)
     goto cleanup;
 
   clean_buffer (image.data, parm.bytes_per_line * 2);
   fprintf (stderr, "%s: reading one byte...\t\t", prog_name);
-  status = sane_pieusb_read (device, image.data, 1, &len);
+  status = sane_read (device, image.data, 1, &len);
   pass_fail (1, len, image.data, status);
   if (status != SANE_STATUS_GOOD)
     goto cleanup;
@@ -1502,7 +1501,7 @@ test_it (void)
     {
       clean_buffer (image.data, parm.bytes_per_line * 2);
       fprintf (stderr, "%s: stepped read, %d bytes... \t", prog_name, i);
-      status = sane_pieusb_read (device, image.data, i, &len);
+      status = sane_read (device, image.data, i, &len);
       pass_fail (i, len, image.data, status);
       if (status != SANE_STATUS_GOOD)
 	goto cleanup;
@@ -1512,14 +1511,14 @@ test_it (void)
     {
       clean_buffer (image.data, parm.bytes_per_line * 2);
       fprintf (stderr, "%s: stepped read, %d bytes... \t", prog_name, i - 1);
-      status = sane_pieusb_read (device, image.data, i - 1, &len);
+      status = sane_read (device, image.data, i - 1, &len);
       pass_fail (i - 1, len, image.data, status);
       if (status != SANE_STATUS_GOOD)
 	goto cleanup;
     }
 
 cleanup:
-  sane_pieusb_cancel (device);
+  sane_cancel (device);
   if (image.data)
     free (image.data);
   return status;
@@ -1535,7 +1534,7 @@ get_resolution (void)
 
   if (resolution_optind < 0)
     return 0;
-  resopt = sane_pieusb_get_option_descriptor (device, resolution_optind);
+  resopt = sane_get_option_descriptor (device, resolution_optind);
   if (!resopt)
     return 0;
 
@@ -1543,7 +1542,7 @@ get_resolution (void)
   if (!val)
     return 0;
 
-  sane_pieusb_control_option (device, resolution_optind, SANE_ACTION_GET_VALUE, val,
+  sane_control_option (device, resolution_optind, SANE_ACTION_GET_VALUE, val,
 		       0);
   if (resopt->type == SANE_TYPE_INT)
     resol = *(SANE_Int *) val;
@@ -1560,11 +1559,11 @@ scanimage_exit (void)
     {
       if (verbose > 1)
 	fprintf (stderr, "Closing device\n");
-      sane_pieusb_close (device);
+      sane_close (device);
     }
   if (verbose > 1)
-    fprintf (stderr, "Calling sane_pieusb_exit\n");
-  sane_pieusb_exit ();
+    fprintf (stderr, "Calling sane_exit\n");
+  sane_exit ();
 
   if (all_options)
     free (all_options);
@@ -1595,7 +1594,7 @@ static void print_options(SANE_Device * device, SANE_Int num_dev_options, SANE_B
 	  opt = window_option + j;
 
       if (!opt)
-	opt = sane_pieusb_get_option_descriptor (device, i);
+	opt = sane_get_option_descriptor (device, i);
 
       if (ro || SANE_OPTION_IS_SETTABLE (opt->cap)
 	  || opt->type == SANE_TYPE_GROUP)
@@ -1637,7 +1636,7 @@ main (int argc, char **argv)
 
   defdevname = getenv ("SANE_DEFAULT_DEVICE");
 
-  sane_pieusb_init (&version_code, NULL);
+  sane_init (&version_code, NULL);
 
   /* make a first pass through the options with error printing and argument
      permutation disabled: */
@@ -1715,10 +1714,10 @@ main (int argc, char **argv)
 	  {
 	    int i = 0;
 
-	    status = sane_pieusb_get_devices (&device_list, SANE_FALSE);
+	    status = sane_get_devices (&device_list, SANE_FALSE);
 	    if (status != SANE_STATUS_GOOD)
 	      {
-		fprintf (stderr, "%s: sane_pieusb_get_devices() failed: %s\n",
+		fprintf (stderr, "%s: sane_get_devices() failed: %s\n",
 			 prog_name, sane_strstatus (status));
 		exit (1);
 	      }
@@ -1846,8 +1845,8 @@ main (int argc, char **argv)
 
   if (help)
     {
-      printf ("Usage: %s [OPTION]...\n\
-\n\
+      printf ("Usage: %s [OPTION]...\n", prog_name);
+      printf ("\n\
 Start image acquisition on a scanner device and write image data to\n\
 standard output.\n\
 \n\
@@ -1856,10 +1855,11 @@ Parameters are separated by a blank from single-character options (e.g.\n\
 Array values can be set quite sophisticatedly. [4]27 sets element 4 to 27.\n\
 [4]27,[5]29 also sets element 5 to 29. [3]100-[7]150 sets elements 3 - 7 to\n\
 linearly interpolated values from 100 to 150. Unspecified elements retain their\n\
-values.\n\
+values.\n");
+      printf("\
 -d, --device-name=DEVICE   use a given scanner device (e.g. hp:/dev/scanner)\n\
     --format=pnm|tiff      file format of output file\n\
--i, --icc-profile=PROFILE  include this ICC profile into TIFF file\n", prog_name);
+-i, --icc-profile=PROFILE  include this ICC profile into TIFF file\n");
       printf ("\
 -L, --list-devices         show available scanner devices\n\
 -f, --formatted-device-list=FORMAT similar to -L, but the FORMAT of the output\n\
@@ -1895,10 +1895,10 @@ values.\n\
       devname = defdevname;
       if (!devname)
 	{
-	  status = sane_pieusb_get_devices (&device_list, SANE_FALSE);
+	  status = sane_get_devices (&device_list, SANE_FALSE);
 	  if (status != SANE_STATUS_GOOD)
 	    {
-	      fprintf (stderr, "%s: sane_pieusb_get_devices() failed: %s\n",
+	      fprintf (stderr, "%s: sane_get_devices() failed: %s\n",
 		       prog_name, sane_strstatus (status));
 	      exit (1);
 	    }
@@ -1911,7 +1911,7 @@ values.\n\
 	}
     }
 
-  status = sane_pieusb_open (devname, &device);
+  status = sane_open (devname, &device);
   if (status != SANE_STATUS_GOOD)
     {
       fprintf (stderr, "%s: open of device %s failed: %s\n",
@@ -1935,7 +1935,7 @@ values.\n\
       const SANE_Option_Descriptor * desc_ptr;
 
       /* Good form to always get the descriptor once before value */
-      desc_ptr = sane_pieusb_get_option_descriptor(device, 0);
+      desc_ptr = sane_get_option_descriptor(device, 0);
       if (!desc_ptr)
 	{
 	  fprintf (stderr, "%s: unable to get option count descriptor\n",
@@ -1944,7 +1944,7 @@ values.\n\
 	}
 
       /* We got a device, find out how many options it has */
-      status = sane_pieusb_control_option (device, 0, SANE_ACTION_GET_VALUE,
+      status = sane_control_option (device, 0, SANE_ACTION_GET_VALUE,
 				    &num_dev_options, 0);
       if (status != SANE_STATUS_GOOD)
 	{
@@ -2068,7 +2068,7 @@ values.\n\
 
 	    if (window[index + 2])
 	      {
-		sane_pieusb_control_option (device, window[index + 2],
+		sane_control_option (device, window[index + 2],
 				     SANE_ACTION_GET_VALUE, &pos, 0);
 		val += pos;
 	      }
@@ -2098,7 +2098,7 @@ values.\n\
 Type ``%s --help -d DEVICE'' to get list of all options for DEVICE.\n\
 \n\
 List of available devices:", prog_name);
-      status = sane_pieusb_get_devices (&device_list, SANE_FALSE);
+      status = sane_get_devices (&device_list, SANE_FALSE);
       if (status == SANE_STATUS_GOOD)
 	{
 	  int column = 80;
@@ -2198,15 +2198,15 @@ List of available devices:", prog_name);
 #ifdef SANE_STATUS_WARMING_UP
           do
 	    {
-	      status = sane_pieusb_start (device);
+	      status = sane_start (device);
 	    }
 	  while(status == SANE_STATUS_WARMING_UP);
 #else
-	  status = sane_pieusb_start (device);
+	  status = sane_start (device);
 #endif
 	  if (status != SANE_STATUS_GOOD)
 	    {
-	      fprintf (stderr, "%s: sane_pieusb_start: %s\n",
+	      fprintf (stderr, "%s: sane_start: %s\n",
 		       prog_name, sane_strstatus (status));
 	      fclose (stdout);
 	      break;
@@ -2239,7 +2239,7 @@ List of available devices:", prog_name);
 		  if (NULL == freopen ("/dev/null", "w", stdout))
 		    {
 		      fprintf (stderr, "cannot open /dev/null\n");
-		      sane_pieusb_cancel (device);
+		      sane_cancel (device);
 		      return SANE_STATUS_ACCESS_DENIED;
 		    }
 		  else
@@ -2249,7 +2249,7 @@ List of available devices:", prog_name);
 			{
 			  fprintf (stderr, "cannot rename %s to %s\n",
 				part_path, path);
-			  sane_pieusb_cancel (device);
+			  sane_cancel (device);
 			  return SANE_STATUS_ACCESS_DENIED;
 			}
 		    }
@@ -2269,7 +2269,7 @@ List of available devices:", prog_name);
 	      && (batch_count == BATCH_COUNT_UNLIMITED || --batch_count))
 	     && SANE_STATUS_GOOD == status);
 
-      sane_pieusb_cancel (device);
+      sane_cancel (device);
     }
   else
     status = test_it ();
