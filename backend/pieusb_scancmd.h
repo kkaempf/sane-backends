@@ -342,8 +342,6 @@ void cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, str
 
 /* Utility */
 
-void setCommand(SANE_Byte* command_bytes, SANE_Byte command, SANE_Word size);
-
 SANE_String senseDescription(struct Pieusb_Sense* sense);
 
 #endif	/* PIEUSB_SCANCMD_H */
