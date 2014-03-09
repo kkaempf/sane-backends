@@ -250,6 +250,8 @@ pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
 /* Additional SCSI READ/WRITE codes */
 #define SCSI_HALFTONE_PATTERN   0x11
 #define SCSI_SCAN_FRAME         0x12
+#define SCSI_SET_EXPOSURE       0x13
+#define SCSI_SET_HIGHLIGHT_SHADOW 0x14
 #define SCSI_CALIBRATION_INFO   0x15
 
 /**
@@ -441,9 +443,9 @@ cmdGetScanFrame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame
  * @see Pieusb_Exposure_Time
  */
 void
-cmdGetRelativeExposureTime(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_exposure_time(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status)
 {
-    DBG (DBG_info_scan, "cmdGetRelativeExposureTime(): not implemented\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_exposure_time(): not implemented\n");
     status->pieusb_status = PIEUSB_STATUS_INVAL;
 }
 
@@ -457,9 +459,9 @@ cmdGetRelativeExposureTime(SANE_Int device_number, SANE_Int colorbits, struct Pi
  * @see Pieusb_Highlight_Shadow
  */
 void
-cmdGetHighlightShadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_highlight_shadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status)
 {
-    DBG (DBG_info_scan, "cmdGetHighlightShadow(): not implemented\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_highlight_shadow(): not implemented\n");
     status->pieusb_status = PIEUSB_STATUS_INVAL;
 }
 
@@ -612,7 +614,7 @@ pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
 /**
  * Set the relative exposure time to the given values. Only the first
  * Pieusb_Exposure_Time_Color is used. The command is a SCSI
- * WRITE command (code 0x0A, write code 0x13).
+ * WRITE command (code SCSI_WRITE, write code SCSI_SET_EXPOSURE).
  *
  * @param device_number Device number
  * @param time Relative exposure time
@@ -620,16 +622,16 @@ pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
  * @see Pieusb_Exposure_Time
  */
 void
-cmdSetRelativeExposureTime(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status)
+pieusb_cmd_set_exposure_time(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status)
 {
-    DBG (DBG_info_scan, "cmdSetRelativeExposureTime(): not implemented\n");
+    DBG (DBG_info_scan, "pieusb_cmd_set_exposure_time(): not implemented\n");
     status->pieusb_status = PIEUSB_STATUS_INVAL;
 }
 
 /**
  * Set the highlight and shadow levels to the given values. Only the first
  * Pieusb_Highlight_Shadow_Color is used. The command is a SCSI
- * WRITE command (code 0x0A, write code 0x14).
+ * WRITE command (code SCSI_WRITE, write code SCSI_SET_HIGHLIGHT_SHADOW).
  *
  * @param device_number Device number
  * @param hgltshdw highlight and shadow level
@@ -637,9 +639,9 @@ cmdSetRelativeExposureTime(SANE_Int device_number, struct Pieusb_Exposure_Time* 
  * @see Pieusb_Highlight_Shadow
  */
 void
-cmdSetHighlightShadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status)
+pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status)
 {
-    DBG (DBG_info_scan, "cmdSetHighlightShadow(): not implemented\n");
+    DBG (DBG_info_scan, "pieusb_cmd_set_highlight_shadow(): not implemented\n");
     status->pieusb_status = PIEUSB_STATUS_INVAL;
 }
 
