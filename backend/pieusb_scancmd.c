@@ -1129,7 +1129,7 @@ cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struc
  * @return Pieusb_Command_Status
  */
 void
-cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status)
+pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define GET_STATE_SIZE 11
@@ -1137,7 +1137,7 @@ cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct P
     SANE_Int size = GET_STATE_SIZE;
 
     /* Execute READ STATUS command */
-    DBG (DBG_info_scan, "cmdGetState()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_read_state()\n");
 
     _prep_scsi_cmd(command, SCSI_READ_STATE, size);
 

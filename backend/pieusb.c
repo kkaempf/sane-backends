@@ -862,7 +862,7 @@ sane_start (SANE_Handle handle)
      * Exit with pause if not warmed up
      *
      * ---------------------------------------------------------------------- */
-    cmdGetState(scanner->device_number, &(scanner->state), &status);
+    pieusb_cmd_read_state(scanner->device_number, &(scanner->state), &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         DBG(DBG_error,"sane_start(): warmed up check returns status %s\n",  sane_strstatus(pieusb_convert_status(status.pieusb_status)));
         return SANE_STATUS_IO_ERROR;
