@@ -195,14 +195,14 @@ pieusb_find_device_callback (const char *devicename)
 
     /* Get device properties */
 
-    cmdDoInquiry(device_number, &inq, 5, &status);
+    pieusb_cmd_inquiry(device_number, &inq, 5, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         free (dev);
         DBG (DBG_error, "find_device_callback: get scanner properties (5 bytes) failed\n");
         sanei_usb_close (device_number);
         return status.pieusb_status;
     }
-    cmdDoInquiry(device_number, &inq, inq.additionalLength+4, &status);
+    pieusb_cmd_inquiry(device_number, &inq, inq.additionalLength+4, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         free (dev);
         DBG (DBG_error, "find_device_callback: get scanner properties failed\n");

@@ -674,14 +674,14 @@ cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* para
  * @see Pieusb_Scanner_Properties
  */
 void
-cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status)
+pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define INQUIRY_SIZE 256
     SANE_Byte data[INQUIRY_SIZE];
     int k;
 
-    DBG (DBG_info_scan, "cmdGetScannerProperties()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_inquiry()\n");
 
     setCommand(command, SCSI_INQUIRY, size);
     memset(data, '\0', INQUIRY_SIZE); /* size may be less than INQUIRY_SIZE, so prevent returning noise */

@@ -321,7 +321,7 @@ void cmdPrepareShadingParameters(SANE_Int device_number, struct Pieusb_Command_S
 
 void cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status);
 
-void cmdDoInquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status);
+void pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status);
 
 void cmdSetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status);
 
