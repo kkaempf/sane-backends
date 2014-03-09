@@ -269,8 +269,9 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	      break;
             default:
 	      DBG(DBG_info_usb, "pieusb_command(): unhandled scsi status %02x\n", sst);
-                /* Keep current status */
-                break;
+	      status->pieusb_status = PIEUSB_STATUS_IO_ERROR;
+	      k = 0;
+	      break;
         }
 
      } while (k>0);
