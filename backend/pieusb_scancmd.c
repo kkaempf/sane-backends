@@ -691,22 +691,22 @@ pieusb_cmd_get_parameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
     }
 
     /* Decode data recieved */
-    parameters->width = _get_short(data,0);
-    parameters->lines = _get_short(data,2);
-    parameters->bytes = _get_short(data,4);
-    parameters->filterOffset1 = _get_byte(data,6);
-    parameters->filterOffset2 = _get_byte(data,7);
-    parameters->period = _get_int(data,8);
-    parameters->scsiTransferRate = _get_short(data,12);
-    parameters->availableLines = _get_short(data,14);
+    parameters->width = _get_short(data, 0);
+    parameters->lines = _get_short(data, 2);
+    parameters->bytes = _get_short(data, 4);
+    parameters->filterOffset1 = _get_byte(data, 6);
+    parameters->filterOffset2 = _get_byte(data, 7);
+    parameters->period = _get_int(data, 8);
+    parameters->scsiTransferRate = _get_short(data, 12);
+    parameters->availableLines = _get_short(data, 14);
 
     DBG (DBG_info_scan, "pieusb_cmd_get_parameters() read:\n");
-    DBG (DBG_info_scan, " width = %d\n",parameters->width);
-    DBG (DBG_info_scan, " lines = %d\n",parameters->lines);
-    DBG (DBG_info_scan, " bytes = %d\n",parameters->bytes);
-    DBG (DBG_info_scan, " offset1 = %d\n",parameters->filterOffset1);
-    DBG (DBG_info_scan, " offset2 = %d\n",parameters->filterOffset2);
-    DBG (DBG_info_scan, " available lines = %d\n",parameters->availableLines);
+    DBG (DBG_info_scan, " width = %d\n", parameters->width);
+    DBG (DBG_info_scan, " lines = %d\n", parameters->lines);
+    DBG (DBG_info_scan, " bytes = %d\n", parameters->bytes);
+    DBG (DBG_info_scan, " offset1 = %d\n", parameters->filterOffset1);
+    DBG (DBG_info_scan, " offset2 = %d\n", parameters->filterOffset2);
+    DBG (DBG_info_scan, " available lines = %d\n", parameters->availableLines);
 #undef PARAMETER_SIZE
 }
 
@@ -1197,6 +1197,7 @@ pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state
     state->warmingUp = _get_byte(data, 5);
     state->scanning = _get_byte(data, 6);
 /*    state->busy = _get_byte(data, 8); */
+    DBG (DBG_info_scan, "pieusb_cmd_read_state(): button %d, warmingUp %d, scanning %d, busy? %d\n", state->buttonPushed, state->warmingUp, state->scanning, _get_byte(data, 8));
 #undef GET_STATE_SIZE
 }
 
