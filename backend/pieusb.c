@@ -171,6 +171,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
 
     /* Initialize usb */
     sanei_usb_init ();
+    sanei_usb_set_timeout(10 * 1000); /* 10 sec timeout */
 
     /* There are currently 3 scanners hardcoded into this backend, see below.
      * The config file may add other scanners using a line like
