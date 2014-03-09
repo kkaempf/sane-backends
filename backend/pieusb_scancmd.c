@@ -442,8 +442,8 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
 
     sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
     if (sst != SCSI_STATUS_OK) {
-      /* FIXME */
-        return;
+      status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
+      return;
     }
 
     /* Read shading parameters */
@@ -451,9 +451,13 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
 
     memset(data, '\0', size);
     sst = pieusb_scsi_command(device_number, command, data, size);
-    /* FIXME */
+    if (sst != SCSI_STATUS_OK) {
+      status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
+      return;
+    }
+
     /* Decode data */
-    for (k=0; k<data[4]; k++) {
+    for (k = 0; k < data[4]; k++) {
         shading[k].type = _get_byte(data, 8+6*k);
         shading[k].sendBits = _get_byte(data, 9+6*k);
         shading[k].recieveBits = _get_byte(data, 10+6*k);
@@ -461,6 +465,7 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
         shading[k].pixelsPerLine = _get_short(data, 12+6*k);
     }
 #undef SHADING_SIZE
+  status->pieusb_status = PIEUSB_STATUS_GOOD;
 }
 
 /**
