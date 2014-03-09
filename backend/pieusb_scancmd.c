@@ -61,6 +61,8 @@
 #include <alloca.h>
 #endif
 
+#include <time.h> /* for time() */
+
 static void _prep_scsi_cmd(SANE_Byte* command_bytes, SANE_Byte command, SANE_Word size);
 
 /* =========================================================================
@@ -180,6 +182,44 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
         *(dst+2*k) = *src & 0xFF;
         *(dst+2*k+1) = ((*src++)>>8) & 0xFF;
     }
+}
+
+
+/**
+ * Wait for scanner to get ready
+ * 
+ * loop of test_ready/read_state
+ * 
+ * @param device number
+ * @return SANE_Status
+ */
+
+void
+pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
+{
+  struct Pieusb_Scanner_State state;
+  time_t start, elapsed;
+
+  DBG (DBG_info_proc, "pieusb_wait_ready()\n");
+  start = time(NULL);
+  for(;;) {
+    pieusb_cmd_test_unit_ready(device_number, status);
+    DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_test_unit_ready: %d\n", status->pieusb_status);
+    if (status->pieusb_status == PIEUSB_STATUS_GOOD)
+      break;
+    pieusb_cmd_read_state(device_number, &state, status);
+    DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_read_state: %d\n", status->pieusb_status);
+    if (status->pieusb_status != PIEUSB_STATUS_DEVICE_BUSY)
+      break;
+    elapsed = time(NULL) - start;
+    if (elapsed > 120) { /* 2 minute overall timeout */
+      DBG (DBG_error, "scanner not ready after 2 minutes\n");
+      break;
+    }
+    if (elapsed % 2) {
+      DBG (DBG_info, "still waiting for scanner to get ready\n");
+    }
+  }
 }
 
 
@@ -1131,7 +1171,6 @@ cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struc
 /**
  * Get scanner state information: button pushed,
  * warming up, scanning.
- * The SCSI code is 0xDD, there is no related command name.
  *
  * @param device_number Device number
  * @param state State information
@@ -1141,7 +1180,7 @@ void
 pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
-#define GET_STATE_SIZE 11
+#define GET_STATE_SIZE 12
     SANE_Byte data[GET_STATE_SIZE];
     SANE_Int size = GET_STATE_SIZE;
 
@@ -1152,9 +1191,6 @@ pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state
 
     memset(data, '\0', size);
     pieusb_command(device_number, command, data, size, status);
-    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
-        return;
-    }
 
     /* Decode data recieved */
     state->buttonPushed = _get_byte(data, 0);

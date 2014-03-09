@@ -412,6 +412,11 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     scanner->shading_data_present = SANE_FALSE;
     /* Options and buffers */
     pieusb_init_options (scanner);
+    pieusb_wait_ready (scanner->device_number, &rs);
+    if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
+      DBG (DBG_error, "sane_open: scanner not ready %d\n", rs.pieusb_status);
+        return SANE_STATUS_DEVICE_BUSY;
+    }
     pieusb_cmd_get_shading_parms(scanner->device_number, scanner->device->shading_parameters, &rs);
     if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
       DBG (DBG_error, "sane_open: pieusb_cmd_get_shading_parms failed: %d\n", rs.pieusb_status);

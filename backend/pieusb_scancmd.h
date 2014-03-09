@@ -292,9 +292,11 @@ struct Pieusb_Shading_Parameters {
 
 typedef struct Pieusb_Scanner_Properties Pieusb_Scanner_Properties;
 
+void pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status);
+
 /* Scanner commands */
 
-void cmdIsUnitReady(SANE_Int device_number, struct Pieusb_Command_Status *status);
+void pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_Status *status);
 
 void cmdGetSense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Command_Status *status);
 
@@ -338,7 +340,7 @@ void cmdGetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, 
 
 void cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status);
 
-void cmdGetState(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status);
+void pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status);
 
 /* Utility */
 
