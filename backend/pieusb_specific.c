@@ -1482,28 +1482,31 @@ pieusb_print_options(struct Pieusb_Scanner *scanner)
 {
     int k;
     /* List current options and values */
-    DBG(DBG_info,"Num options = %d\n",scanner->val[OPT_NUM_OPTS].w);
+    DBG (DBG_info, "Num options = %d\n", scanner->val[OPT_NUM_OPTS].w);
     for (k = 1; k < scanner->val[OPT_NUM_OPTS].w; k++) {
         switch (scanner->opt[k].type) {
             case SANE_TYPE_BOOL:
-                DBG(DBG_info,"  Option %d: %s = %d\n",k,scanner->opt[k].name,scanner->val[k].b);
+                DBG(DBG_info,"  Option %d: %s = %d\n", k, scanner->opt[k].name, scanner->val[k].b);
                 break;
             case SANE_TYPE_INT:
                 if (k >= OPT_SET_EXPOSURE && k <= OPT_SET_OFFSET) {
-                    DBG(DBG_info,"  Option %d: %s = [%d,%d,%d,%d]\n",k,scanner->opt[k].name,
-                        scanner->val[k].wa[0],scanner->val[k].wa[1],scanner->val[k].wa[2],scanner->val[k].wa[3]);
+                    DBG(DBG_info,"  Option %d: %s = [%d,%d,%d,%d]\n", k, scanner->opt[k].name,
+                        scanner->val[k].wa[0], scanner->val[k].wa[1], scanner->val[k].wa[2], scanner->val[k].wa[3]);
                 } else {
-                    DBG(DBG_info,"  Option %d: %s = %d\n",k,scanner->opt[k].name,scanner->val[k].w);
+                    DBG(DBG_info,"  Option %d: %s = %d\n", k, scanner->opt[k].name, scanner->val[k].w);
                 }
                 break;
             case SANE_TYPE_FIXED:
-                DBG(DBG_info,"  Option %d: %s = %f\n",k,scanner->opt[k].name,SANE_UNFIX (scanner->val[k].w));
+                DBG(DBG_info,"  Option %d: %s = %f\n", k, scanner->opt[k].name, SANE_UNFIX (scanner->val[k].w));
                 break;
             case SANE_TYPE_STRING:
-                DBG(DBG_info,"  Option %d: %s = %s\n",k,scanner->opt[k].name,scanner->val[k].s);
+                DBG(DBG_info,"  Option %d: %s = %s\n", k, scanner->opt[k].name, scanner->val[k].s);
                 break;
+            case SANE_TYPE_GROUP:
+                DBG(DBG_info,"  Option %d: %s = %s\n", k, scanner->opt[k].title, scanner->val[k].s);
+	        break;
             default:
-                DBG(DBG_info,"  Option %d: %s unknown type %d\n",k,scanner->opt[k].name,scanner->opt[k].type);
+                DBG(DBG_info,"  Option %d: %s unknown type %d\n", k, scanner->opt[k].name, scanner->opt[k].type);
                 break;
         }
     }
