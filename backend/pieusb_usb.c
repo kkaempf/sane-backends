@@ -263,6 +263,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 }
                 break;
 	    case SCSI_STATUS_TIMEOUT:
+	      DBG(DBG_info_usb, "pieusb_command(): timeout -> I/O error\n");
 	      status->pieusb_status = PIEUSB_STATUS_IO_ERROR; 
 	      k = 0;
 	      break;
@@ -301,7 +302,6 @@ pieusb_ieee_command(SANE_Int device_number, SANE_Byte command)
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, command);
   if (st != SANE_STATUS_GOOD)
     return st;
-  usleep(100000); /* 100.000 usec -> 100 msec -> 0.1 sec */
     st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT|C1284_NSTROBE); /* CTRL_VAL_FINAL */
   if (st != SANE_STATUS_GOOD)
     return st;
