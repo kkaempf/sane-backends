@@ -146,12 +146,12 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     if (color_spec & 0x08) { buffer->color_index_infrared = 3; buffer->colors++; } else { buffer->color_index_infrared = -1; }
     if (buffer->colors == 0) {
         DBG(DBG_error, "pieusb_buffer_create(): no colors specified\n");
-        return;
+        return SANE_STATUS_INVAL;
     }
     buffer->depth = depth;
     if (depth < 1 || depth > 16) {
         DBG(DBG_error, "pieusb_buffer_create(): unsupported depth %d\n", depth);
-        return;
+        return SANE_STATUS_INVAL;
     }
     buffer->packing_density = (depth == 1) ? 8 : 1; /* These are all the situations we have */
 
@@ -167,13 +167,13 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     if (buffer->data_file == -1) {
         buffer->data = NULL;
 	perror("pieusb_buffer_create(): error opening image buffer file");
-        return;
+        return SANE_STATUS_IO_ERROR;
     }
     /* Stretch the file size */
     buffer_size_bytes = buffer->width * buffer->height * buffer->colors * sizeof(SANE_Uint);
     if (buffer_size_bytes == 0) {
       DBG(DBG_error, "pieusb_buffer_create(): buffer_size is zero: width %d, height %d, colors %d\n", buffer->width, buffer->height, buffer->colors);
-      return;
+      return SANE_STATUS_INVAL;
     }
     result = lseek(buffer->data_file, buffer_size_bytes-1, SEEK_SET);
     if (result == -1) {
@@ -181,7 +181,7 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
         buffer->data = NULL;
         DBG(DBG_error, "pieusb_buffer_create(): error calling lseek() to 'stretch' the file to %d bytes\n", buffer_size_bytes-1);
 	perror("pieusb_buffer_create(): error calling lseek()");
-        return;
+        return SANE_STATUS_INVAL;
     }
     /* Write one byte at the end */
     g = 0x00;
@@ -190,7 +190,7 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
 	close(buffer->data_file);
         buffer->data = NULL;
 	perror("pieusb_buffer_create(): error writing a byte at the end of the file");
-        return;
+        return SANE_STATUS_IO_ERROR;
     }
     /* Create memory map */
     buffer->data = mmap(NULL, buffer_size_bytes, PROT_WRITE | PROT_READ, MAP_SHARED, buffer->data_file, 0);
@@ -198,12 +198,16 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
         close(buffer->data_file);
         buffer->data = NULL;
         perror("pieusb_buffer_create(): error mapping file");
-        return;
+        return SANE_STATUS_INVAL;
     }
 
     /* Reading and writing */
     buffer->p_read = calloc(buffer->colors,sizeof(SANE_Uint*));
+    if (buffer->p_read == NULL)
+      return SANE_STATUS_NO_MEM;
     buffer->p_write = calloc(buffer->colors,sizeof(SANE_Uint*));
+    if (buffer->p_write == NULL)
+      return SANE_STATUS_NO_MEM;
     for (k = 0; k < buffer->colors; k++) {
         buffer->p_write[k] = buffer->data + k * buffer->height * buffer->width;
         buffer->p_read[k] = buffer->p_write[k];
@@ -220,6 +224,7 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
 
     DBG(DBG_info,"pieusb: Read buffer created: w=%d h=%d ncol=%d depth=%d in file %s\n",
       buffer->width, buffer->height, buffer->colors, buffer->depth, buffer_name);
+  return SANE_STATUS_GOOD;
 }
 
 /**
