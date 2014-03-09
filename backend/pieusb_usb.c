@@ -292,10 +292,11 @@ pieusb_ieee_command(SANE_Int device_number, SANE_Byte command)
 {
     SANE_Status st;
   static int sequence[] = { 0xff, 0xaa, 0x55, 0x00, 0xff, 0x87, 0x78 };
+#define SEQUENCE_LEN 7
   unsigned int i;
     /* 2 x 4 + 3 bytes preceding command, then SCSI_COMMAND_LEN bytes command */
     /* IEEE1284 command, see hpsj5s.c:cpp_daisy() */
-  for (i = 0; i < (sizeof(sequence)/sizeof(int)); ++i) {
+  for (i = 0; i < SEQUENCE_LEN; ++i) {
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, sequence[i]);
     if (st != SANE_STATUS_GOOD)
       return st;
@@ -315,6 +316,7 @@ pieusb_ieee_command(SANE_Int device_number, SANE_Byte command)
     return st;
 
   return st;
+#undef SEQUENCE_LEN
 }
 
 /**
