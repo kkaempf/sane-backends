@@ -1923,7 +1923,7 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
         return SANE_STATUS_INVAL;
     }
     /* Wait loop */
-    cmdIsUnitReady(scanner->device_number, &status);
+    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
@@ -1958,7 +1958,7 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
         return SANE_STATUS_INVAL;
     }
     /* Wait loop */
-    cmdIsUnitReady(scanner->device_number, &status);
+    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }

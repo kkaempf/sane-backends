@@ -217,17 +217,17 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
  * @return Pieusb_Command_Status SANE_STATUS_GOOD if ready, SANE_STATUS_DEVICE_BUSY if not
  */
 void
-cmdIsUnitReady(SANE_Int device_number, struct Pieusb_Command_Status *status)
+pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 
-    DBG (DBG_info_scan, "cmdIsUnitReady()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_test_unit_ready()\n");
 
     _prep_scsi_cmd(command, SCSI_TEST_UNIT_READY, 0);
 
     pieusb_command(device_number, command, NULL, 0, status);
 
-    DBG (DBG_info_scan, "cmdIsUnitReady() return status = %s\n", sane_strstatus(status->pieusb_status));
+    DBG (DBG_info_scan, "pieusb_cmd_test_unit_ready() return status = %s\n", sane_strstatus(status->pieusb_status));
 }
 
 /**
@@ -899,7 +899,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * The calibration phase is skipped if Pieusb_Mode.skipCalibration is set. If
  * the scanner determines a calibration is necessary, a CHECK CONDIDITION response
  * is returned. Available command during this phase:\n
- * 1. cmdIsUnitReady()\n
+ * 1. pieusb_cmd_test_unit_ready()\n
  * 2. cmdGetScannedLines(): read shading correction lines\n
  * 3. cmdStopScan: abort scanning process\n
  * 4. cmdGetOptimizedSettings() : the settings are generated during the initialisation of this phase, so they are current\n
@@ -907,12 +907,12 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * The line-by-line phase is only entered if Pieusb_Mode.div_10[0] bit 5 is
  * set. It is not implemented.\n\n
  * In the CCD-mask output phase the CCD-mask is read. Available command during this phase:\n
- * 1. cmdIsUnitReady()\n
+ * 1. pieusb_cmd_test_unit_ready()\n
  * 2. cmdGetCCDMask()\n
  * 3. cmdStopScan: abort scanning process\n\n
  * In the 'scan and output scan data' phase, the slide is scanned while data is
  * read in the mean time. Available command during this phase:\n
- * 1. cmdIsUnitReady()\n
+ * 1. pieusb_cmd_test_unit_ready()\n
  * 2. cmdGetScannedLines()\n
  * 2. cmdGetScanParameters()\n
  * 4. cmdStopScan: abort scanning process\n

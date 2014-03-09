@@ -964,13 +964,13 @@ sane_start (SANE_Handle handle)
         return SANE_STATUS_IO_ERROR;
     }
     /* Wait loop 1 */
-    cmdIsUnitReady(scanner->device_number, &status);
+    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
     /* Wait loop 2*/
-    cmdIsUnitReady(scanner->device_number, &status);
+    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
@@ -1011,7 +1011,7 @@ sane_start (SANE_Handle handle)
         }
 
         /* Wait loop */
-        cmdIsUnitReady(scanner->device_number, &status);
+        pieusb_cmd_test_unit_ready(scanner->device_number, &status);
         if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
