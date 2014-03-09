@@ -240,8 +240,8 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
         pieusb_supported_usb_device.product = pieusb_supported_usb_device_list[i].product;
         pieusb_supported_usb_device.model = pieusb_supported_usb_device_list[i].model;
         pieusb_supported_usb_device.device_number = -1; /* No device number (yet) */
-        DBG( DBG_info_sane, "sane_init() looking for Reflecta scanner %04x %04x model %02x\n",pieusb_supported_usb_device.vendor,pieusb_supported_usb_device.product,pieusb_supported_usb_device.model);
-        sanei_usb_find_devices (pieusb_supported_usb_device_list[i].vendor, pieusb_supported_usb_device_list[i].product, pieusb_find_device_callback);
+        DBG( DBG_info_sane, "sane_init() looking for Reflecta scanner %04x %04x model %02x\n", pieusb_supported_usb_device.vendor, pieusb_supported_usb_device.product, pieusb_supported_usb_device.model);
+        sanei_usb_find_devices (pieusb_supported_usb_device.vendor, pieusb_supported_usb_device.product, pieusb_find_device_callback);
         i++;
     }
     return SANE_STATUS_GOOD;
