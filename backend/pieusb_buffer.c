@@ -127,7 +127,8 @@ static void buffer_update_read_index(struct Pieusb_Read_Buffer* buffer, int incr
  * @param bigendian how to store multi-byte values: bigendian if true
  * @param maximum_size maximum size of buffer (-1 = size of image)
  */
-void
+
+SANE_Status
 pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int height, SANE_Byte color_spec, SANE_Byte depth)
 {
     int k, result;
@@ -170,11 +171,16 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     }
     /* Stretch the file size */
     buffer_size_bytes = buffer->width * buffer->height * buffer->colors * sizeof(SANE_Uint);
+    if (buffer_size_bytes == 0) {
+      DBG(DBG_error, "pieusb_buffer_create(): buffer_size is zero: width %d, height %d, colors %d\n", buffer->width, buffer->height, buffer->colors);
+      return;
+    }
     result = lseek(buffer->data_file, buffer_size_bytes-1, SEEK_SET);
     if (result == -1) {
 	close(buffer->data_file);
         buffer->data = NULL;
-	perror("pieusb_buffer_create(): error calling fseek() to 'stretch' the file");
+        DBG(DBG_error, "pieusb_buffer_create(): error calling lseek() to 'stretch' the file to %d bytes\n", buffer_size_bytes-1);
+	perror("pieusb_buffer_create(): error calling lseek()");
         return;
     }
     /* Write one byte at the end */

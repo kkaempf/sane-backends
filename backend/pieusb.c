@@ -849,6 +849,7 @@ sane_start (SANE_Handle handle)
     const char *mode;
     SANE_Bool shading_correction_relevant;
     SANE_Bool infrared_post_processing_relevant;
+    SANE_Status st;
 
     DBG(DBG_info_sane,"sane_start()\n");
 
@@ -1081,8 +1082,12 @@ sane_start (SANE_Handle handle)
         case SCAN_ONE_PASS_COLOR: colors = 0x07; break;
         case SCAN_ONE_PASS_RGBI: colors = 0x0F; break;
     }
-    pieusb_buffer_create(&(scanner->buffer), scanner->scan_parameters.pixels_per_line,
+    st = pieusb_buffer_create(&(scanner->buffer), scanner->scan_parameters.pixels_per_line,
       scanner->scan_parameters.lines, colors, scanner->scan_parameters.depth);
+    if (st != SANE_STATUS_GOOD) {
+      scanner->scanning = SANE_FALSE;
+      return st;
+    }
 
     /* ----------------------------------------------------------------------
      *

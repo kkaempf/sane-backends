@@ -83,7 +83,7 @@ struct Pieusb_Read_Buffer
 };
 
 void pieusb_buffer_get(struct Pieusb_Read_Buffer* buffer, SANE_Byte* data, SANE_Int max_len, SANE_Int* len);
-void pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int height, SANE_Byte colors, SANE_Byte depth);
+SANE_Status pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int height, SANE_Byte colors, SANE_Byte depth);
 void pieusb_buffer_delete(struct Pieusb_Read_Buffer* buffer);
 SANE_Int pieusb_buffer_put_full_color_line(struct Pieusb_Read_Buffer* buffer, void* line, int size);
 SANE_Int pieusb_buffer_put_single_color_line(struct Pieusb_Read_Buffer* buffer, SANE_Byte color, void* line, SANE_Int size);
