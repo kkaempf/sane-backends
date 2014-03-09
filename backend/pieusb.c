@@ -881,6 +881,23 @@ sane_start (SANE_Handle handle)
     }
 
     /* ----------------------------------------------------------------------
+     * set exposure time
+     * ---------------------------------------------------------------------- */
+
+    do {
+      struct Pieusb_Exposure_Time exptime = {
+	0x93, /* code 0x93 */
+        3 * 2 * sizeof(SANE_Int), /* number of bytes in rest of structure */
+	{ { 0x02, 100 }, { 0x04, 100 }, { 0x08, 100 } }
+      };
+      pieusb_cmd_set_exposure_time(scanner->device_number, &exptime, &status);
+      if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+        DBG (DBG_error,"sane_start(): pieusb_cmd_set_exposure_time failed: %d\n", status.pieusb_status);
+        return SANE_STATUS_IO_ERROR;
+      }
+    } while (0);
+
+    /* ----------------------------------------------------------------------
      *
      * Standard run does;
      * - set exposure time 0x0A/0x13

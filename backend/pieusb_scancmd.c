@@ -624,8 +624,28 @@ pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
 void
 pieusb_cmd_set_exposure_time(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status)
 {
-    DBG (DBG_info_scan, "pieusb_cmd_set_exposure_time(): not implemented\n");
-    status->pieusb_status = PIEUSB_STATUS_INVAL;
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define EXPOSURE_DATA_SIZE 8
+    SANE_Byte data[EXPOSURE_DATA_SIZE];
+    struct Pieusb_Exposure_Time_Color *exptime;
+    int i;
+
+    DBG (DBG_info_scan, "pieusb_cmd_set_exposure_time()\n");
+
+    for (i = 0; i < 3; ++i) { /* R, G, B */
+      _prep_scsi_cmd(command, SCSI_WRITE, EXPOSURE_DATA_SIZE);
+      memset(data, '\0', EXPOSURE_DATA_SIZE);
+      exptime = &(time->color[i]);
+      _set_short(SCSI_SET_EXPOSURE, data, 0);
+      _set_short(EXPOSURE_DATA_SIZE-4, data, 2); /* short: RGB, short: value */
+      _set_short(exptime->filter, data, 4);      /* 1: neutral, 2: R, 4: G, 8: B */
+      _set_short(exptime->value, data, 6);
+      pieusb_command(device_number, command, data, EXPOSURE_DATA_SIZE, status);
+      if (status->pieusb_status != PIEUSB_STATUS_GOOD)
+	break;
+    }
+
+#undef EXPOSURE_DATA_SIZE
 }
 
 /**
