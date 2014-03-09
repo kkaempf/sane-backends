@@ -42,6 +42,14 @@
    whether to permit this exception to apply to your modifications.
    If you do not wish that, delete this exception notice.  */
 
+/* =========================================================================
+ *
+ * Various Pieusb backend specific functions
+ * 
+ * Option handling, configuration file handling, post-processing
+ * 
+ * ========================================================================= */
+
 #define DEBUG_DECLARE_ONLY
 #include "pieusb.h"
 
