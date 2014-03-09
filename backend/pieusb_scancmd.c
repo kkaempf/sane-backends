@@ -205,8 +205,8 @@ pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
   for(;;) {
     pieusb_cmd_test_unit_ready(device_number, status);
     DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_test_unit_ready: %d\n", status->pieusb_status);
-    if (status->pieusb_status == PIEUSB_STATUS_GOOD)
-      break;
+/*    if (status->pieusb_status == PIEUSB_STATUS_GOOD)
+      break; */
     pieusb_cmd_read_state(device_number, &state, status);
     DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_read_state: %d\n", status->pieusb_status);
     if (status->pieusb_status != PIEUSB_STATUS_DEVICE_BUSY)
@@ -520,7 +520,7 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
 /**
  * Read scanned data from the scanner memory into a byte array. The lines
  * argument specifies how many lines will be read, the size argument specifies
- * the total amount of bytes in these lines. Use cmdGetScanParameters() to
+ * the total amount of bytes in these lines. Use pieusb_cmd_get_parameters() to
  * determine the current line size and the number of available lines.\n
  * If there is scanned data available, it should be read. Waiting too long
  * causes the scan to stop, probably because a buffer is filled to its limits
@@ -673,14 +673,14 @@ cmdSetCCDMask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, stru
  * @see Pieusb_Scan_Parameters
  */
 void
-cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_parameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* parameters, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define PARAMETER_SIZE 18
     SANE_Int size = PARAMETER_SIZE;
     SANE_Byte data[PARAMETER_SIZE];
 
-    DBG (DBG_info_scan, "cmdGetScanParameters()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_parameters()\n");
 
     _prep_scsi_cmd(command, SCSI_PARAM, size);
     memset(data, '\0', size);
@@ -700,7 +700,7 @@ cmdGetScanParameters(SANE_Int device_number, struct Pieusb_Scan_Parameters* para
     parameters->scsiTransferRate = _get_short(data,12);
     parameters->availableLines = _get_short(data,14);
 
-    DBG (DBG_info_scan, "cmdGetScanParameters() read:\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_parameters() read:\n");
     DBG (DBG_info_scan, " width = %d\n",parameters->width);
     DBG (DBG_info_scan, " lines = %d\n",parameters->lines);
     DBG (DBG_info_scan, " bytes = %d\n",parameters->bytes);
@@ -963,7 +963,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * read in the mean time. Available command during this phase:\n
  * 1. pieusb_cmd_test_unit_ready()\n
  * 2. cmdGetScannedLines()\n
- * 2. cmdGetScanParameters()\n
+ * 2. pieusb_cmd_get_parameters()\n
  * 4. cmdStopScan: abort scanning process\n
  *
  * @param device_number Device number
@@ -1196,6 +1196,7 @@ pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state
     state->buttonPushed = _get_byte(data, 0);
     state->warmingUp = _get_byte(data, 5);
     state->scanning = _get_byte(data, 6);
+/*    state->busy = _get_byte(data, 8); */
 #undef GET_STATE_SIZE
 }
 

@@ -1961,7 +1961,7 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     struct Pieusb_Scan_Parameters parameters;
     const char *mode;
 
-    cmdGetScanParameters(scanner->device_number,&parameters, &status);
+    pieusb_cmd_get_parameters (scanner->device_number, &parameters, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
@@ -1970,10 +1970,10 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
-    /* Use response from cmdGetScanParameters() for initialization of SANE parameters.
+    /* Use response from pieusb_cmd_get_parameters() for initialization of SANE parameters.
      * Note the weird values of the bytes-field: this is because of the colorFormat
      * setting in cmdSetMode(). The single-color modes all use the pixel format,
-     * which makes cmdGetScanParameters() return a full color line although just
+     * which makes pieusb_cmd_get_parameters() return a full color line although just
      * one color actually contains data. For the index format, the bytes field
      * gives the size of a single color line. */
     mode = scanner->val[OPT_MODE].s;
@@ -2035,7 +2035,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
     }
 */
     while (lines_read < lines_to_read) {
-        cmdGetScanParameters(scanner->device_number,&parameters, &status);
+        pieusb_cmd_get_parameters(scanner->device_number,&parameters, &status);
         if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
             /* Error, return */
             return SANE_STATUS_INVAL;
