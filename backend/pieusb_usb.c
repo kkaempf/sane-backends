@@ -48,6 +48,7 @@
 #include "pieusb_usb.h"
 
 #include <sane/sanei_usb.h>
+#include <unistd.h> /* usleep */
 
 /* USB functions */
 
@@ -285,21 +286,29 @@ static SANE_Status
 pieusb_ieee_command(SANE_Int device_number, SANE_Byte command)
 {
     SANE_Status st;
+  static int sequence[] = { 0xff, 0xaa, 0x55, 0x00, 0xff, 0x87, 0x78 };
+  unsigned int i;
     /* 2 x 4 + 3 bytes preceding command, then SCSI_COMMAND_LEN bytes command */
     /* IEEE1284 command, see hpsj5s.c:cpp_daisy() */
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff); /* CTRL_VAL_INIT */
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xaa);
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x55);
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x00);
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff);
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x87);
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0x78);
+  for (i = 0; i < (sizeof(sequence)/sizeof(int)); ++i) {
+    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, sequence[i]);
+    if (st != SANE_STATUS_GOOD)
+      return st;
+  }
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, command);
   if (st != SANE_STATUS_GOOD)
     return st;
+  usleep(100000); /* 100.000 usec -> 100 msec -> 0.1 sec */
     st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT|C1284_NSTROBE); /* CTRL_VAL_FINAL */
+  if (st != SANE_STATUS_GOOD)
+    return st;
+  usleep(3000); /* 3.000 usec -> 3 msec */
     st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT);
+  if (st != SANE_STATUS_GOOD)
+    return st;
     st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff);
+  if (st != SANE_STATUS_GOOD)
+    return st;
 
   return st;
 }
@@ -348,9 +357,12 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
             /* Intermediate status OK, device is ready to accept additional command data */
             /* Write data */
             {
-                SANE_Int k = 0;
-                for (k=0; k < size; k++) {
-		  _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[k]);
+                for (i = 0; i < size; ++i) {
+		  st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[i]);
+		  if (st != SANE_STATUS_GOOD) {
+		    DBG(DBG_error, "pieusb_scsi_command() fails data out after %d bytes: %d\n", i, st);
+		    return SCSI_IEEE1284_ERROR;
+		  }
 		}
                 /* Verify again */
                 st = _ctrl_in_byte(device_number, &usbstat);
@@ -419,6 +431,9 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
                 }
                 break;
             }
+     default:
+      DBG(DBG_error, "pieusb_scsi_command() unhandled usbstat 0x%02x\n", usbstat);
+      return SCSI_IEEE1284_ERROR;
     }
 
     DBG(DBG_info_usb, "pieusb_scsi_command(): Ok\n");
