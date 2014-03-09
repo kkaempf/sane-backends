@@ -262,15 +262,18 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                     k = 0;
                 }
                 break;
-
+	    case SCSI_STATUS_TIMEOUT:
+	      status->pieusb_status = PIEUSB_STATUS_IO_ERROR; 
+	      k = 0;
+	      break;
             default:
-	      DBG(DBG_info_usb, "pieusb_command(): unhandled status %02x\n", sst);
+	      DBG(DBG_info_usb, "pieusb_command(): unhandled scsi status %02x\n", sst);
                 /* Keep current status */
                 break;
         }
 
      } while (k>0);
-     DBG(DBG_info_usb, "pieusb_command(): ready, tries=%d\n", tries);
+     DBG(DBG_info_usb, "pieusb_command(): ready, tries=%d, state %d\n", tries, status->pieusb_status);
 }
 
 /**
@@ -351,12 +354,14 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
         DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 1st byte: %d\n", st);
         return SCSI_IEEE1284_ERROR;
     }
+    DBG(DBG_info_usb, "pieusb_scsi_command(): usbstat 0x%02x\n", usbstat);
     /* Process rest of the data, if present; either input or output, possibly bulk */
     switch (usbstat) {
         case USB_STATUS_READY_TO_ACCEPT_DATA:
             /* Intermediate status OK, device is ready to accept additional command data */
             /* Write data */
             {
+	      DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_READY_TO_ACCEPT_DATA\n");
                 for (i = 0; i < size; ++i) {
 		  st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[i]);
 		  if (st != SANE_STATUS_GOOD) {
@@ -391,14 +396,23 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
                must be done in parts if size is large; no verification inbetween
                max part size = 0xfff0 = 65520 */
             {
-                SANE_Int remsize = 0;
+                SANE_Int remsize;
                 SANE_Int partsize = 0;
                 remsize = size;
 
-                while (remsize>0) {
+	      DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_DATA_AVAILABLE\n");
+                while (remsize > 0) {
                     partsize = remsize > 65520 ? 65520 : remsize;
-                    _ctrl_out_int(device_number, partsize);
-                    _bulk_in(device_number, data+size-remsize, partsize);
+                    st = _ctrl_out_int(device_number, partsize);
+		    if (st != SANE_STATUS_GOOD) {
+		      DBG(DBG_error, "pieusb_scsi_command() prepare read data failed for size %d: %d\n", partsize, st);
+		      return st;
+		    }
+                    st = _bulk_in(device_number, data + size - remsize, partsize);
+		    if (st != SANE_STATUS_GOOD) {
+		      DBG(DBG_error, "pieusb_scsi_command() read data failed for size %d: %d\n", partsize, st);
+		      return st;
+		    }
                     remsize -= partsize;
                 }
                 /* Verify again */
@@ -424,6 +438,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
             break;
         case USB_STATUS_COMMAND_COMPLETE: /* Next byte needed */
             {
+	      DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_COMMAND_COMPLETE\n");
                 st = _ctrl_in_byte(device_number, &usbstat);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 2nd byte: %d\n", st);
@@ -494,11 +509,12 @@ static SANE_Status _ctrl_in_byte(SANE_Int device_number, SANE_Byte* b) {
  * @param size size of the data array
  * @return SANE status
  */
-static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte data[], unsigned int size) {
+static SANE_Status
+_bulk_in(SANE_Int device_number, SANE_Byte data[], unsigned int size) {
     unsigned int total = 0;
     SANE_Status r = SANE_STATUS_GOOD;
     SANE_Byte * buffer = malloc(0x4000);
-    while (total<size) {
+    while (total < size) {
         /* Determine bulk size */
         size_t part = ((size-total) >= 0x4000 ? 0x4000 : (size-total));
         /* Get bulk data */
@@ -510,10 +526,10 @@ static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte data[], unsigned i
 /*
         fprintf(stderr,"[pieusb] _bulk_in() called sanei_usb_read_bulk(), result=%d (expected 0)\n",r);
 */
-        if (r==0) {
+        if (r == SANE_STATUS_GOOD) {
             /* Read data into buffer, part = # bytes actually read */
             unsigned int k;
-            for (k=0; k<part; k++) {
+            for (k = 0; k < part; k++) {
                 *(data+total+k) = *(buffer+k);
             }
             total += part;
