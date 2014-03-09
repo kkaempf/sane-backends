@@ -47,6 +47,8 @@
 
 #define PIEUSB_WAIT_BUSY 2 /* seconds to wait on busy condition */
 
+#define SCSI_COMMAND_LEN 6
+
 typedef enum {
   PIEUSB_STATUS_GOOD = 0,	/* everything A-OK */
   PIEUSB_STATUS_UNSUPPORTED,	/* operation is not supported */

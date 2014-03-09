@@ -178,8 +178,6 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
  *
  * ========================================================================= */
 
-#define SCSI_COMMAND_LEN 6
-
 /* Standard SCSI command codes */
 #define SCSI_TEST_UNIT_READY    0x00
 #define SCSI_REQUEST_SENSE      0x03
