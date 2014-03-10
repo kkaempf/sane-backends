@@ -1639,8 +1639,8 @@ pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
     scanner->frame.code = 0x12;
     scanner->frame.index = 0x00;
     scanner->frame.size = 0x0A;
-    pieusb_cmd_set_scan_frame(scanner->device_number,0,&(scanner->frame), &status);
-    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): pieusb_cmd_set_scan_frame status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    pieusb_cmd_set_scan_frame(scanner->device_number, 0, &(scanner->frame), &status);
+    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): pieusb_cmd_set_scan_frame status %s\n", sane_strstatus(pieusb_convert_status(status.pieusb_status)));
     return status.pieusb_status;
 }
 
@@ -1649,7 +1649,7 @@ pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
  */
 
 SANE_Status
-pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
+pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
     const char *mode;
@@ -1681,10 +1681,10 @@ pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
     /* Resolution */
     if (scanner->val[OPT_PREVIEW].b) {
         scanner->mode.resolution = scanner->device->fast_preview_resolution;
-        DBG(DBG_info_sane,"pieusb_set_mode_from_options(): resolution fast preview (%d)\n",scanner->mode.resolution);
+        DBG(DBG_info_sane,"pieusb_cmd_set_mode_from_options(): resolution fast preview (%d)\n",scanner->mode.resolution);
     } else {
         scanner->mode.resolution = SANE_UNFIX(scanner->val[OPT_RESOLUTION].w);
-        DBG(DBG_info_sane,"pieusb_set_mode_from_options(): resolution from option setting (%d)\n",scanner->mode.resolution);
+        DBG(DBG_info_sane,"pieusb_cmd_set_mode_from_options(): resolution from option setting (%d)\n",scanner->mode.resolution);
     }
     /* Bit depth: exit on untested values */
     switch (scanner->val[OPT_BIT_DEPTH].w) {
@@ -1692,7 +1692,7 @@ pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
         case 8: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_8; break;
         case 16: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_16; break;
         default: /* 4, 10 & 12 */
-            DBG(DBG_error,"pieusb_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n",scanner->val[OPT_BIT_DEPTH].w);
+            DBG(DBG_error,"pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n",scanner->val[OPT_BIT_DEPTH].w);
             return SANE_STATUS_INVAL;
     }
     scanner->mode.byteOrder = 0x01; /* 0x01 = Intel; only bit 0 used */
@@ -1705,8 +1705,8 @@ pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
         scanner->mode.halftonePattern = 0;
     }
     scanner->mode.lineThreshold = SANE_UNFIX(scanner->val[OPT_THRESHOLD].w) / 100 * 0xFF; /* 0xFF = 100% */
-    cmdSetMode(scanner->device_number,&(scanner->mode), &status);
-    DBG(DBG_info_sane,"pieusb_set_mode_from_options(): cmdSetMode status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    pieusb_cmd_set_mode(scanner->device_number,&(scanner->mode), &status);
+    DBG(DBG_info_sane,"pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_mode status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
     return status.pieusb_status;
 }
 
@@ -1902,11 +1902,11 @@ pieusb_get_shading_data(Pieusb_Scanner * scanner)
     switch (scanner->mode.colorFormat) {
         case SCAN_COLOR_FORMAT_PIXEL: /* Pixel */
             buffer = malloc((2*shading_width)*shading_height*4);
-            cmdGetScannedLines(scanner->device_number, buffer, shading_height*4, (2*shading_width)*shading_height*4, &status);
+            pieusb_cmd_get_scanned_lines(scanner->device_number, buffer, shading_height*4, (2*shading_width)*shading_height*4, &status);
             break;
         case SCAN_COLOR_FORMAT_INDEX: /* Indexed */
             buffer = malloc((2*shading_width+2)*shading_height*4);
-            cmdGetScannedLines(scanner->device_number, buffer, shading_height*4, (2*shading_width+2)*shading_height*4, &status);
+            pieusb_cmd_get_scanned_lines(scanner->device_number, buffer, shading_height*4, (2*shading_width+2)*shading_height*4, &status);
             break;
         default:
             DBG(DBG_error,"pieusb_get_shading_data(): color format %d not implemented\n",scanner->mode.colorFormat);
@@ -1978,7 +1978,7 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     }
     /* Use response from pieusb_cmd_get_parameters() for initialization of SANE parameters.
      * Note the weird values of the bytes-field: this is because of the colorFormat
-     * setting in cmdSetMode(). The single-color modes all use the pixel format,
+     * setting in pieusb_cmd_set_mode(). The single-color modes all use the pixel format,
      * which makes pieusb_cmd_get_parameters() return a full color line although just
      * one color actually contains data. For the index format, the bytes field
      * gives the size of a single color line. */
@@ -2063,7 +2063,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
             }
             DBG(DBG_info_sane,"pieusb_get_scan_data(): reading lines: already %d, now %d (bytes per line = %d)\n",lines_read,parameters.availableLines,bpl);
             linebuf = malloc(parameters.availableLines*bpl);
-            cmdGetScannedLines(scanner->device_number, linebuf, parameters.availableLines, parameters.availableLines*bpl, &status);
+            pieusb_cmd_get_scanned_lines(scanner->device_number, linebuf, parameters.availableLines, parameters.availableLines*bpl, &status);
             if (status.pieusb_status != PIEUSB_STATUS_GOOD ) {
                 /* Error, return */
                 free(linebuf);

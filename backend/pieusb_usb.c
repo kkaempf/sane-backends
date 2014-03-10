@@ -235,7 +235,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                  * It is also practical to execute a request sense command by
                  * default. The calling function should interpret
                  * PIEUSB_STATUS_CHECK_SENSE as 'sense data available'. */
-                cmdGetSense(device_number, &sense, &senseStatus);
+                pieusb_cmd_get_sense(device_number, &sense, &senseStatus);
                 if (senseStatus.pieusb_status == PIEUSB_STATUS_GOOD) {
                     if (sense.senseKey == SCSI_NOT_READY ||
                         sense.senseCode == 4 ||

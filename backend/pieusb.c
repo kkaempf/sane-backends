@@ -425,8 +425,14 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
     for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
         scanner->shading_ref[k] = calloc(2 * shading_width, sizeof(SANE_Int));
+        if (scanner->shading_ref[k] == NULL) {
+	  return SANE_STATUS_NO_MEM;
+	}
     }
     scanner->ccd_mask = malloc(shading_width);
+    if (scanner->ccd_mask == NULL) {
+      return SANE_STATUS_NO_MEM;
+    }
     /* First time settings */
     /* ? */
     /* Insert newly opened handle into list of open handles: */
@@ -963,7 +969,7 @@ sane_start (SANE_Handle handle)
      * TODO: test if this may be done just once, in sane_open().
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_set_gain_offset(scanner,SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
+    if (pieusb_set_gain_offset(scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
 
@@ -972,7 +978,7 @@ sane_start (SANE_Handle handle)
      * Set mode
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_set_mode_from_options(scanner) != SANE_STATUS_GOOD) {
+    if (pieusb_cmd_set_mode_from_options(scanner) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
 
