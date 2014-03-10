@@ -423,8 +423,8 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
         return SANE_STATUS_INVAL;
     }
     shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
-    for (k=0; k<4; k++) {
-        scanner->shading_ref[k] = calloc(2*shading_width,sizeof(SANE_Int));
+    for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
+        scanner->shading_ref[k] = calloc(2 * shading_width, sizeof(SANE_Int));
     }
     scanner->ccd_mask = malloc(shading_width);
     /* First time settings */

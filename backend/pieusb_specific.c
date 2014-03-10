@@ -1530,7 +1530,7 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
     SANE_Int shading_height = scanner->device->shading_parameters[0].nLines;
 
     /* Initialze all to 0 */
-    for (k=0; k<4; k++) {
+    for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
         scanner->shading_max[k] = 0;
         scanner->shading_mean[k] = 0;
         memset(scanner->shading_ref[k], 0, shading_width * sizeof (SANE_Int));
@@ -1542,7 +1542,7 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
             /* Process pixel by pixel */
             for (k = 0; k < shading_height; k++) {
                 for (m = 0; m < shading_width; m++) {
-                    for (ci = 0; ci < 4; ci++) {
+                    for (ci = 0; ci < SHADING_PARAMETERS_INFO_COUNT; ci++) {
                         val = *(p) + *(p+1) * 256;
                         scanner->shading_ref[ci][m] += val;
                         scanner->shading_max[ci] = scanner->shading_max[ci] < val ? val : scanner->shading_max[ci];
@@ -1580,14 +1580,14 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
             return;
     }
     /* Mean reference value needs division */
-    for (k=0; k<4; k++) {
+    for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
         for (m = 0; m < shading_width; m++) {
             scanner->shading_ref[k][m] = lround((double)scanner->shading_ref[k][m]/shading_height);
             /* DBG(DBG_error,"Shading_ref[%d][%d] = %d\n",k,m,scanner->shading_ref[k][m]); */
         }
     }
     /* Overall means */
-    for (k=0; k<4; k++) {
+    for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
         for (m=0; m<shading_width; m++) {
             scanner->shading_mean[k] += scanner->shading_ref[k][m];
         }

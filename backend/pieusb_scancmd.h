@@ -273,20 +273,21 @@ struct Pieusb_Highlight_Shadow {
 };
 
 struct Pieusb_Shading_Parameters_Info {
-    SANE_Byte type; /* 0x00, 0x08, 0x10, 0x20; meaning not clear */
+    SANE_Byte type; /* 0x00, 0x08, 0x10, 0x20; RGBI(?) */
     SANE_Byte sendBits; /* 0x10 = 16 */
     SANE_Byte recieveBits; /* 0x10 = 16 */
     SANE_Byte nLines; /* 0x2D = 45 */
     SANE_Int pixelsPerLine; /* 0x14dc = 5340 */
 };
 
+#define SHADING_PARAMETERS_INFO_COUNT 4
 struct Pieusb_Shading_Parameters {
     SANE_Byte code; /* 0x95 */
     SANE_Int size; /* number of bytes in rest of structure (0x1c=28) */
     SANE_Byte calInfoCount; /* number of individual info structures (=0x04) */
     SANE_Byte calInfoSize; /* size of individual info structure (=0x06) */
     SANE_Int div_6; /* 0x0004, meaning not clear */
-    struct Pieusb_Shading_Parameters_Info cal[4];
+    struct Pieusb_Shading_Parameters_Info cal[SHADING_PARAMETERS_INFO_COUNT];
 };
 
 typedef struct Pieusb_Scanner_Properties Pieusb_Scanner_Properties;

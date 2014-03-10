@@ -271,9 +271,9 @@ struct Pieusb_Scanner
     /* Shading data and CCD-mask */
     SANE_Byte *ccd_mask;
     SANE_Bool shading_data_present; /* don't correct shading if not present */
-    SANE_Int shading_mean[4]; /* mean shading value for each color (average all 45 lines)  */
-    SANE_Int shading_max[4]; /* maximum shading value for each color (for all 45 lines)  */
-    SANE_Int* shading_ref[4]; /* 4 arrays of shading references for each pixel on a line and for each color */
+    SANE_Int shading_mean[SHADING_PARAMETERS_INFO_COUNT]; /* mean shading value for each color (average all 45 lines)  */
+    SANE_Int shading_max[SHADING_PARAMETERS_INFO_COUNT]; /* maximum shading value for each color (for all 45 lines)  */
+    SANE_Int* shading_ref[SHADING_PARAMETERS_INFO_COUNT]; /* 4 arrays of shading references for each pixel on a line and for each color */
 
     /* Calibration using preview */
 /*

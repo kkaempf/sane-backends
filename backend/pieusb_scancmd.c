@@ -479,6 +479,7 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define SHADING_SIZE 32
+#define PREP_READ_SIZE 6
     SANE_Int size = SHADING_SIZE;
     SANE_Byte data[SHADING_SIZE];
     int k;
@@ -488,10 +489,10 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
 
     /* Ask scanner to prepare the scan frame with the given index. Only SCSI_COMMAND_LEN bytes of data. */
     _prep_scsi_cmd(command, SCSI_WRITE, SCSI_COMMAND_LEN);
-    memset(data, '\0', SCSI_COMMAND_LEN);
+    memset(data, '\0', PREP_READ_SIZE);
     data[0] = SCSI_CALIBRATION_INFO | 0x80; /* set bit 7 means prepare read */
 
-    sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
+    sst = pieusb_scsi_command(device_number, command, data, PREP_READ_SIZE);
     if (sst != SCSI_STATUS_OK) {
       status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
       return;
@@ -507,14 +508,25 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
       return;
     }
 
-    /* Decode data */
+    /* Decode data [32 bytes]
+       0: 95 00 type
+       2: 1c 00 payload len
+       4: 04    entries
+       5: 06    entry size
+       6: 04 00 ?
+       8: 00 10 10 14 1a 1d type send recv nlines pixPerLine(2bytes)
+      14: 08 10 10 14 1a 1d
+      20: 10 10 10 14 1a 1d
+      26: 20 10 10 14 1a 1d
+     */
     for (k = 0; k < data[4]; k++) {
-        shading[k].type = _get_byte(data, 8+6*k);
-        shading[k].sendBits = _get_byte(data, 9+6*k);
-        shading[k].recieveBits = _get_byte(data, 10+6*k);
-        shading[k].nLines = _get_byte(data, 11+6*k);
-        shading[k].pixelsPerLine = _get_short(data, 12+6*k);
+        shading[k].type = _get_byte(data, 8 + data[5]*k);
+        shading[k].sendBits = _get_byte(data, 9 + data[5]*k);
+        shading[k].recieveBits = _get_byte(data, 10 + data[5]*k);
+        shading[k].nLines = _get_byte(data, 11 + data[5]*k);
+        shading[k].pixelsPerLine = _get_short(data, 12 + data[5]*k);
     }
+#undef PREP_READ_SIZE
 #undef SHADING_SIZE
   status->pieusb_status = PIEUSB_STATUS_GOOD;
 }
