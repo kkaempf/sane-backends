@@ -298,8 +298,6 @@ typedef enum {
 
 void pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Command_Status *status);
 
-void pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status);
-
 /* Scanner commands */
 
 void pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_Status *status);

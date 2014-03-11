@@ -320,5 +320,8 @@ SANE_Status pieusb_init_options (Pieusb_Scanner * scanner);
 /* sub to sane_start(), sane_read() and sane_close() */
 SANE_Status pieusb_on_cancel (Pieusb_Scanner * scanner);
 
+SANE_Status pieusb_wait_ready(Pieusb_Scanner *scanner, SANE_Int device_number);
+
+
 #endif	/* PIEUSB_SPECIFIC_H */
 

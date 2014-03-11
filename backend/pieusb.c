@@ -412,7 +412,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     scanner->shading_data_present = SANE_FALSE;
     /* Options and buffers */
     pieusb_init_options (scanner);
-    pieusb_wait_ready (scanner->device_number, &rs);
+    rs.pieusb_status = pieusb_wait_ready (scanner, 0);
     if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
       DBG (DBG_error, "sane_open: scanner not ready %d\n", rs.pieusb_status);
         return SANE_STATUS_DEVICE_BUSY;

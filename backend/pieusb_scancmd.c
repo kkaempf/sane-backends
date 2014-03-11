@@ -185,44 +185,6 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
 }
 
 
-/**
- * Wait for scanner to get ready
- * 
- * loop of test_ready/read_state
- * 
- * @param device number
- * @return SANE_Status
- */
-
-void
-pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
-{
-  struct Pieusb_Scanner_State state;
-  time_t start, elapsed;
-
-  DBG (DBG_info_proc, "pieusb_wait_ready()\n");
-  start = time(NULL);
-  for(;;) {
-    pieusb_cmd_test_unit_ready(device_number, status);
-    DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_test_unit_ready: %d\n", status->pieusb_status);
-/*    if (status->pieusb_status == PIEUSB_STATUS_GOOD)
-      break; */
-    pieusb_cmd_read_state(device_number, &state, status);
-    DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_read_state: %d\n", status->pieusb_status);
-    if (status->pieusb_status != PIEUSB_STATUS_DEVICE_BUSY)
-      break;
-    elapsed = time(NULL) - start;
-    if (elapsed > 120) { /* 2 minute overall timeout */
-      DBG (DBG_error, "scanner not ready after 2 minutes\n");
-      break;
-    }
-    if (elapsed % 2) {
-      DBG (DBG_info, "still waiting for scanner to get ready\n");
-    }
-  }
-}
-
-
 /* =========================================================================
  *
  * Pieusb scanner commands

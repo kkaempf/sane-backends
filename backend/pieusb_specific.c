@@ -62,6 +62,7 @@
 
 #include <errno.h>
 #include <math.h>
+#include <time.h>
 
 #include "pieusb_usb.h"
 #include "pieusb_scancmd.h"
@@ -1724,6 +1725,7 @@ SANE_Status
 pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
 {
     struct Pieusb_Command_Status status;
+    SANE_Status ret;
     double gain;
 
     DBG(DBG_info_sane,"pieusb_set_gain_offset(): mode = %s\n",calibration_mode);
@@ -1881,11 +1883,12 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     }
     /* Now set values for gain, offset and exposure */
     pieusb_cmd_set_gain_offset(scanner->device_number, &(scanner->settings), &status);
-    DBG(DBG_info_sane, "pieusb_set_gain_offset(): status %s\n", sane_strstatus(pieusb_convert_status(status.pieusb_status)));
-    if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
-      pieusb_wait_ready(scanner->device_number, &status);
+    ret = pieusb_convert_status (status.pieusb_status);
+    DBG (DBG_info_sane, "pieusb_set_gain_offset(): status %s\n", sane_strstatus (ret));
+    if (ret == SANE_STATUS_GOOD) {
+      ret = pieusb_wait_ready (scanner, 0);
     }
-    return status.pieusb_status;
+    return ret;
 }
 
 /*
@@ -1931,25 +1934,24 @@ SANE_Status
 pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
+    SANE_Status ret;
 
     DBG(DBG_info_proc, "pieusb_get_ccd_mask()");
     /* Wait loop */
-    pieusb_wait_ready(scanner->device_number, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        return SANE_STATUS_INVAL;
+    ret = pieusb_wait_ready (scanner, 0);
+    if (ret != SANE_STATUS_GOOD) {
+        return ret;
     }
 
     cmdGetCCDMask(scanner->device_number, scanner->ccd_mask, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        return SANE_STATUS_INVAL;
-    }
-    /* Save CCD mask */
-    if (scanner->val[OPT_SAVE_CCDMASK].b) {
+    if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
+      /* Save CCD mask */
+      if (scanner->val[OPT_SAVE_CCDMASK].b) {
         FILE* fs = fopen("pieusb.ccd", "w");
         fwrite(scanner->ccd_mask, 1, 5340, fs);
         fclose(fs);
+      }
     }
-
   return pieusb_convert_status(status.pieusb_status);
 
 }
@@ -1967,17 +1969,18 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     struct Pieusb_Command_Status status;
     struct Pieusb_Scan_Parameters parameters;
     const char *mode;
+    SANE_Status ret;
 
     DBG(DBG_info_proc, "pieusb_get_parameters()");
     /* Wait loop */
-    pieusb_wait_ready(scanner->device_number, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        return SANE_STATUS_INVAL;
+    ret = pieusb_wait_ready (scanner, 0);
+    if (ret != SANE_STATUS_GOOD) {
+      return ret;
     }
 
     pieusb_cmd_get_parameters (scanner->device_number, &parameters, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        return SANE_STATUS_INVAL;
+        return pieusb_convert_status (status.pieusb_status);
     }
     /* Use response from pieusb_cmd_get_parameters() for initialization of SANE parameters.
      * Note the weird values of the bytes-field: this is because of the colorFormat
@@ -2139,6 +2142,50 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
 */
     return SANE_STATUS_GOOD;
 }
+
+/**
+ * Wait for scanner to get ready
+ * 
+ * loop of test_ready/read_state
+ * 
+ * @param scanner
+ * @param device_number, used if scanner == NULL
+ * @return SANE_Status
+ */
+
+SANE_Status
+pieusb_wait_ready(Pieusb_Scanner * scanner, SANE_Int device_number)
+{
+  struct Pieusb_Command_Status status;
+  struct Pieusb_Scanner_State state;
+  time_t start, elapsed;
+
+  DBG (DBG_info_proc, "pieusb_wait_ready()\n");
+  start = time(NULL);
+  if (scanner)
+    device_number = scanner->device_number;
+
+  for(;;) {
+    pieusb_cmd_test_unit_ready(device_number, &status);
+    DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_test_unit_ready: %d\n", status.pieusb_status);
+/*    if (status.pieusb_status == PIEUSB_STATUS_GOOD)
+      break; */
+    pieusb_cmd_read_state(device_number, &state, &status);
+    DBG (DBG_info_proc, "pieusb_wait_ready() pieusb_cmd_read_state: %d\n", status.pieusb_status);
+    if (status.pieusb_status != PIEUSB_STATUS_DEVICE_BUSY)
+      break;
+    elapsed = time(NULL) - start;
+    if (elapsed > 120) { /* 2 minute overall timeout */
+      DBG (DBG_error, "scanner not ready after 2 minutes\n");
+      break;
+    }
+    if (elapsed % 2) {
+      DBG (DBG_info, "still waiting for scanner to get ready\n");
+    }
+  }
+  return pieusb_convert_status(status.pieusb_status);
+}
+
 
 /*
 static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner)
