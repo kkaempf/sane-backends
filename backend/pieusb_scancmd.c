@@ -185,6 +185,51 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
 }
 
 
+/**
+ * hex dump 'size' bytes starting at 'ptr'
+ */
+static void
+_hexdump(unsigned char *ptr, int size)
+{
+  unsigned char *lptr = ptr;
+  int count = 0;
+  long start = 0;
+
+  while (size-- > 0)
+  {
+    if ((count % 16) == 0)
+      fprintf (stderr, "\t%08lx:", start);
+	fprintf (stderr, " %02x", *ptr++);
+	count++;
+	start++;
+	if (size == 0)
+	{
+	    while ((count%16) != 0)
+	    {
+		fprintf (stderr, "   ");
+		count++;
+	    }
+	}
+	if ((count % 16) == 0)
+	{
+	    fprintf (stderr, " ");
+	    while (lptr < ptr)
+	    {
+	        unsigned char c = ((*lptr&0x7f) < 32)?'.':(*lptr & 0x7f);
+		fprintf (stderr, "%c", c);
+		lptr++;
+	    }
+	    fprintf (stderr, "\n");
+	}
+    }
+    if ((count % 16) != 0)
+	fprintf (stderr, "\n");
+
+    fflush(stderr);
+    return;
+}
+
+
 /* =========================================================================
  *
  * Pieusb scanner commands
@@ -1029,7 +1074,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * 1. pieusb_cmd_test_unit_ready()\n
  * 2. pieusb_cmd_get_scanned_lines(): read shading correction lines\n
  * 3. cmdStopScan: abort scanning process\n
- * 4. cmdGetOptimizedSettings() : the settings are generated during the initialisation of this phase, so they are current\n
+ * 4. pieusb_cmd_get_gain_offset() : the settings are generated during the initialisation of this phase, so they are current\n
  * 5. cmdSetSettings(): settings take effect in the next scan phase\n\n
  * The line-by-line phase is only entered if Pieusb_Mode.div_10[0] bit 5 is
  * set. It is not implemented.\n\n
@@ -1158,7 +1203,7 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     int k;
     SANE_Byte val[3];
 
-    DBG (DBG_info_scan, "cmdGetOptimizedSettings()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_gain_offset()\n");
 
     _prep_scsi_cmd(command, SCSI_READ_GAIN_OFFSET, size);
 
@@ -1167,14 +1212,15 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
+    _hexdump(data, GAIN_OFFSET_SIZE);
 
     /* Decode data received */
     _get_shorts(settings->saturationLevel, data+54, 3);
     _get_shorts(settings->exposureTime, data+60, 3);
     _copy_bytes(val, data+66, 3);
-    for (k=0; k<3; k++) settings->offset[k] = val[k];
+    for (k = 0; k < 3; k++) settings->offset[k] = val[k];
     _copy_bytes(val, data+72, 3);
-    for (k=0; k<3; k++) settings->gain[k] = val[k];
+    for (k = 0; k < 3; k++) settings->gain[k] = val[k];
     settings->light = _get_byte(data, 75);
     settings->exposureTime[3] = _get_short(data, 98);
     settings->offset[3] = _get_byte(data, 100);
@@ -1210,7 +1256,7 @@ void
 pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
-#define GAIN_OFFSET_SIZE 23
+#define GAIN_OFFSET_SIZE 29
     SANE_Int size = GAIN_OFFSET_SIZE;
     SANE_Byte data[GAIN_OFFSET_SIZE];
     int k;
@@ -1231,9 +1277,9 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     /* Code data */
     memset(data, '\0', size);
     _set_shorts(settings->exposureTime, data, 3);
-    for (k=0; k<3; k++) val[k] = settings->offset[k];
+    for (k = 0; k < 3; k++) val[k] = settings->offset[k];
     _copy_bytes(data+6, val, 3);
-    for (k=0; k<3; k++) val[k] = settings->gain[k];
+    for (k = 0; k < 3; k++) val[k] = settings->gain[k];
     _copy_bytes(data+12, val, 3);
     _set_byte(settings->light, data, 15);
     _set_byte(settings->extraEntries, data, 16);
@@ -1241,6 +1287,24 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     _set_short(settings->exposureTime[3], data, 18);
     _set_byte(settings->offset[3], data, 20);
     _set_byte(settings->gain[3], data, 22);
+    /*
+     * pieusb-get_gain_offset:
+     *  00000000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+     *  00000010: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+     *  00000020: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
+     *  00000030: a9 00 88 00 b1 00 00 00 00 00 00 00 04 10 04 10 )...1...........
+     *  00000040: 04 10 53 4f 6e 00 00 00 2e 21 21 05 04 10 df 2d ..SOn....!!..._-
+     *  00000050: a3 5c e7 f2 a1 2c b3 c4 42 df 32 42 eb 82 8e e0 #\gr!,3DB_2Bk..`
+     *  00000060: 87 be 04 10 4f 00 2c                            .>..O.,
+     *
+     * cyberview:
+     * 00000000: 65 22 57 18 19 19 51 4e 6a 00 00 00 21 21 21 05
+     * 00000010: 01 00 04 10 4e 00 2a 00 00 00 00 00 00
+     * pieusb:
+     * 00000000: 04 10 04 10 04 10 53 4f 6e 00 00 00 2e 21 21 05 ......SOn....!!.
+     * 00000010: 00 00 04 10 4f 00 2c 00 00 00 00 00 00          ....O.,......
+
+    _hexdump(data, GAIN_OFFSET_SIZE);
 
     pieusb_command(device_number, command, data, size, status);
 #undef GAIN_OFFSET_SIZE
