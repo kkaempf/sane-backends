@@ -92,6 +92,7 @@ typedef enum {
 
 /* returns SCSI_STATUS_xxx */
 PIEUSB_SCSI_Status pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size);
+PIEUSB_Status pieusb_convert_scsi_status(PIEUSB_SCSI_Status status);
 
 #endif	/* PIEUSB_USB_H */
 

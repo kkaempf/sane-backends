@@ -145,7 +145,9 @@ scsi_cmd_to_text(int cmd)
   return "**unknown**";
 }
 
-
+/**
+ * Convert PIEUSB_Status to SANE_Status
+ */
 SANE_Status
 pieusb_convert_status(PIEUSB_Status status)
 {
@@ -161,6 +163,36 @@ pieusb_convert_status(PIEUSB_Status status)
       }
   }
   return SANE_STATUS_INVAL;
+}
+
+/**
+ * Convert PIEUSB_SCSI_Status to PIEUSB_Status
+ */
+
+PIEUSB_Status
+pieusb_convert_scsi_status(PIEUSB_SCSI_Status status)
+{
+  switch (status) {
+   case SCSI_STATUS_OK:
+    return PIEUSB_STATUS_GOOD;
+   case SCSI_STATUS_SENSE:
+    return PIEUSB_STATUS_CHECK_CONDITION;
+   case SCSI_STATUS_BUSY:
+    /*fallthru*/
+   case SCSI_STATUS_TIMEOUT:
+    return PIEUSB_STATUS_DEVICE_BUSY;
+   case SCSI_STATUS_WRITE_ERROR:
+    /*fallthru*/
+   case SCSI_STATUS_READ_ERROR:
+    /*fallthru*/
+   case SCSI_READ_ERROR:
+    /*fallthru*/
+   case SCSI_IEEE1284_ERROR:
+    return PIEUSB_STATUS_IO_ERROR;
+   default:
+    break;
+  }
+  return PIEUSB_STATUS_INVAL;
 }
 
 /* =========================================================================
