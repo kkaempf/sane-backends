@@ -1881,7 +1881,10 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     }
     /* Now set values for gain, offset and exposure */
     pieusb_cmd_set_gain_offset(scanner->device_number, &(scanner->settings), &status);
-    DBG(DBG_info_sane,"pieusb_set_gain_offset(): status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    DBG(DBG_info_sane, "pieusb_set_gain_offset(): status %s\n", sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
+      pieusb_wait_ready(scanner->device_number, &status);
+    }
     return status.pieusb_status;
 }
 
