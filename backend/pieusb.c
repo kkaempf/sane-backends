@@ -951,6 +951,18 @@ sane_start (SANE_Handle handle)
 
     /* ----------------------------------------------------------------------
      *
+     * Function 17
+     *
+     * ---------------------------------------------------------------------- */
+
+    pieusb_cmd_17(scanner->device_number, 1, &status);
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+      DBG (DBG_error,"sane_start(): pieusb_cmd_17 failed: %d\n", status.pieusb_status);
+      return SANE_STATUS_IO_ERROR;
+    }
+
+    /* ----------------------------------------------------------------------
+     *
      * Set scan frame
      *
      * ---------------------------------------------------------------------- */
@@ -969,6 +981,10 @@ sane_start (SANE_Handle handle)
      * TODO: test if this may be done just once, in sane_open().
      *
      * ---------------------------------------------------------------------- */
+    if (pieusb_get_gain_offset(scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
+        return SANE_STATUS_IO_ERROR;
+    }
+
     if (pieusb_set_gain_offset(scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }

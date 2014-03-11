@@ -292,6 +292,12 @@ struct Pieusb_Shading_Parameters {
 
 typedef struct Pieusb_Scanner_Properties Pieusb_Scanner_Properties;
 
+typedef enum {
+  SLIDE_NEXT = 0x04, SLIDE_PREV = 0x05, SLIDE_RELOAD = 0x10, SLIDE_RESET = 0x40
+} slide_action;
+
+void pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Command_Status *status);
+
 void pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status);
 
 /* Scanner commands */
@@ -301,18 +307,23 @@ void pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_St
 void pieusb_cmd_get_sense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Command_Status *status);
 
 void pieusb_cmd_get_halftone_pattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status);
+void pieusb_cmd_set_halftone_pattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status);
+
 void pieusb_cmd_get_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status);
 void pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status);
-void pieusb_cmd_get_exposure_time(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status);
-void pieusb_cmd_get_highlight_shadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status);
-void pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status);
+
 void pieusb_cmd_17(SANE_Int device_number, SANE_Int value, struct Pieusb_Command_Status *status);
+
+void pieusb_cmd_get_exposure_time(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status);
+void pieusb_cmd_set_exposure_time(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status);
+
+void pieusb_cmd_get_highlight_shadow(SANE_Int device_number, SANE_Int colorbits, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status);
+void pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status);
+
+void pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status);
 void pieusb_cmd_get_scanned_lines(SANE_Int device_number, SANE_Byte* data, SANE_Int lines, SANE_Int size, struct Pieusb_Command_Status *status);
 
-void pieusb_cmd_set_halftone_pattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Halftone_Pattern* pattern, struct Pieusb_Command_Status *status);
-void pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_Scan_Frame* frame, struct Pieusb_Command_Status *status);
-void pieusb_cmd_set_exposure_time(SANE_Int device_number, struct Pieusb_Exposure_Time* time, struct Pieusb_Command_Status *status);
-void pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_Shadow* hgltshdw, struct Pieusb_Command_Status *status);
+void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status);
 void pieusb_cmd_set_ccd_mask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, struct Pieusb_Command_Status *status);
 
 /*
@@ -327,11 +338,8 @@ void pieusb_cmd_get_parameters(SANE_Int device_number, struct Pieusb_Scan_Parame
 
 void pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq, SANE_Byte size, struct Pieusb_Command_Status *status);
 
-void pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status);
-
-void cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status);
-
 void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status);
+void pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status);
 
 void cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status);
 void cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status);

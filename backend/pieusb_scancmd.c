@@ -242,6 +242,7 @@ pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
 #define SCSI_SCAN               0x1B
 
 /* Non-standard SCSI command codes */
+#define SCSI_SLIDE              0xD1
 #define SCSI_SET_SCAN_HEAD      0xD2
 #define SCSI_READ_GAIN_OFFSET   0xD7
 #define SCSI_WRITE_GAIN_OFFSET  0xDC
@@ -256,7 +257,7 @@ pieusb_wait_ready(SANE_Int device_number, struct Pieusb_Command_Status *status)
 #define SCSI_HIGHLIGHT_SHADOW   0x14
 #define SCSI_CALIBRATION_INFO   0x15
 #define SCSI_CAL_DATA           0x16
-#define SCSI_17                 0x17 /* used by CyberView */
+#define SCSI_CMD_17             0x17 /* used by CyberView */
 
 /**
  * Perform a TEST UNIT READY (SCSI command code 0x00)
@@ -283,6 +284,33 @@ pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_Status 
     pieusb_command(device_number, command, NULL, 0, status);
 
     DBG (DBG_info_scan, "pieusb_cmd_test_unit_ready() return status = %s\n", sane_strstatus(status->pieusb_status));
+}
+
+/**
+ * slide action
+ * @param action  SLIDE_NEXT, SLIDE_PREV, SLIDE_RELOAD, SLIDE_RESET
+ * @return Pieusb_Command_Status
+ */
+
+void
+pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Command_Status *status)
+{
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define SLIDE_DATA_SIZE 4
+    SANE_Byte data[SLIDE_DATA_SIZE];
+    PIEUSB_SCSI_Status sst;
+
+    DBG (DBG_info_scan, "pieusb_cmd_slide(0x%02x)\n", action);
+
+    _prep_scsi_cmd(command, SCSI_SLIDE, SLIDE_DATA_SIZE);
+    memset(data, '\0', SLIDE_DATA_SIZE);
+    data[0] = action;
+    data[1] = 0x01;
+    data[3] = (action == SLIDE_RELOAD) ? 0x00 : 0x7c;
+
+    sst = pieusb_scsi_command(device_number, command, data, SLIDE_DATA_SIZE);
+    status->pieusb_status = pieusb_convert_scsi_status(sst);
+#undef SLIDE_DATA_SIZE
 }
 
 /**
@@ -435,6 +463,36 @@ pieusb_cmd_get_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
     DBG (DBG_info_scan, " index = %d\n", frame->index);
     DBG (DBG_info_scan, " size = %d\n", frame->size);
 #undef FRAME_SIZE
+}
+
+/**
+ * command 17 - unknown
+ */
+
+void
+pieusb_cmd_17(SANE_Int device_number, SANE_Int value, struct Pieusb_Command_Status *status)
+{
+    SANE_Byte command[SCSI_COMMAND_LEN];
+#define CMD_17_SIZE 6
+    SANE_Byte data[CMD_17_SIZE];
+    PIEUSB_SCSI_Status sst;
+
+    DBG (DBG_info_scan, "pieusb_cmd_17(%d)\n", value);
+
+    _prep_scsi_cmd(command, SCSI_WRITE, CMD_17_SIZE);
+    memset(data, '\0', CMD_17_SIZE);
+    _set_short(SCSI_CMD_17, data, 0);
+    _set_short(2, data, 2);
+    _set_short(value, data, 4);
+
+    sst = pieusb_scsi_command(device_number, command, data, CMD_17_SIZE);
+#undef CMD_17_SIZE
+    if (sst != SCSI_STATUS_OK) {
+      DBG (DBG_info_scan, "pieusb_cmd_17 failed with scsi err 0x%02x\n", sst);
+      status->pieusb_status = pieusb_convert_scsi_status(sst);
+      return;
+    }
+    pieusb_wait_ready(device_number, status);
 }
 
 /**
