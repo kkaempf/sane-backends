@@ -1728,9 +1728,9 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     SANE_Status ret;
     double gain;
 
-    DBG(DBG_info_sane,"pieusb_set_gain_offset(): mode = %s\n",calibration_mode);
+    DBG(DBG_info_sane,"pieusb_set_gain_offset(): mode = %s\n", calibration_mode);
 
-    if (strcmp(calibration_mode,SCAN_CALIBRATION_DEFAULT) == 0) {
+    if (strcmp(calibration_mode, SCAN_CALIBRATION_DEFAULT) == 0) {
         /* Default values */
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from defaults\n");
         scanner->settings.exposureTime[0] = DEFAULT_EXPOSURE;
@@ -1833,7 +1833,7 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         scanner->settings.extraEntries = DEFAULT_ADDITIONAL_ENTRIES;
         scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
         status.pieusb_status = PIEUSB_STATUS_GOOD;
-    } else {
+    } else { /* SCAN_CALIBRATION_AUTO */
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from scanner\n");
         pieusb_cmd_get_gain_offset(scanner->device_number, &scanner->settings, &status);
     }
