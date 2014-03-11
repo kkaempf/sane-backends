@@ -348,7 +348,7 @@ void cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struc
 
 void pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status);
 
-void cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status);
+void pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status);
 
 void pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status);
 

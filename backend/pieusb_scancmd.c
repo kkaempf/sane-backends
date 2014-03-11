@@ -1245,7 +1245,7 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
  * @see Pieusb_Settings
  */
 void
-cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status)
+pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* settings, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define GAIN_OFFSET_SIZE 23
@@ -1254,11 +1254,11 @@ cmdSetGainOffset(SANE_Int device_number, struct Pieusb_Settings* settings, struc
     int k;
     SANE_Byte val[3];
 
-    DBG (DBG_info_scan, "cmdSetGainOffset()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_set_gain_offset()\n");
 
     _prep_scsi_cmd(command, SCSI_WRITE_GAIN_OFFSET, size);
 
-    DBG (DBG_info_scan, "cmdSetGainOffset() set:\n");
+    DBG (DBG_info_scan, "pieusb_cmd_set_gain_offset() set:\n");
     DBG (DBG_info_scan, " exposure times = %d-%d-%d-%d\n", settings->exposureTime[0], settings->exposureTime[1], settings->exposureTime[2], settings->exposureTime[3]);
     DBG (DBG_info_scan, " gain = %d-%d-%d-%d\n", settings->gain[0], settings->gain[1], settings->gain[2], settings->gain[3]);
     DBG (DBG_info_scan, " offset = %d-%d-%d-%d\n", settings->offset[0], settings->offset[1], settings->offset[2], settings->offset[3]);
