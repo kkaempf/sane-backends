@@ -1833,7 +1833,7 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         status.pieusb_status = PIEUSB_STATUS_GOOD;
     } else {
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from scanner\n");
-        cmdGetGainOffset(scanner->device_number, &scanner->settings, &status);
+        pieusb_cmd_get_gain_offset(scanner->device_number, &scanner->settings, &status);
     }
     /* Check status */
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {

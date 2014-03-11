@@ -972,7 +972,8 @@ sane_start (SANE_Handle handle)
 
     /* ----------------------------------------------------------------------
      *
-     * Set initial gains and offsets
+     * Get & set initial gains and offsets
+     *
      * There does not seem to be much reason to set exposure/gain/offset
      * now, but it does make a large difference in speed, because it
      * creates a small BADF-table. This is probably because without SET GAIN
@@ -981,9 +982,6 @@ sane_start (SANE_Handle handle)
      * TODO: test if this may be done just once, in sane_open().
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_get_gain_offset(scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
-        return SANE_STATUS_IO_ERROR;
-    }
 
     if (pieusb_set_gain_offset(scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
