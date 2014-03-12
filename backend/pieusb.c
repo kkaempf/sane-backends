@@ -1021,17 +1021,20 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
     scanner->scanning = SANE_TRUE;
     scanner->cancel_request = SANE_FALSE;
-    pieusb_cmd_start_scan(scanner->device_number, &status);
+    pieusb_cmd_start_scan (scanner->device_number, &status);
     /* Default status check */
     if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
         /* OK, proceed */
     } else if (status.pieusb_status == PIEUSB_STATUS_CHECK_CONDITION) {
         /* May be a case of overriding skip calibration */
-        if (scanner->mode.skipShadingAnalysis && status.senseKey==0x06 && status.senseCode==0x82 && status.senseQualifier==0x00) {
+        if (scanner->mode.skipShadingAnalysis
+	    && status.senseKey == 0x06
+	    && status.senseCode == 0x82
+	    && status.senseQualifier == 0x00) {
             scanner->mode.skipShadingAnalysis = SANE_FALSE;
         } else {
             /* Other sense */
-            DBG(DBG_error,"sane_start(): sense %02x:%02x-%02x\n",status.senseKey,status.senseCode,status.senseQualifier);
+            DBG (DBG_error, "sane_start(): sense %02x:%02x-%02x\n", status.senseKey, status.senseCode, status.senseQualifier);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
@@ -1039,15 +1042,8 @@ sane_start (SANE_Handle handle)
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-    /* Wait loop 1 */
-    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        scanner->scanning = SANE_FALSE;
-        return SANE_STATUS_IO_ERROR;
-    }
-    /* Wait loop 2*/
-    pieusb_cmd_test_unit_ready(scanner->device_number, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+    
+    if (pieusb_wait_ready(scanner, 0) != SANE_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
@@ -1057,7 +1053,7 @@ sane_start (SANE_Handle handle)
 
         /* Handle cancel request */
         if (scanner->cancel_request) {
-            return pieusb_on_cancel(scanner);
+            return pieusb_on_cancel (scanner);
         }
 
         /* ------------------------------------------------------------------
@@ -1067,8 +1063,8 @@ sane_start (SANE_Handle handle)
          * or use defaults.
          *
          * ------------------------------------------------------------------ */
-        if (pieusb_set_gain_offset(scanner,scanner->val[OPT_CALIBRATION_MODE].s) != SANE_STATUS_GOOD) {
-            pieusb_cmd_stop_scan(scanner->device_number, &status);
+        if (pieusb_set_gain_offset (scanner, scanner->val[OPT_CALIBRATION_MODE].s) != SANE_STATUS_GOOD) {
+            pieusb_cmd_stop_scan (scanner->device_number, &status);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
@@ -1080,15 +1076,14 @@ sane_start (SANE_Handle handle)
          * it's 45 lines, 5340 pixels, 16 bit depth in all cases.
          *
          * ------------------------------------------------------------------ */
-        if (pieusb_get_shading_data(scanner) != SANE_STATUS_GOOD) {
-            pieusb_cmd_stop_scan(scanner->device_number, &status);
+        if (pieusb_get_shading_data (scanner) != SANE_STATUS_GOOD) {
+            pieusb_cmd_stop_scan (scanner->device_number, &status);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
 
         /* Wait loop */
-        pieusb_cmd_test_unit_ready(scanner->device_number, &status);
-        if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+        if (pieusb_wait_ready(scanner, 0) != SANE_STATUS_GOOD) {
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
@@ -1110,8 +1105,8 @@ sane_start (SANE_Handle handle)
      * Get CCD mask
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_get_ccd_mask(scanner) != SANE_STATUS_GOOD) {
-        pieusb_cmd_stop_scan(scanner->device_number, &status);
+    if (pieusb_get_ccd_mask (scanner) != SANE_STATUS_GOOD) {
+        pieusb_cmd_stop_scan (scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
@@ -1123,18 +1118,18 @@ sane_start (SANE_Handle handle)
      * Read scan parameters & wait until ready for reading
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_get_parameters(scanner) != SANE_STATUS_GOOD) {
-        pieusb_cmd_stop_scan(scanner->device_number, &status);
+    if (pieusb_get_parameters (scanner) != SANE_STATUS_GOOD) {
+        pieusb_cmd_stop_scan (scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-    DBG(DBG_info_sane,"sane_start(): SANE parameters\n");
-    DBG(DBG_info_sane," format = %d\n",scanner->scan_parameters.format);
-    DBG(DBG_info_sane," last_frame = %d\n",scanner->scan_parameters.last_frame);
-    DBG(DBG_info_sane," bytes_per_line = %d\n",scanner->scan_parameters.bytes_per_line);
-    DBG(DBG_info_sane," pixels_per_line = %d\n",scanner->scan_parameters.pixels_per_line);
-    DBG(DBG_info_sane," lines = %d\n",scanner->scan_parameters.lines);
-    DBG(DBG_info_sane," depth = %d\n",scanner->scan_parameters.depth);
+    DBG (DBG_info_sane,"sane_start(): SANE parameters\n");
+    DBG (DBG_info_sane," format = %d\n", scanner->scan_parameters.format);
+    DBG (DBG_info_sane," last_frame = %d\n", scanner->scan_parameters.last_frame);
+    DBG (DBG_info_sane," bytes_per_line = %d\n", scanner->scan_parameters.bytes_per_line);
+    DBG (DBG_info_sane," pixels_per_line = %d\n", scanner->scan_parameters.pixels_per_line);
+    DBG (DBG_info_sane," lines = %d\n", scanner->scan_parameters.lines);
+    DBG (DBG_info_sane," depth = %d\n", scanner->scan_parameters.depth);
 
     /* ----------------------------------------------------------------------
      *
@@ -1164,7 +1159,7 @@ sane_start (SANE_Handle handle)
      * Read all image data into the buffer
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_get_scan_data(scanner) != SANE_STATUS_GOOD) {
+    if (pieusb_get_scan_data (scanner) != SANE_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
