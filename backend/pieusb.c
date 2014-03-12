@@ -996,6 +996,22 @@ sane_start (SANE_Handle handle)
         return SANE_STATUS_IO_ERROR;
     }
 
+    /* ----------------------------------------------------------------------
+     *
+     * Slide reload(?)
+     *
+     * ---------------------------------------------------------------------- */
+    pieusb_cmd_slide(scanner->device_number, SLIDE_RELOAD, &status);
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+      DBG (DBG_error,"sane_start(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
+      return SANE_STATUS_IO_ERROR;
+    }
+    status.pieusb_status = pieusb_wait_ready (scanner, 0);
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+      DBG (DBG_error, "sane_open: scanner not ready %d\n", status.pieusb_status);
+      return SANE_STATUS_DEVICE_BUSY;
+    }
+
     /* Enter SCAN phase 1 */
 
     /* ----------------------------------------------------------------------
