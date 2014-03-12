@@ -1941,7 +1941,7 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
     struct Pieusb_Command_Status status;
     SANE_Status ret;
 
-    DBG(DBG_info_proc, "pieusb_get_ccd_mask()");
+    DBG(DBG_info_proc, "pieusb_get_ccd_mask()\n");
     /* Wait loop */
     ret = pieusb_wait_ready (scanner, 0);
     if (ret != SANE_STATUS_GOOD) {
@@ -1976,7 +1976,7 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     const char *mode;
     SANE_Status ret;
 
-    DBG(DBG_info_proc, "pieusb_get_parameters()");
+    DBG(DBG_info_proc, "pieusb_get_parameters()\n");
     /* Wait loop */
     ret = pieusb_wait_ready (scanner, 0);
     if (ret != SANE_STATUS_GOOD) {

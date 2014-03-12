@@ -966,7 +966,7 @@ void
 pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
-    SANE_Int size = 5340;
+    SANE_Int size = 5340; /* cyberview: 6685 0x1a1d */
 
     DBG (DBG_info_scan, "pieusb_cmd_get_ccd_mask()\n");
 
