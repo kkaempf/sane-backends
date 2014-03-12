@@ -339,8 +339,8 @@ void pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties
 void cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status);
 void pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Command_Status *status);
 
-void cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status);
-void cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status);
+void pieusb_cmd_start_scan(SANE_Int device_number, struct Pieusb_Command_Status *status);
+void pieusb_cmd_stop_scan(SANE_Int device_number, struct Pieusb_Command_Status *status);
 
 void cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pieusb_Command_Status *status);
 

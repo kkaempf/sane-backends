@@ -566,7 +566,7 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
  * start reading after a stop. Reading to fast causes the scanner to return
  * a busy status, which is not a problem.
  * This is a SCSI READ command (code 0x08). It is distinguished from the other
- * READ commands by the context in which it is issued: see cmdStartScan().
+ * READ commands by the context in which it is issued: see pieusb_cmd_start_scan().
  *
  * @param device_number
  * @param data
@@ -1056,7 +1056,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * is returned. Available command during this phase:\n
  * 1. pieusb_cmd_test_unit_ready()\n
  * 2. pieusb_cmd_get_scanned_lines(): read shading correction lines\n
- * 3. cmdStopScan: abort scanning process\n
+ * 3. pieusb_cmd_stop_scan: abort scanning process\n
  * 4. pieusb_cmd_get_gain_offset() : the settings are generated during the initialisation of this phase, so they are current\n
  * 5. cmdSetSettings(): settings take effect in the next scan phase\n\n
  * The line-by-line phase is only entered if Pieusb_Mode.div_10[0] bit 5 is
@@ -1064,23 +1064,23 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * In the CCD-mask output phase the CCD-mask is read. Available command during this phase:\n
  * 1. pieusb_cmd_test_unit_ready()\n
  * 2. pieusb_cmd_get_ccd_mask()\n
- * 3. cmdStopScan: abort scanning process\n\n
+ * 3. pieusb_cmd_stop_scan: abort scanning process\n\n
  * In the 'scan and output scan data' phase, the slide is scanned while data is
  * read in the mean time. Available command during this phase:\n
  * 1. pieusb_cmd_test_unit_ready()\n
  * 2. pieusb_cmd_get_scanned_lines()\n
  * 2. pieusb_cmd_get_parameters()\n
- * 4. cmdStopScan: abort scanning process\n
+ * 4. pieusb_cmd_stop_scan: abort scanning process\n
  *
  * @param device_number Device number
  * @return Pieusb_Command_Status
  */
 void
-cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
+pieusb_cmd_start_scan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 
-    DBG (DBG_info_scan, "cmdStartScan()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_start_scan()\n");
 
     _prep_scsi_cmd(command, SCSI_SCAN, 1);
 
@@ -1088,18 +1088,18 @@ cmdStartScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 }
 
 /**
- * Stop a scan started with cmdStartScan(). It issues a SCSI SCAN command,
+ * Stop a scan started with pieusb_cmd_start_scan(). It issues a SCSI SCAN command,
  * code 0x1B, with size byte = 0x00.
  *
  * @param device_number Device number
  * @return Pieusb_Command_Status
  */
 void
-cmdStopScan(SANE_Int device_number, struct Pieusb_Command_Status *status)
+pieusb_cmd_stop_scan(SANE_Int device_number, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 
-    DBG (DBG_info_scan, "cmdStopScan()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_stop_scan()\n");
 
     _prep_scsi_cmd(command, SCSI_SCAN, 0);
 
@@ -1225,7 +1225,7 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
 /**
  * Set internal scanner settings such as gain and offset.\n
  * There are two effective moments for this command:\n
- * 1. For a scan without calibration phase: before the cmdStartScan() command;
+ * 1. For a scan without calibration phase: before the pieusb_cmd_start_scan() command;
  * 2. For a sccan with calibration phase: before (or during) reading the shading reference data.
  * The SCSI code is 0xDC, there is no related command name.
  *

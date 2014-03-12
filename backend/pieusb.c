@@ -1005,7 +1005,7 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
     scanner->scanning = SANE_TRUE;
     scanner->cancel_request = SANE_FALSE;
-    cmdStartScan(scanner->device_number, &status);
+    pieusb_cmd_start_scan(scanner->device_number, &status);
     /* Default status check */
     if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
         /* OK, proceed */
@@ -1052,7 +1052,7 @@ sane_start (SANE_Handle handle)
          *
          * ------------------------------------------------------------------ */
         if (pieusb_set_gain_offset(scanner,scanner->val[OPT_CALIBRATION_MODE].s) != SANE_STATUS_GOOD) {
-            cmdStopScan(scanner->device_number, &status);
+            pieusb_cmd_stop_scan(scanner->device_number, &status);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
@@ -1065,7 +1065,7 @@ sane_start (SANE_Handle handle)
          *
          * ------------------------------------------------------------------ */
         if (pieusb_get_shading_data(scanner) != SANE_STATUS_GOOD) {
-            cmdStopScan(scanner->device_number, &status);
+            pieusb_cmd_stop_scan(scanner->device_number, &status);
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
@@ -1095,7 +1095,7 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
     if (pieusb_get_ccd_mask(scanner) != SANE_STATUS_GOOD) {
-        cmdStopScan(scanner->device_number, &status);
+        pieusb_cmd_stop_scan(scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
@@ -1108,7 +1108,7 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
     if (pieusb_get_parameters(scanner) != SANE_STATUS_GOOD) {
-        cmdStopScan(scanner->device_number, &status);
+        pieusb_cmd_stop_scan(scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
