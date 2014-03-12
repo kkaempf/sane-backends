@@ -1276,17 +1276,21 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
 
     /* Code data */
     memset(data, '\0', size);
-    _set_shorts(settings->exposureTime, data, 3);
-    for (k = 0; k < 3; k++) val[k] = settings->offset[k];
-    _copy_bytes(data+6, val, 3);
-    for (k = 0; k < 3; k++) val[k] = settings->gain[k];
-    _copy_bytes(data+12, val, 3);
-    _set_byte(settings->light, data, 15);
-    _set_byte(settings->extraEntries, data, 16);
-    _set_byte(settings->doubleTimes, data, 17);
-    _set_short(settings->exposureTime[3], data, 18);
-    _set_byte(settings->offset[3], data, 20);
-    _set_byte(settings->gain[3], data, 22);
+    _set_shorts (settings->exposureTime, data, 3);
+    for (k = 0; k < 3; k++) {
+      val[k] = settings->offset[k];
+    }
+    _copy_bytes(data + 6, val, 3);
+    for (k = 0; k < 3; k++) {
+      val[k] = settings->gain[k];
+    }
+    _copy_bytes (data + 12, val, 3);
+    _set_byte (settings->light, data, 15);
+    _set_byte (settings->extraEntries, data, 16);
+    _set_byte (settings->doubleTimes, data, 17);
+    _set_short (settings->exposureTime[3], data, 18);
+    _set_byte (settings->offset[3], data, 20);
+    _set_byte (settings->gain[3], data, 22);
     /*
      * pieusb-get_gain_offset:
      *  00000000: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ................
