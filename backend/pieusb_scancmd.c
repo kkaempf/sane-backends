@@ -900,6 +900,34 @@ pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pie
     DBG (DBG_info_scan, " line threshold = %d\n", mode->lineThreshold);
 
     /* Code data */
+    /* cyberview
+     * 00 0f entries
+     * f4 01 resolution 500
+     * 80    passes
+     * 04    color depth
+     * 04    color format
+     * 00
+     * 01    byte order
+     * 08    quality bitmask: skip shading analysis
+     * 00 00
+     * 00    halftone pattern
+     * 80    line threshold
+     * 10 00
+     * 
+     * pieusb
+     * 0: 00 0f
+     * 2: e8 03 resolution 1000
+     * 4: 80    passes
+     * 5: 04    color depth
+     * 6: 04    color format
+     * 7: 00
+     * 8: 01    byte order
+     * 9: 02    quality bitmask: sharpen
+     * a: 00 00
+     * c: 00    halftone pattern
+     * d: 7f    line threshold
+     * e: 00 00
+     */
     memset(data, '\0', size);
     _set_byte(size-1, data, 1);
     _set_short(mode->resolution, data, 2);
