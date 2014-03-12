@@ -1303,7 +1303,7 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
      * pieusb:
      * 00000000: 04 10 04 10 04 10 53 4f 6e 00 00 00 2e 21 21 05 ......SOn....!!.
      * 00000010: 00 00 04 10 4f 00 2c 00 00 00 00 00 00          ....O.,......
-
+     */
     _hexdump(data, GAIN_OFFSET_SIZE);
 
     pieusb_command(device_number, command, data, size, status);
