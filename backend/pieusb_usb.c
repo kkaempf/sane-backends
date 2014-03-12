@@ -195,6 +195,51 @@ pieusb_convert_scsi_status(PIEUSB_SCSI_Status status)
   return PIEUSB_STATUS_INVAL;
 }
 
+/**
+ * hex dump 'size' bytes starting at 'ptr'
+ */
+static void
+_hexdump(unsigned char *ptr, int size)
+{
+  unsigned char *lptr = ptr;
+  int count = 0;
+  long start = 0;
+
+  while (size-- > 0)
+  {
+    if ((count % 16) == 0)
+      fprintf (stderr, "\t%08lx:", start);
+	fprintf (stderr, " %02x", *ptr++);
+	count++;
+	start++;
+	if (size == 0)
+	{
+	    while ((count%16) != 0)
+	    {
+		fprintf (stderr, "   ");
+		count++;
+	    }
+	}
+	if ((count % 16) == 0)
+	{
+	    fprintf (stderr, " ");
+	    while (lptr < ptr)
+	    {
+	        unsigned char c = ((*lptr&0x7f) < 32)?'.':(*lptr & 0x7f);
+		fprintf (stderr, "%c", c);
+		lptr++;
+	    }
+	    fprintf (stderr, "\n");
+	}
+    }
+    if ((count % 16) != 0)
+	fprintf (stderr, "\n");
+
+    fflush(stderr);
+    return;
+}
+
+
 /* =========================================================================
  *
  * USB functions
@@ -397,6 +442,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
             /* Write data */
             {
 	      DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_READY_TO_ACCEPT_DATA\n");
+	      _hexdump(data, size);
                 for (i = 0; i < size; ++i) {
 		  st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[i]);
 		  if (st != SANE_STATUS_GOOD) {
@@ -450,7 +496,8 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
 		    }
                     remsize -= partsize;
                 }
-                /* Verify again */
+	        _hexdump(data, size);
+	        /* Verify again */
                 st = _ctrl_in_byte(device_number, &usbstat);
                 if (st != SANE_STATUS_GOOD) {
                     DBG(DBG_error, "pieusb_scsi_command() fails 2nd verification after read, 1st byte: %d\n", st);

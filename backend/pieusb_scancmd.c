@@ -185,51 +185,6 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
 }
 
 
-/**
- * hex dump 'size' bytes starting at 'ptr'
- */
-static void
-_hexdump(unsigned char *ptr, int size)
-{
-  unsigned char *lptr = ptr;
-  int count = 0;
-  long start = 0;
-
-  while (size-- > 0)
-  {
-    if ((count % 16) == 0)
-      fprintf (stderr, "\t%08lx:", start);
-	fprintf (stderr, " %02x", *ptr++);
-	count++;
-	start++;
-	if (size == 0)
-	{
-	    while ((count%16) != 0)
-	    {
-		fprintf (stderr, "   ");
-		count++;
-	    }
-	}
-	if ((count % 16) == 0)
-	{
-	    fprintf (stderr, " ");
-	    while (lptr < ptr)
-	    {
-	        unsigned char c = ((*lptr&0x7f) < 32)?'.':(*lptr & 0x7f);
-		fprintf (stderr, "%c", c);
-		lptr++;
-	    }
-	    fprintf (stderr, "\n");
-	}
-    }
-    if ((count % 16) != 0)
-	fprintf (stderr, "\n");
-
-    fflush(stderr);
-    return;
-}
-
-
 /* =========================================================================
  *
  * Pieusb scanner commands
@@ -1212,7 +1167,6 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
-    _hexdump(data, GAIN_OFFSET_SIZE);
 
     /* Decode data received */
     _get_shorts(settings->saturationLevel, data+54, 3);
@@ -1327,7 +1281,6 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
      * 00000016: 2c    - gain I
      * 00000017: 00 00 00 00 00 00
      */
-    _hexdump(data, GAIN_OFFSET_SIZE);
 
     pieusb_command(device_number, command, data, size, status);
 #undef GAIN_OFFSET_SIZE
