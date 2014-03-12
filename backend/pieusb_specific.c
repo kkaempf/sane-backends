@@ -1654,25 +1654,26 @@ pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
     const char *mode;
+    SANE_Status res;
 
     mode = scanner->val[OPT_MODE].s;
-    if (strcmp(mode,SANE_VALUE_SCAN_MODE_LINEART) == 0) {
+    if (strcmp (mode, SANE_VALUE_SCAN_MODE_LINEART) == 0) {
         scanner->mode.passes = SCAN_FILTER_GREEN; /* G */
         scanner->mode.colorFormat = SCAN_COLOR_FORMAT_PIXEL;
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
+    } else if(strcmp (mode, SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
         scanner->mode.passes = SCAN_FILTER_GREEN; /* G */
         scanner->mode.colorFormat = SCAN_COLOR_FORMAT_PIXEL;
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_GRAY) == 0) {
+    } else if(strcmp (mode, SANE_VALUE_SCAN_MODE_GRAY) == 0) {
         scanner->mode.passes = SCAN_FILTER_GREEN; /* G=gray; unable to get R & B & I to work */
         scanner->mode.colorFormat = SCAN_COLOR_FORMAT_PIXEL;
     } else if(scanner->val[OPT_PREVIEW].b) {
         /* Catch preview here, otherwise next ifs get complicated */
         scanner->mode.passes = SCAN_ONE_PASS_COLOR;
         scanner->mode.colorFormat = SCAN_COLOR_FORMAT_INDEX; /* pixel format might be an alternative */
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_RGBI) == 0) {
+    } else if(strcmp (mode, SANE_VALUE_SCAN_MODE_RGBI) == 0) {
         scanner->mode.passes = SCAN_ONE_PASS_RGBI;
         scanner->mode.colorFormat = SCAN_COLOR_FORMAT_INDEX;
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b) {
+    } else if(strcmp (mode, SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b) {
         scanner->mode.passes = SCAN_ONE_PASS_RGBI; /* Need infrared for cleaning */
         scanner->mode.colorFormat = SCAN_COLOR_FORMAT_INDEX;
     } else { /* SANE_VALUE_SCAN_MODE_COLOR */
@@ -1682,10 +1683,10 @@ pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
     /* Resolution */
     if (scanner->val[OPT_PREVIEW].b) {
         scanner->mode.resolution = scanner->device->fast_preview_resolution;
-        DBG(DBG_info_sane,"pieusb_cmd_set_mode_from_options(): resolution fast preview (%d)\n",scanner->mode.resolution);
+        DBG (DBG_info_sane, "pieusb_cmd_set_mode_from_options(): resolution fast preview (%d)\n", scanner->mode.resolution);
     } else {
-        scanner->mode.resolution = SANE_UNFIX(scanner->val[OPT_RESOLUTION].w);
-        DBG(DBG_info_sane,"pieusb_cmd_set_mode_from_options(): resolution from option setting (%d)\n",scanner->mode.resolution);
+        scanner->mode.resolution = SANE_UNFIX (scanner->val[OPT_RESOLUTION].w);
+        DBG (DBG_info_sane, "pieusb_cmd_set_mode_from_options(): resolution from option setting (%d)\n", scanner->mode.resolution);
     }
     /* Bit depth: exit on untested values */
     switch (scanner->val[OPT_BIT_DEPTH].w) {
@@ -1693,22 +1694,26 @@ pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
         case 8: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_8; break;
         case 16: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_16; break;
         default: /* 4, 10 & 12 */
-            DBG(DBG_error,"pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n",scanner->val[OPT_BIT_DEPTH].w);
+            DBG (DBG_error, "pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n", scanner->val[OPT_BIT_DEPTH].w);
             return SANE_STATUS_INVAL;
     }
     scanner->mode.byteOrder = 0x01; /* 0x01 = Intel; only bit 0 used */
     scanner->mode.sharpen = scanner->val[OPT_SHARPEN].b && !scanner->val[OPT_PREVIEW].b;
     scanner->mode.skipShadingAnalysis = !scanner->val[OPT_SHADING_ANALYSIS].b;
     scanner->mode.fastInfrared = scanner->val[OPT_FAST_INFRARED].b && !scanner->val[OPT_PREVIEW].b;
-    if (strcmp(scanner->val[OPT_HALFTONE_PATTERN].s,"53lpi 45d ROUND")==0) {
+    if (strcmp (scanner->val[OPT_HALFTONE_PATTERN].s, "53lpi 45d ROUND") == 0) {
         scanner->mode.halftonePattern = 0;
     } else { /*TODO: the others */
         scanner->mode.halftonePattern = 0;
     }
-    scanner->mode.lineThreshold = SANE_UNFIX(scanner->val[OPT_THRESHOLD].w) / 100 * 0xFF; /* 0xFF = 100% */
-    pieusb_cmd_set_mode(scanner->device_number,&(scanner->mode), &status);
-    DBG(DBG_info_sane,"pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_mode status %s\n",sane_strstatus(pieusb_convert_status(status.pieusb_status)));
-    return status.pieusb_status;
+    scanner->mode.lineThreshold = SANE_UNFIX (scanner->val[OPT_THRESHOLD].w) / 100 * 0xFF; /* 0xFF = 100% */
+    pieusb_cmd_set_mode (scanner->device_number, &(scanner->mode), &status);
+    res = pieusb_convert_status(status.pieusb_status);
+    if (res == SANE_STATUS_GOOD) {
+      res = pieusb_wait_ready (scanner, 0);
+    }
+    DBG (DBG_info_sane, "pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_mode status %s\n", sane_strstatus(res));
+    return res;
 }
 
 /**
