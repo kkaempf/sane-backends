@@ -103,11 +103,11 @@
 #define POST_SW_IRED_MASK       (POST_SW_IRED | POST_SW_DIRT)
 #define POST_SW_ACCUM_MASK      (POST_SW_IRED_MASK | POST_SW_GRAIN | POST_SW_CROP)
 
-#define DEFAULT_GAIN                    19
-#define DEFAULT_EXPOSURE                2937 /* minimum value, see Pieusb_Settings */
+#define DEFAULT_GAIN                    19   /* 0x13 */
+#define DEFAULT_EXPOSURE                2937 /* 0xb79 minimum value, see Pieusb_Settings */
 #define DEFAULT_OFFSET                  0
 #define DEFAULT_LIGHT                   4
-#define DEFAULT_ADDITIONAL_ENTRIES      0
+#define DEFAULT_ADDITIONAL_ENTRIES      1
 #define DEFAULT_DOUBLE_TIMES            0
 
 /* --------------------------------------------------------------------------

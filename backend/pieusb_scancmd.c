@@ -1302,11 +1302,30 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
      *  00000060: 87 be 04 10 4f 00 2c                            .>..O.,
      *
      * cyberview:
-     * 00000000: 65 22 57 18 19 19 51 4e 6a 00 00 00 21 21 21 05
-     * 00000010: 01 00 04 10 4e 00 2a 00 00 00 00 00 00
+     * 00000000: 65 22  57 18  19 19 - exposure time RGB
+     * 00000006: 51 4e 6a - offset RGB
+     * 00000009: 00 00 00
+     * 0000000c: 21 21 21 - gain RGB
+     * 0000000f: 05 - light
+     * 00000010: 01 - extra entries
+     * 00000011: 00 - double times
+     * 00000012: 04 10 - exposure time I
+     * 00000014: 4e 00 - offset I
+     * 00000016: 2a - gain I
+     * 00000017: 00 00 00 00 00 00
+     * 
      * pieusb:
-     * 00000000: 04 10 04 10 04 10 53 4f 6e 00 00 00 2e 21 21 05 ......SOn....!!.
-     * 00000010: 00 00 04 10 4f 00 2c 00 00 00 00 00 00          ....O.,......
+     * 00000000: 04 10  04 10  04 10 - exposure time RGB
+     * 00000006: 53 4f 6e - offset RGB
+     * 00000009: 00 00 00
+     * 0000000c: 2e 21 21 - gain RGB
+     * 0000000f: 05 - light
+     * 00000010: 00 - extra entries
+     * 00000011: 00 - double times
+     * 00000012: 04 10 - exposure time I
+     * 00000014: 4f 00 - offset I
+     * 00000016: 2c    - gain I
+     * 00000017: 00 00 00 00 00 00
      */
     _hexdump(data, GAIN_OFFSET_SIZE);
 
