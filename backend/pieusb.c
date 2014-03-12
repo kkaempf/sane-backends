@@ -983,7 +983,7 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
 
-    if (pieusb_set_gain_offset(scanner, SCAN_CALIBRATION_AUTO) != SANE_STATUS_GOOD) {
+    if (pieusb_set_gain_offset(scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
 
