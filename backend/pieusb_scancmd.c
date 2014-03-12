@@ -963,12 +963,12 @@ pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pie
  * @return Pieusb_Command_Status
  */
 void
-cmdGetCCDMask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
     SANE_Int size = 5340;
 
-    DBG (DBG_info_scan, "cmdGetCCDMask()\n");
+    DBG (DBG_info_scan, "pieusb_cmd_get_ccd_mask()\n");
 
     _prep_scsi_cmd(command, SCSI_COPY, size);
 
@@ -1063,7 +1063,7 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
  * set. It is not implemented.\n\n
  * In the CCD-mask output phase the CCD-mask is read. Available command during this phase:\n
  * 1. pieusb_cmd_test_unit_ready()\n
- * 2. cmdGetCCDMask()\n
+ * 2. pieusb_cmd_get_ccd_mask()\n
  * 3. cmdStopScan: abort scanning process\n\n
  * In the 'scan and output scan data' phase, the slide is scanned while data is
  * read in the mean time. Available command during this phase:\n

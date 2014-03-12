@@ -1948,7 +1948,7 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
         return ret;
     }
 
-    cmdGetCCDMask(scanner->device_number, scanner->ccd_mask, &status);
+    pieusb_cmd_get_ccd_mask(scanner->device_number, scanner->ccd_mask, &status);
     if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
       /* Save CCD mask */
       if (scanner->val[OPT_SAVE_CCDMASK].b) {
