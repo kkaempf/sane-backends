@@ -305,7 +305,7 @@ SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner);
 SANE_Status pieusb_get_parameters(Pieusb_Scanner * scanner);
 SANE_Status pieusb_get_ccd_mask(Pieusb_Scanner * scanner);
 SANE_Status pieusb_get_shading_data(Pieusb_Scanner * scanner);
-SANE_Status pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner);
+SANE_Status pieusb_set_mode_from_options(Pieusb_Scanner * scanner);
 SANE_Status pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char* calibration_mode);
 SANE_Status pieusb_set_frame_from_options(Pieusb_Scanner * scanner);
 void pieusb_print_options(struct Pieusb_Scanner *scanner);

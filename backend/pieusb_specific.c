@@ -1650,7 +1650,7 @@ pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
  */
 
 SANE_Status
-pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
+pieusb_set_mode_from_options(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
     const char *mode;
@@ -1683,10 +1683,10 @@ pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
     /* Resolution */
     if (scanner->val[OPT_PREVIEW].b) {
         scanner->mode.resolution = scanner->device->fast_preview_resolution;
-        DBG (DBG_info_sane, "pieusb_cmd_set_mode_from_options(): resolution fast preview (%d)\n", scanner->mode.resolution);
+        DBG (DBG_info_sane, "pieusb_set_mode_from_options(): resolution fast preview (%d)\n", scanner->mode.resolution);
     } else {
         scanner->mode.resolution = SANE_UNFIX (scanner->val[OPT_RESOLUTION].w);
-        DBG (DBG_info_sane, "pieusb_cmd_set_mode_from_options(): resolution from option setting (%d)\n", scanner->mode.resolution);
+        DBG (DBG_info_sane, "pieusb_set_mode_from_options(): resolution from option setting (%d)\n", scanner->mode.resolution);
     }
     /* Bit depth: exit on untested values */
     switch (scanner->val[OPT_BIT_DEPTH].w) {
@@ -1694,7 +1694,7 @@ pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
         case 8: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_8; break;
         case 16: scanner->mode.colorDepth = SCAN_COLOR_DEPTH_16; break;
         default: /* 4, 10 & 12 */
-            DBG (DBG_error, "pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n", scanner->val[OPT_BIT_DEPTH].w);
+            DBG (DBG_error, "pieusb_set_mode_from_options(): pieusb_cmd_set_scan_frame untested bit depth %d\n", scanner->val[OPT_BIT_DEPTH].w);
             return SANE_STATUS_INVAL;
     }
     scanner->mode.byteOrder = 0x01; /* 0x01 = Intel; only bit 0 used */
@@ -1712,7 +1712,7 @@ pieusb_cmd_set_mode_from_options(Pieusb_Scanner * scanner)
     if (res == SANE_STATUS_GOOD) {
       res = pieusb_wait_ready (scanner, 0);
     }
-    DBG (DBG_info_sane, "pieusb_cmd_set_mode_from_options(): pieusb_cmd_set_mode status %s\n", sane_strstatus(res));
+    DBG (DBG_info_sane, "pieusb_set_mode_from_options(): pieusb_cmd_set_mode status %s\n", sane_strstatus(res));
     return res;
 }
 

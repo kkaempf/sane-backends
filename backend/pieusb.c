@@ -992,7 +992,7 @@ sane_start (SANE_Handle handle)
      * Set mode
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_cmd_set_mode_from_options(scanner) != SANE_STATUS_GOOD) {
+    if (pieusb_set_mode_from_options(scanner) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
 
