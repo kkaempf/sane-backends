@@ -321,8 +321,8 @@ void pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highl
 void pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Parameters_Info* shading, struct Pieusb_Command_Status *status);
 void pieusb_cmd_get_scanned_lines(SANE_Int device_number, SANE_Byte* data, SANE_Int lines, SANE_Int size, struct Pieusb_Command_Status *status);
 
-void pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status);
-void pieusb_cmd_set_ccd_mask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, struct Pieusb_Command_Status *status);
+void pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, SANE_Int mask_size, struct Pieusb_Command_Status *status);
+void pieusb_cmd_set_ccd_mask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, SANE_Int mask_size, struct Pieusb_Command_Status *status);
 
 /*
 void cmdPrepareHalftonePattern(SANE_Int device_number, SANE_Int index, struct Pieusb_Command_Status *status);

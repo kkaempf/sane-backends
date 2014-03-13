@@ -1076,7 +1076,7 @@ pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer
     /* Loop through CCD-mask to find used pixels */
     width_to_loc = calloc(buffer->width,sizeof(int));
     j = 0;
-    for (i = 0; i < 5340; i++) {
+    for (i = 0; i < scanner->ccd_mask_size; i++) {
         if (scanner->ccd_mask[i] == 0) {
             width_to_loc[j++] = i;
         }
@@ -1907,6 +1907,7 @@ pieusb_get_shading_data(Pieusb_Scanner * scanner)
     SANE_Int shading_width;
     SANE_Int shading_height;
     SANE_Byte* buffer;
+  SANE_Status res;
 
     shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
     shading_height = scanner->device->shading_parameters[0].nLines;
@@ -1926,9 +1927,13 @@ pieusb_get_shading_data(Pieusb_Scanner * scanner)
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
-    pieusb_calculate_shading(scanner, buffer);
-    free(buffer);
-    return status.pieusb_status;
+    pieusb_calculate_shading (scanner, buffer);
+    free (buffer);
+  res = pieusb_convert_status (status.pieusb_status);
+  if (res == SANE_STATUS_GOOD) {
+    res = pieusb_wait_ready (scanner, 0);
+  }
+  return res;
 }
 
 /*
@@ -1943,12 +1948,12 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
 
     DBG(DBG_info_proc, "pieusb_get_ccd_mask()\n");
 
-    pieusb_cmd_get_ccd_mask(scanner->device_number, scanner->ccd_mask, &status);
+    pieusb_cmd_get_ccd_mask(scanner->device_number, scanner->ccd_mask, scanner->ccd_mask_size, &status);
     if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
       /* Save CCD mask */
       if (scanner->val[OPT_SAVE_CCDMASK].b) {
         FILE* fs = fopen ("pieusb.ccd", "w");
-        fwrite (scanner->ccd_mask, 1, PIEUSB_CCD_MASK_SIZE, fs);
+        fwrite (scanner->ccd_mask, 1, scanner->ccd_mask_size, fs);
         fclose (fs);
       }
     }
@@ -1971,12 +1976,7 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     const char *mode;
     SANE_Status ret;
 
-    DBG(DBG_info_proc, "pieusb_get_parameters()\n");
-    /* Wait loop */
-    ret = pieusb_wait_ready (scanner, 0);
-    if (ret != SANE_STATUS_GOOD) {
-      return ret;
-    }
+    DBG (DBG_info_proc, "pieusb_get_parameters()\n");
 
     pieusb_cmd_get_parameters (scanner->device_number, &parameters, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {

@@ -723,7 +723,7 @@ pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_
 
 /**
  * Set the CCD-mask for the colors set in the given color bit mask. The mask
- * array must contain 2x5340 = 10680 bytes. The command is a SCSI WRITE command
+ * array must contain mask_size. The command is a SCSI WRITE command
  * (code 0x0A, write code 0x16).
  * (The command is able to handle more masks at once, but that is not implemented.)
  *
@@ -733,7 +733,7 @@ pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_
  * @return Pieusb_Command_Status
  */
 void
-pieusb_cmd_set_ccd_mask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, struct Pieusb_Command_Status *status)
+pieusb_cmd_set_ccd_mask(SANE_Int device_number, SANE_Byte colorbits, SANE_Byte* mask, SANE_Int mask_size, struct Pieusb_Command_Status *status)
 {
     DBG (DBG_info_scan, "pieusb_cmd_set_ccd_mask(): not implemented\n");
     status->pieusb_status = PIEUSB_STATUS_INVAL;
@@ -963,17 +963,16 @@ pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pie
  * @return Pieusb_Command_Status
  */
 void
-pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, SANE_Int mask_size, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
-    SANE_Int size = PIEUSB_CCD_MASK_SIZE;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_ccd_mask()\n");
 
-    _prep_scsi_cmd (command, SCSI_COPY, size);
+    _prep_scsi_cmd (command, SCSI_COPY, mask_size);
 
-    memset (mask, '\0', size);
-    pieusb_command (device_number, command, mask, size, status);
+    memset (mask, '\0', mask_size);
+    pieusb_command (device_number, command, mask, mask_size, status);
 }
 
 /**

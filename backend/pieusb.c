@@ -345,7 +345,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
             SANE_Word product;
             int i = 0;
 
-            status = sanei_usb_get_vendor_product_byname(devicename,&vendor,&product);
+            status = sanei_usb_get_vendor_product_byname (devicename,&vendor,&product);
             if (status != SANE_STATUS_GOOD) {
                 DBG (DBG_error, "sane_open: sanei_usb_get_vendor_product_byname failed %s\n",devicename);
                 return status;
@@ -407,18 +407,25 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     }
     memset (scanner, 0, sizeof (*scanner));
     scanner->device = dev;
-    sanei_usb_open(dev->sane.name, &scanner->device_number);
+    sanei_usb_open (dev->sane.name, &scanner->device_number);
     scanner->cancel_request = 0;
     scanner->shading_data_present = SANE_FALSE;
     /* Options and buffers */
-    pieusb_init_options (scanner);
-    rs.pieusb_status = pieusb_wait_ready (scanner, 0);
-    if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error, "sane_open: scanner not ready %d\n", rs.pieusb_status);
-        return SANE_STATUS_DEVICE_BUSY;
+    (void)pieusb_init_options (scanner);
+  
+    /* wait for warmup */
+    status = pieusb_wait_ready (scanner, 0);
+    if (status != SANE_STATUS_GOOD) {
+      sanei_usb_close(scanner->device_number);
+      free (scanner);
+      DBG (DBG_error, "sane_open: scanner not ready\n");
+      return status;
     }
-    pieusb_cmd_get_shading_parms(scanner->device_number, scanner->device->shading_parameters, &rs);
+
+    pieusb_cmd_get_shading_parms (scanner->device_number, scanner->device->shading_parameters, &rs);
     if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
+      sanei_usb_close(scanner->device_number);
+      free (scanner);
       DBG (DBG_error, "sane_open: pieusb_cmd_get_shading_parms failed: %d\n", rs.pieusb_status);
         return SANE_STATUS_INVAL;
     }
@@ -426,11 +433,16 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
         scanner->shading_ref[k] = calloc(2 * shading_width, sizeof(SANE_Int));
         if (scanner->shading_ref[k] == NULL) {
+          sanei_usb_close(scanner->device_number);
+          free (scanner);
 	  return SANE_STATUS_NO_MEM;
 	}
     }
-    scanner->ccd_mask = malloc(shading_width);
+    scanner->ccd_mask = malloc (shading_width);
+    scanner->ccd_mask_size = shading_width;
     if (scanner->ccd_mask == NULL) {
+      sanei_usb_close(scanner->device_number);
+      free (scanner);
       return SANE_STATUS_NO_MEM;
     }
     /* First time settings */
@@ -1071,9 +1083,9 @@ sane_start (SANE_Handle handle)
 
         /* ------------------------------------------------------------------
          *
-         * Obtain shading data & wait until device ready
+         * Obtain shading data
          * Get parameters from scanner->device->shading_parameters[0] although
-         * it's 45 lines, 5340 pixels, 16 bit depth in all cases.
+         * it's 45 lines, scanner->ccd_mask_size pixels, 16 bit depth in all cases.
          *
          * ------------------------------------------------------------------ */
         if (pieusb_get_shading_data (scanner) != SANE_STATUS_GOOD) {
@@ -1082,11 +1094,6 @@ sane_start (SANE_Handle handle)
             return SANE_STATUS_IO_ERROR;
         }
 
-        /* Wait loop */
-        if (pieusb_wait_ready(scanner, 0) != SANE_STATUS_GOOD) {
-            scanner->scanning = SANE_FALSE;
-            return SANE_STATUS_IO_ERROR;
-        }
     }
 
     /* Enter SCAN phase 2 */
