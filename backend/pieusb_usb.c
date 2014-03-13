@@ -291,7 +291,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                 /* Decrement number of remaining retries and pause */
                 k--;
                 DBG(DBG_info_usb,"pieusb_command(): busy - try %d\n", k);
-                if (k>0) {
+                if (k > 0) {
 		  sleep(PIEUSB_WAIT_BUSY);
 		}
 	        else {
@@ -322,7 +322,9 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
                         status->pieusb_status = PIEUSB_STATUS_DEVICE_BUSY;
                         k--;
                         DBG(DBG_info_usb,"pieusb_command(): checked - busy - try %d\n", k);
-                        if (k>0) sleep(PIEUSB_WAIT_BUSY);
+                        if (k > 0) {
+                          sleep(PIEUSB_WAIT_BUSY);
+                        }
                     } else {
                         status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
                         status->senseKey = sense.senseKey;

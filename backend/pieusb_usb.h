@@ -45,7 +45,7 @@
 #ifndef PIEUSB_USB_H
 #define	PIEUSB_USB_H
 
-#define PIEUSB_WAIT_BUSY 2 /* seconds to wait on busy condition */
+#define PIEUSB_WAIT_BUSY 1 /* seconds to wait on busy condition */
 
 #define SCSI_COMMAND_LEN 6
 
