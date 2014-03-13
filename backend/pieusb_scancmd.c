@@ -966,24 +966,14 @@ void
 pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, struct Pieusb_Command_Status *status)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
-    SANE_Int size = 5340; /* cyberview: 6685 0x1a1d */
+    SANE_Int size = PIEUSB_CCD_MASK_SIZE;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_ccd_mask()\n");
 
-    _prep_scsi_cmd(command, SCSI_COPY, size);
+    _prep_scsi_cmd (command, SCSI_COPY, size);
 
-    memset(mask, '\0', size);
-    pieusb_command(device_number, command, mask, size, status);
-
-/*
-    int k;
-    fprintf(stderr,"CCD mask:\n");
-    for (k = 0; k < size; k++) {
-        fprintf(stderr,"%02x ",mask[k]);
-        if ((k+1) % 50 == 0) fprintf(stderr,"\n");
-    }
-*/
-
+    memset (mask, '\0', size);
+    pieusb_command (device_number, command, mask, size, status);
 }
 
 /**
@@ -1359,6 +1349,6 @@ _prep_scsi_cmd(SANE_Byte* command, SANE_Byte code, SANE_Word size)
 {
     memset(command, '\0', SCSI_COMMAND_LEN);
     command[0] = code;
-    command[3] = (size>>8) & 0xFF;
+    command[3] = (size>>8) & 0xFF; /* lsb first */
     command[4] = size & 0xFF;
 }

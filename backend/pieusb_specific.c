@@ -1942,19 +1942,14 @@ pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
     SANE_Status ret;
 
     DBG(DBG_info_proc, "pieusb_get_ccd_mask()\n");
-    /* Wait loop */
-    ret = pieusb_wait_ready (scanner, 0);
-    if (ret != SANE_STATUS_GOOD) {
-        return ret;
-    }
 
     pieusb_cmd_get_ccd_mask(scanner->device_number, scanner->ccd_mask, &status);
     if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
       /* Save CCD mask */
       if (scanner->val[OPT_SAVE_CCDMASK].b) {
-        FILE* fs = fopen("pieusb.ccd", "w");
-        fwrite(scanner->ccd_mask, 1, 5340, fs);
-        fclose(fs);
+        FILE* fs = fopen ("pieusb.ccd", "w");
+        fwrite (scanner->ccd_mask, 1, PIEUSB_CCD_MASK_SIZE, fs);
+        fclose (fs);
       }
     }
   return pieusb_convert_status(status.pieusb_status);

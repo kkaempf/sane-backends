@@ -269,7 +269,8 @@ struct Pieusb_Scanner
     SANE_Parameters scan_parameters;
 
     /* Shading data and CCD-mask */
-    SANE_Byte *ccd_mask;
+#define PIEUSB_CCD_MASK_SIZE 0x1a1d  /* pieusb 5340; */ /* cyberview: 6685 0x1a1d */
+    SANE_Byte ccd_mask[PIEUSB_CCD_MASK_SIZE];
     SANE_Bool shading_data_present; /* don't correct shading if not present */
     SANE_Int shading_mean[SHADING_PARAMETERS_INFO_COUNT]; /* mean shading value for each color (average all 45 lines)  */
     SANE_Int shading_max[SHADING_PARAMETERS_INFO_COUNT]; /* maximum shading value for each color (for all 45 lines)  */
