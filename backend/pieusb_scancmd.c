@@ -768,14 +768,25 @@ pieusb_cmd_get_parameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
         return;
     }
 
+    /* cyberview:
+     * 0: e6 02       width 0x2e6 - 742
+     * 2: e0 02       lines 0x2e0 - 736
+     * 4: e6 02       bytes 0x2e6 - 742
+     * 6: 08          filterOffeset1 8
+     * 7: 08          filterOffset2  8
+     * 8: c9 1c 00 00 period         7369
+     * c: 00 00       scsi transfer rate
+     * e: d7 00       available lines 215
+     * 10:00 00
+     */
     /* Decode data recieved */
     parameters->width = _get_short(data, 0);
     parameters->lines = _get_short(data, 2);
     parameters->bytes = _get_short(data, 4);
     parameters->filterOffset1 = _get_byte(data, 6);
     parameters->filterOffset2 = _get_byte(data, 7);
-    parameters->period = _get_int(data, 8);
-    parameters->scsiTransferRate = _get_short(data, 12);
+    parameters->period = _get_int(data, 8); /* unused */
+    parameters->scsiTransferRate = _get_short(data, 12); /* unused */
     parameters->availableLines = _get_short(data, 14);
 
     DBG (DBG_info_scan, "pieusb_cmd_get_parameters() read:\n");

@@ -2012,6 +2012,14 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     scanner->scan_parameters.pixels_per_line = parameters.width;
     scanner->scan_parameters.last_frame = SANE_TRUE;
 
+    DBG (DBG_info_sane,"pieusb_get_parameters(): mode '%s'\n", mode);
+    DBG (DBG_info_sane," format = %d\n", scanner->scan_parameters.format);
+    DBG (DBG_info_sane," depth = %d\n", scanner->scan_parameters.depth);
+    DBG (DBG_info_sane," bytes_per_line = %d\n", scanner->scan_parameters.bytes_per_line);
+    DBG (DBG_info_sane," lines = %d\n", scanner->scan_parameters.lines);
+    DBG (DBG_info_sane," pixels_per_line = %d\n", scanner->scan_parameters.pixels_per_line);
+    DBG (DBG_info_sane," last_frame = %d\n", scanner->scan_parameters.last_frame);
+
     return SANE_STATUS_GOOD;
 }
 

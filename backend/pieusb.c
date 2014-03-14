@@ -1130,13 +1130,6 @@ sane_start (SANE_Handle handle)
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-    DBG (DBG_info_sane,"sane_start(): SANE parameters\n");
-    DBG (DBG_info_sane," format = %d\n", scanner->scan_parameters.format);
-    DBG (DBG_info_sane," last_frame = %d\n", scanner->scan_parameters.last_frame);
-    DBG (DBG_info_sane," bytes_per_line = %d\n", scanner->scan_parameters.bytes_per_line);
-    DBG (DBG_info_sane," pixels_per_line = %d\n", scanner->scan_parameters.pixels_per_line);
-    DBG (DBG_info_sane," lines = %d\n", scanner->scan_parameters.lines);
-    DBG (DBG_info_sane," depth = %d\n", scanner->scan_parameters.depth);
 
     /* ----------------------------------------------------------------------
      *
