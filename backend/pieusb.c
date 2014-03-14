@@ -1010,10 +1010,10 @@ sane_start (SANE_Handle handle)
 
     /* ----------------------------------------------------------------------
      *
-     * Slide reload(?)
+     * Lamp on
      *
      * ---------------------------------------------------------------------- */
-    pieusb_cmd_slide(scanner->device_number, SLIDE_RELOAD, &status);
+    pieusb_cmd_slide(scanner->device_number, SLIDE_LAMP_ON, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
       DBG (DBG_error, "sane_start(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
       return SANE_STATUS_IO_ERROR;

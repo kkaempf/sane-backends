@@ -291,7 +291,7 @@ struct Pieusb_Shading_Parameters {
 typedef struct Pieusb_Scanner_Properties Pieusb_Scanner_Properties;
 
 typedef enum {
-  SLIDE_NEXT = 0x04, SLIDE_PREV = 0x05, SLIDE_RELOAD = 0x10, SLIDE_RESET = 0x40
+  SLIDE_NEXT = 0x04, SLIDE_PREV = 0x05, SLIDE_LAMP_ON = 0x10, SLIDE_RELOAD = 0x40
 } slide_action;
 
 void pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Command_Status *status);

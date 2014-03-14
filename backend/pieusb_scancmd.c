@@ -250,7 +250,7 @@ pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_Status 
 
 /**
  * slide action
- * @param action  SLIDE_NEXT, SLIDE_PREV, SLIDE_RELOAD, SLIDE_RESET
+ * @param action  SLIDE_NEXT, SLIDE_PREV, SLIDE_LAMP_ON, SLIDE_RELOAD
  * @return Pieusb_Command_Status
  */
 
