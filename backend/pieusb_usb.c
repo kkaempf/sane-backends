@@ -74,35 +74,35 @@ static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte* data, unsigned in
 #define IEEE1284_RESET 0x30
 #define IEEE1284_SCSI  0xe0
 
-#define PORT_SCSI_SIZE 0x0082
+#define PORT_SCSI_SIZE   0x0082
 #define PORT_SCSI_STATUS 0x0084
-#define PORT_SCSI_CMD 0x0085
-#define PORT_PAR_CTRL 0x0087 /* IEEE1284 parallel control */
-#define PORT_PAR_DATA 0x0088 /* IEEE1284 parallel data */
+#define PORT_SCSI_CMD    0x0085
+#define PORT_PAR_CTRL    0x0087 /* IEEE1284 parallel control */
+#define PORT_PAR_DATA    0x0088 /* IEEE1284 parallel data */
 
-#define USB_STATUS_OK 0x00 /* also: ok to write */
-#define USB_STATUS_DATA_AVAILABLE 0x01
-#define USB_STATUS_02 0x02 /* unknown */
-#define USB_STATUS_BUSY 0x03 /* wait on usb */
+#define USB_STATUS_OK    0x00 /* also: ok to write */
+#define USB_STATUS_LEN   0x01 /* read: send expected length */
+#define USB_STATUS_CHECK 0x02 /* check condition */
+#define USB_STATUS_BUSY  0x03 /* wait on usb */
 #define USB_STATUS_AGAIN 0x08 /* re-send scsi cmd */
 
 /* Standard SCSI Sense keys */
-#define SCSI_NO_SENSE 0x00
+#define SCSI_NO_SENSE        0x00
 #define SCSI_RECOVERED_ERROR 0x01
-#define SCSI_NOT_READY 0x02
-#define SCSI_MEDIUM_ERROR 0x03
-#define SCSI_HARDWARE_ERROR 0x04
+#define SCSI_NOT_READY       0x02
+#define SCSI_MEDIUM_ERROR    0x03
+#define SCSI_HARDWARE_ERROR  0x04
 #define SCSI_ILLEGAL_REQUEST 0x05
-#define SCSI_UNIT_ATTENTION 0x06
-#define SCSI_DATA_PROTECT 0x07
-#define SCSI_BLANK_CHECK 0x08
+#define SCSI_UNIT_ATTENTION  0x06
+#define SCSI_DATA_PROTECT    0x07
+#define SCSI_BLANK_CHECK     0x08
 #define SCSI_VENDOR_SPECIFIC 0x09
-#define SCSI_COPY_ABORTED 0x0A
+#define SCSI_COPY_ABORTED    0x0A
 #define SCSI_ABORTED_COMMAND 0x0B
-#define SCSI_EQUAL 0x0C
+#define SCSI_EQUAL           0x0C
 #define SCSI_VOLUME_OVERFLOW 0x0D
-#define SCSI_MISCOMPARE 0x0E
-#define SCSI_RESERVED 0x0F
+#define SCSI_MISCOMPARE      0x0E
+#define SCSI_RESERVED        0x0F
 
 /* Standard SCSI Sense codes*/
 #define SCSI_NO_ADDITIONAL_SENSE_INFORMATION 0x00
@@ -473,7 +473,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
       size = 0;
       usbstat = USB_STATUS_BUSY; /* enforce 2nd status read in loop */
       break;
-     case USB_STATUS_DATA_AVAILABLE:
+     case USB_STATUS_LEN:
       /* Intermediate status OK, device has made data available for reading */
       /* Read data
        must be done in parts if size is large; no verification inbetween
@@ -483,14 +483,16 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
 	SANE_Int partsize = 0;
 	remsize = size;
 	
-	DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_DATA_AVAILABLE\n");
+	DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_LEN\n");
 	while (remsize > 0) {
 	  partsize = remsize > 65520 ? 65520 : remsize;
+	  /* send expected length */
 	  st = _ctrl_out_int (device_number, partsize);
 	  if (st != SANE_STATUS_GOOD) {
 	    DBG (DBG_error, "pieusb_scsi_command() prepare read data failed for size %d: %d\n", partsize, st);
 	    return st;
 	  }
+	  /* read expected length bytes */
 	  st = _bulk_in (device_number, data + size - remsize, partsize);
 	  if (st != SANE_STATUS_GOOD) {
 	    DBG (DBG_error, "pieusb_scsi_command() read data failed for size %d: %d\n", partsize, st);
@@ -503,8 +505,8 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
       }
       /* stay in loop */
       break;
-     case USB_STATUS_02:
-      DBG (DBG_error, "pieusb_scsi_command() unknown usbstat 0x02\n");
+     case USB_STATUS_CHECK:
+      DBG (DBG_error, "pieusb_scsi_command() check condition\n");
       usbstat = USB_STATUS_OK;
       break;
      case USB_STATUS_BUSY:
