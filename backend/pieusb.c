@@ -869,7 +869,7 @@ sane_start (SANE_Handle handle)
     SANE_Bool infrared_post_processing_relevant;
     SANE_Status st;
 
-    DBG(DBG_info_sane,"sane_start()\n");
+    DBG (DBG_info_sane, "sane_start()\n");
 
     /* ----------------------------------------------------------------------
      *
@@ -877,7 +877,7 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
     if (scanner->scanning) {
-        DBG(DBG_error,"sane_start(): scanner is already scanning, exiting\n");
+        DBG (DBG_error, "sane_start(): scanner is already scanning, exiting\n");
         return SANE_STATUS_DEVICE_BUSY;
     }
 
@@ -888,11 +888,11 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
     pieusb_cmd_read_state(scanner->device_number, &(scanner->state), &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        DBG(DBG_error,"sane_start(): warmed up check returns status %s\n",  sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+        DBG (DBG_error, "sane_start(): warmed up check returns status %s\n",  sane_strstatus(pieusb_convert_status(status.pieusb_status)));
         return SANE_STATUS_IO_ERROR;
     }
     if (scanner->state.warmingUp) {
-        DBG(DBG_error,"sane_start(): warming up, exiting\n");
+        DBG (DBG_error, "sane_start(): warming up, exiting\n");
         /* Seen SANE_STATUS_WARMING_UP in scanimage => enabled */
         sleep(2); /* scanimage does not pause, so do it here */
         return SANE_STATUS_WARMING_UP;
@@ -910,7 +910,7 @@ sane_start (SANE_Handle handle)
       };
       pieusb_cmd_set_exposure_time(scanner->device_number, &exptime, &status);
       if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        DBG (DBG_error,"sane_start(): pieusb_cmd_set_exposure_time failed: %d\n", status.pieusb_status);
+        DBG (DBG_error, "sane_start(): pieusb_cmd_set_exposure_time failed: %d\n", status.pieusb_status);
         return SANE_STATUS_IO_ERROR;
       }
     } while (0);
@@ -927,7 +927,7 @@ sane_start (SANE_Handle handle)
       };
       pieusb_cmd_set_highlight_shadow(scanner->device_number, &shadow, &status);
       if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        DBG (DBG_error,"sane_start(): pieusb_cmd_set_highlight_shadow failed: %d\n", status.pieusb_status);
+        DBG (DBG_error, "sane_start(): pieusb_cmd_set_highlight_shadow failed: %d\n", status.pieusb_status);
         return SANE_STATUS_IO_ERROR;
       }
     } while (0);
@@ -969,7 +969,7 @@ sane_start (SANE_Handle handle)
 
     pieusb_cmd_17(scanner->device_number, 1, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error,"sane_start(): pieusb_cmd_17 failed: %d\n", status.pieusb_status);
+      DBG (DBG_error, "sane_start(): pieusb_cmd_17 failed: %d\n", status.pieusb_status);
       return SANE_STATUS_IO_ERROR;
     }
 
@@ -1015,7 +1015,7 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
     pieusb_cmd_slide(scanner->device_number, SLIDE_RELOAD, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error,"sane_start(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
+      DBG (DBG_error, "sane_start(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
       return SANE_STATUS_IO_ERROR;
     }
     status.pieusb_status = pieusb_wait_ready (scanner, 0);
@@ -1055,14 +1055,9 @@ sane_start (SANE_Handle handle)
         return SANE_STATUS_IO_ERROR;
     }
     
-    if (pieusb_wait_ready(scanner, 0) != SANE_STATUS_GOOD) {
-        scanner->scanning = SANE_FALSE;
-        return SANE_STATUS_IO_ERROR;
-    }
-
     /* Process shading data if requested */
     if (!scanner->mode.skipShadingAnalysis) {
-
+      DBG (DBG_info_sane, "sane_start(): process shading data\n");
         /* Handle cancel request */
         if (scanner->cancel_request) {
             return pieusb_on_cancel (scanner);
@@ -1097,14 +1092,17 @@ sane_start (SANE_Handle handle)
     }
 
     /* Enter SCAN phase 2 */
+    DBG (DBG_info_sane, "sane_start(): scan phase 2\n");
 
     /* SCAN phase 2 (line-by-line scan) not implemented */
 
     /* Enter SCAN phase 3 */
 
+    DBG (DBG_info_sane, "sane_start(): scan phase 3\n");
+
     /* Handle cancel request */
     if (scanner->cancel_request) {
-        return pieusb_on_cancel(scanner);
+        return pieusb_on_cancel (scanner);
     }
 
     /* ----------------------------------------------------------------------
