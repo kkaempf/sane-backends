@@ -241,9 +241,9 @@ pieusb_cmd_test_unit_ready(SANE_Int device_number, struct Pieusb_Command_Status 
 
     DBG (DBG_info_scan, "pieusb_cmd_test_unit_ready()\n");
 
-    _prep_scsi_cmd(command, SCSI_TEST_UNIT_READY, 0);
+    _prep_scsi_cmd (command, SCSI_TEST_UNIT_READY, 0);
 
-    pieusb_command(device_number, command, NULL, 0, status);
+    status->pieusb_status = pieusb_command (device_number, command, NULL, 0);
 
     DBG (DBG_info_scan, "pieusb_cmd_test_unit_ready() return status = %s\n", sane_strstatus(status->pieusb_status));
 }
@@ -270,8 +270,7 @@ pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Comm
     data[1] = 0x01;
     data[3] = (action == SLIDE_RELOAD) ? 0x00 : 0x7c;
 
-    sst = pieusb_scsi_command(device_number, command, data, SLIDE_DATA_SIZE);
-    status->pieusb_status = pieusb_convert_scsi_status(sst);
+    status->pieusb_status = pieusb_command(device_number, command, data, SLIDE_DATA_SIZE);
 #undef SLIDE_DATA_SIZE
 }
 
@@ -295,28 +294,29 @@ pieusb_cmd_get_sense(SANE_Int device_number, struct Pieusb_Sense* sense, struct 
 #define DATA_SIZE 14
     SANE_Int size = DATA_SIZE;
     SANE_Byte data[DATA_SIZE];
-    PIEUSB_SCSI_Status sst;
+    PIEUSB_Status st;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_sense()\n");
 
     _prep_scsi_cmd(command, SCSI_REQUEST_SENSE, size);
 
     memset(data, '\0', size);
-    sst = pieusb_scsi_command(device_number, command, data, size);
-    if (sst != SCSI_STATUS_OK) {
+    st = pieusb_command(device_number, command, data, size);
+    if (st != PIEUSB_STATUS_GOOD) {
+      status->pieusb_status = st;
       /*FIXME*/
         return;
     }
 
     /* Decode data recieved */
-    sense->errorCode = _get_byte(data, 0);
-    sense->segment = _get_byte(data, 1);
-    sense->senseKey = _get_byte(data, 2);
-    _copy_bytes(sense->info, data+3, 4);
-    sense->addLength = _get_byte(data, 7);
-    _copy_bytes(sense->cmdInfo, data+8, 4);
-    sense->senseCode = _get_byte(data, 12);
-    sense->senseQualifier = _get_byte(data, 13);
+    sense->errorCode = _get_byte (data, 0);
+    sense->segment = _get_byte (data, 1);
+    sense->senseKey = _get_byte (data, 2);
+    _copy_bytes (sense->info, data+3, 4);
+    sense->addLength = _get_byte (data, 7);
+    _copy_bytes (sense->cmdInfo, data+8, 4);
+    sense->senseCode = _get_byte (data, 12);
+    sense->senseQualifier = _get_byte (data, 13);
     status->pieusb_status = PIEUSB_STATUS_GOOD;
 #undef DATA_SIZE
 }
@@ -340,7 +340,7 @@ pieusb_cmd_get_halftone_pattern(SANE_Int device_number, SANE_Int index, struct P
     SANE_Byte data[PATTERN_SIZE];
     int psize;
     SANE_Char* desc;
-    PIEUSB_SCSI_Status sst;
+    PIEUSB_Status st;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_halftone_pattern()\n");
 
@@ -350,8 +350,9 @@ pieusb_cmd_get_halftone_pattern(SANE_Int device_number, SANE_Int index, struct P
     data[0] = SCSI_HALFTONE_PATTERN | 0x80; /* set bit 7 means prepare read */
     data[4] = index;
 
-    sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
-    if (sst != SCSI_STATUS_OK) {
+    st = pieusb_command(device_number, command, data, SCSI_COMMAND_LEN);
+    if (st != PIEUSB_STATUS_GOOD) {
+      status->pieusb_status = st;
       /* FIXME */
         return;
     }
@@ -360,7 +361,7 @@ pieusb_cmd_get_halftone_pattern(SANE_Int device_number, SANE_Int index, struct P
     _prep_scsi_cmd(command, SCSI_READ, size);
 
     memset(data, '\0', size);
-    sst = pieusb_scsi_command(device_number, command, data, size);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
 
     /*FIXME: analyse */
     fprintf(stderr, "Halftone pattern %d:\n", index);
@@ -387,27 +388,28 @@ pieusb_cmd_get_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
 #define FRAME_SIZE 256 /* Assumed maximum frame size */
     SANE_Int size = FRAME_SIZE;
     SANE_Byte data[FRAME_SIZE];
-    PIEUSB_SCSI_Status sst;
+    PIEUSB_Status st;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_scan_frame()\n");
 
     /* Ask scanner to prepare the scan frame with the given index. Only SCSI_COMMAND_LEN bytes of data. */
-    _prep_scsi_cmd(command, SCSI_WRITE, SCSI_COMMAND_LEN);
-    memset(data, '\0', SCSI_COMMAND_LEN);
+    _prep_scsi_cmd (command, SCSI_WRITE, SCSI_COMMAND_LEN);
+    memset (data, '\0', SCSI_COMMAND_LEN);
     data[0] = SCSI_SCAN_FRAME | 0x80; /* set bit 7 means prepare read */
     data[4] = index;
 
-    sst = pieusb_scsi_command(device_number, command, data, SCSI_COMMAND_LEN);
-    if (sst != SCSI_STATUS_OK) {
+    st = pieusb_command (device_number, command, data, SCSI_COMMAND_LEN);
+    if (st != PIEUSB_STATUS_GOOD) {
+      status->pieusb_status = st;
       /* FIXME */
         return;
     }
 
     /* Read scan frame */
-    _prep_scsi_cmd(command, SCSI_READ, size);
+    _prep_scsi_cmd (command, SCSI_READ, size);
 
     memset(data, '\0', size);
-    sst = pieusb_scsi_command(device_number, command, data, size);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
 
     /* Decode data */
     frame->index = _get_byte (data, 4);
@@ -437,20 +439,19 @@ pieusb_cmd_17(SANE_Int device_number, SANE_Int value, struct Pieusb_Command_Stat
 
     DBG (DBG_info_scan, "pieusb_cmd_17(%d)\n", value);
 
-    _prep_scsi_cmd(command, SCSI_WRITE, CMD_17_SIZE);
-    memset(data, '\0', CMD_17_SIZE);
-    _set_short(SCSI_CMD_17, data, 0);
-    _set_short(2, data, 2);
-    _set_short(value, data, 4);
+    _prep_scsi_cmd (command, SCSI_WRITE, CMD_17_SIZE);
+    memset (data, '\0', CMD_17_SIZE);
+    _set_short (SCSI_CMD_17, data, 0);
+    _set_short (2, data, 2);
+    _set_short (value, data, 4);
 
-    sst = pieusb_scsi_command(device_number, command, data, CMD_17_SIZE);
+    status->pieusb_status = pieusb_command (device_number, command, data, CMD_17_SIZE);
 #undef CMD_17_SIZE
-    if (sst != SCSI_STATUS_OK) {
+    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
       DBG (DBG_info_scan, "pieusb_cmd_17 failed with scsi err 0x%02x\n", sst);
-      status->pieusb_status = pieusb_convert_scsi_status(sst);
       return;
     }
-    pieusb_wait_ready(device_number, status);
+    pieusb_wait_ready (device_number, status);
 }
 
 /**
@@ -503,7 +504,7 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
     SANE_Int size = SHADING_SIZE;
     SANE_Byte data[SHADING_SIZE];
     int k;
-    PIEUSB_SCSI_Status sst;
+    PIEUSB_Status st;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_shading_parms()\n");
 
@@ -512,9 +513,9 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
     memset(data, '\0', PREP_READ_SIZE);
     data[0] = SCSI_CALIBRATION_INFO | 0x80; /* set bit 7 means prepare read */
 
-    sst = pieusb_scsi_command(device_number, command, data, PREP_READ_SIZE);
-    if (sst != SCSI_STATUS_OK) {
-      status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
+    st = pieusb_command(device_number, command, data, PREP_READ_SIZE);
+    if (st != PIEUSB_STATUS_GOOD) {
+      status->pieusb_status = st;
       return;
     }
 
@@ -522,9 +523,8 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
     _prep_scsi_cmd(command, SCSI_READ, size);
 
     memset(data, '\0', size);
-    sst = pieusb_scsi_command(device_number, command, data, size);
-    if (sst != SCSI_STATUS_OK) {
-      status->pieusb_status = PIEUSB_STATUS_CHECK_CONDITION;
+    status->pieusb_status = pieusb_command(device_number, command, data, size);
+    if (status->pieusb_status = PIEUSB_STATUS_GOOD) {
       return;
     }
 
@@ -548,7 +548,6 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
     }
 #undef PREP_READ_SIZE
 #undef SHADING_SIZE
-  status->pieusb_status = PIEUSB_STATUS_GOOD;
 }
 
 /**
@@ -577,10 +576,10 @@ pieusb_cmd_get_scanned_lines(SANE_Int device_number, SANE_Byte* data, SANE_Int l
 
     DBG (DBG_info_scan, "pieusb_cmd_get_scanned_lines(): %d (%d bytes)\n", lines, size);
 
-    _prep_scsi_cmd(command, SCSI_READ, lines);
-    memset(data, '\0', size);
+    _prep_scsi_cmd (command, SCSI_READ, lines);
+    memset (data, '\0', size);
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
 }
 
 /**
@@ -636,7 +635,7 @@ pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
     _set_short (frame->x1, data, 10);
     _set_short (frame->y1, data, 12);
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
 #undef FRAME_SIZE
 }
 
@@ -662,14 +661,14 @@ pieusb_cmd_set_exposure_time(SANE_Int device_number, struct Pieusb_Exposure_Time
     DBG (DBG_info_scan, "pieusb_cmd_set_exposure_time()\n");
 
     for (i = 0; i < 3; ++i) { /* R, G, B */
-      _prep_scsi_cmd(command, SCSI_WRITE, EXPOSURE_DATA_SIZE);
-      memset(data, '\0', EXPOSURE_DATA_SIZE);
+      _prep_scsi_cmd (command, SCSI_WRITE, EXPOSURE_DATA_SIZE);
+      memset (data, '\0', EXPOSURE_DATA_SIZE);
       exptime = &(time->color[i]);
-      _set_short(SCSI_EXPOSURE, data, 0);
-      _set_short(EXPOSURE_DATA_SIZE-4, data, 2); /* short: RGB, short: value */
-      _set_short(exptime->filter, data, 4);      /* 1: neutral, 2: R, 4: G, 8: B */
-      _set_short(exptime->value, data, 6);
-      pieusb_command(device_number, command, data, EXPOSURE_DATA_SIZE, status);
+      _set_short (SCSI_EXPOSURE, data, 0);
+      _set_short (EXPOSURE_DATA_SIZE-4, data, 2); /* short: RGB, short: value */
+      _set_short (exptime->filter, data, 4);      /* 1: neutral, 2: R, 4: G, 8: B */
+      _set_short (exptime->value, data, 6);
+      status->pieusb_status = pieusb_command (device_number, command, data, EXPOSURE_DATA_SIZE);
       if (status->pieusb_status != PIEUSB_STATUS_GOOD)
 	break;
     }
@@ -699,14 +698,14 @@ pieusb_cmd_set_highlight_shadow(SANE_Int device_number, struct Pieusb_Highlight_
     DBG (DBG_info_scan, "pieusb_cmd_set_highlight_shadow()\n");
 
     for (i = 0; i < 3; ++i) { /* R, G, B */
-      _prep_scsi_cmd(command, SCSI_WRITE, HIGHLIGHT_SHADOW_SIZE);
-      memset(data, '\0', HIGHLIGHT_SHADOW_SIZE);
+      _prep_scsi_cmd (command, SCSI_WRITE, HIGHLIGHT_SHADOW_SIZE);
+      memset (data, '\0', HIGHLIGHT_SHADOW_SIZE);
       color = &(hgltshdw->color[i]);
-      _set_short(SCSI_HIGHLIGHT_SHADOW, data, 0);
-      _set_short(HIGHLIGHT_SHADOW_SIZE-4, data, 2); /* short: RGB, short: value */
-      _set_short(color->filter, data, 4);      /* 1: neutral, 2: R, 4: G, 8: B */
-      _set_short(color->value, data, 6);
-      pieusb_command(device_number, command, data, HIGHLIGHT_SHADOW_SIZE, status);
+      _set_short (SCSI_HIGHLIGHT_SHADOW, data, 0);
+      _set_short (HIGHLIGHT_SHADOW_SIZE-4, data, 2); /* short: RGB, short: value */
+      _set_short (color->filter, data, 4);      /* 1: neutral, 2: R, 4: G, 8: B */
+      _set_short (color->value, data, 6);
+      status->pieusb_status = pieusb_command (device_number, command, data, HIGHLIGHT_SHADOW_SIZE);
       if (status->pieusb_status != PIEUSB_STATUS_GOOD)
 	break;
     }
@@ -753,10 +752,10 @@ pieusb_cmd_get_parameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
 
     DBG (DBG_info_scan, "pieusb_cmd_get_parameters()\n");
 
-    _prep_scsi_cmd(command, SCSI_PARAM, size);
-    memset(data, '\0', size);
+    _prep_scsi_cmd (command, SCSI_PARAM, size);
+    memset (data, '\0', size);
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command(device_number, command, data, size);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
@@ -819,10 +818,10 @@ pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq
 
     DBG (DBG_info_scan, "pieusb_cmd_inquiry()\n");
 
-    _prep_scsi_cmd(command, SCSI_INQUIRY, size);
-    memset(data, '\0', INQUIRY_SIZE); /* size may be less than INQUIRY_SIZE, so prevent returning noise */
+    _prep_scsi_cmd (command, SCSI_INQUIRY, size);
+    memset (data, '\0', INQUIRY_SIZE); /* size may be less than INQUIRY_SIZE, so prevent returning noise */
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
@@ -932,22 +931,22 @@ pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pie
      * d: 7f    line threshold
      * e: 00 00
      */
-    memset(data, '\0', size);
-    _set_byte(size-1, data, 1);
-    _set_short(mode->resolution, data, 2);
-    _set_byte(mode->passes, data, 4);
-    _set_byte(mode->colorDepth, data, 5);
-    _set_byte(mode->colorFormat, data, 6);
-    _set_byte(mode->byteOrder, data, 8);
+    memset (data, '\0', size);
+    _set_byte (size-1, data, 1);
+    _set_short (mode->resolution, data, 2);
+    _set_byte (mode->passes, data, 4);
+    _set_byte (mode->colorDepth, data, 5);
+    _set_byte (mode->colorFormat, data, 6);
+    _set_byte (mode->byteOrder, data, 8);
     quality = 0x00;
     if (mode->sharpen) quality |= 0x02;
     if (mode->skipShadingAnalysis) quality |= 0x08;
     if (mode->fastInfrared) quality |= 0x80;
-    _set_byte(quality, data, 9);
-    _set_byte(mode->halftonePattern, data, 12);
-    _set_byte(mode->lineThreshold, data, 13);
+    _set_byte (quality, data, 9);
+    _set_byte (mode->halftonePattern, data, 12);
+    _set_byte (mode->lineThreshold, data, 13);
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
 #undef MODE_SIZE
 }
 
@@ -976,7 +975,7 @@ pieusb_cmd_get_ccd_mask(SANE_Int device_number, SANE_Byte* mask, SANE_Int mask_s
     _prep_scsi_cmd (command, SCSI_COPY, mask_size);
 
     memset (mask, '\0', mask_size);
-    pieusb_command (device_number, command, mask, mask_size, status);
+    status->pieusb_status = pieusb_command (device_number, command, mask, mask_size);
 }
 
 /**
@@ -1001,26 +1000,26 @@ cmdGetMode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pieusb_Comma
 
     DBG (DBG_info_scan, "cmdGetMode()\n");
 
-    _prep_scsi_cmd(command, SCSI_MODE_SENSE, size);
-    memset(data, '\0', size);
+    _prep_scsi_cmd (command, SCSI_MODE_SENSE, size);
+    memset (data, '\0', size);
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command(device_number, command, data, size);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
 
     /* Decode data recieved */
-    mode->resolution = _get_short(data, 2);
-    mode->passes = _get_byte(data, 4);
-    mode->colorDepth = _get_byte(data, 5);
-    mode->colorFormat = _get_byte(data, 6);
-    mode->byteOrder = _get_byte(data, 8);
-    quality = _get_byte(data, 9);
+    mode->resolution = _get_short (data, 2);
+    mode->passes = _get_byte (data, 4);
+    mode->colorDepth = _get_byte (data, 5);
+    mode->colorFormat = _get_byte (data, 6);
+    mode->byteOrder = _get_byte (data, 8);
+    quality = _get_byte (data, 9);
     mode->sharpen = (quality |= 0x02) ? SANE_TRUE : SANE_FALSE;
     mode->skipShadingAnalysis = (quality |= 0x08) ? SANE_TRUE : SANE_FALSE;
     mode->fastInfrared = (quality |= 0x80) ? SANE_TRUE : SANE_FALSE;
-    mode->halftonePattern = _get_byte(data, 12);
-    mode->lineThreshold = _get_byte(data, 13);
+    mode->halftonePattern = _get_byte (data, 12);
+    mode->lineThreshold = _get_byte (data, 13);
 
     DBG (DBG_info_scan, "cmdGetMode():\n");
     DBG (DBG_info_scan, " resolution = %d\n", mode->resolution);
@@ -1075,9 +1074,9 @@ pieusb_cmd_start_scan(SANE_Int device_number, struct Pieusb_Command_Status *stat
 
     DBG (DBG_info_scan, "pieusb_cmd_start_scan()\n");
 
-    _prep_scsi_cmd(command, SCSI_SCAN, 1);
+    _prep_scsi_cmd (command, SCSI_SCAN, 1);
 
-    pieusb_command(device_number, command, NULL, 0, status);
+    status->pieusb_status = pieusb_command (device_number, command, NULL, 0);
 }
 
 /**
@@ -1094,9 +1093,9 @@ pieusb_cmd_stop_scan(SANE_Int device_number, struct Pieusb_Command_Status *statu
 
     DBG (DBG_info_scan, "pieusb_cmd_stop_scan()\n");
 
-    _prep_scsi_cmd(command, SCSI_SCAN, 0);
+    _prep_scsi_cmd (command, SCSI_SCAN, 0);
 
-    pieusb_command(device_number, command, NULL, 0, status);
+    status->pieusb_status = pieusb_command (device_number, command, NULL, 0);
 }
 
 /**
@@ -1127,10 +1126,10 @@ cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pie
 
     DBG (DBG_info_scan, "cmdSetScanHead()\n");
 
-    _prep_scsi_cmd(command, SCSI_SET_SCAN_HEAD, size);
+    _prep_scsi_cmd (command, SCSI_SET_SCAN_HEAD, size);
 
     /* Code data */
-    memset(data, '\0', size);
+    memset (data, '\0', size);
     switch (mode) {
         case 1:
             data[0] = 2;
@@ -1154,7 +1153,7 @@ cmdSetScanHead(SANE_Int device_number, SANE_Int mode, SANE_Int steps, struct Pie
             break;
     }
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command(device_number, command, data, size);
 #undef SCAN_HEAD_SIZE
 }
 
@@ -1181,25 +1180,25 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
 
     DBG (DBG_info_scan, "pieusb_cmd_get_gain_offset()\n");
 
-    _prep_scsi_cmd(command, SCSI_READ_GAIN_OFFSET, size);
+    _prep_scsi_cmd (command, SCSI_READ_GAIN_OFFSET, size);
 
-    memset(data, '\0', size);
-    pieusb_command(device_number, command, data, size, status);
+    memset (data, '\0', size);
+    status->pieusb_status = pieusb_command(device_number, command, data, size);
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
         return;
     }
 
     /* Decode data received */
-    _get_shorts(settings->saturationLevel, data+54, 3);
-    _get_shorts(settings->exposureTime, data+60, 3);
-    _copy_bytes(val, data+66, 3);
+    _get_shorts (settings->saturationLevel, data+54, 3);
+    _get_shorts (settings->exposureTime, data+60, 3);
+    _copy_bytes (val, data+66, 3);
     for (k = 0; k < 3; k++) settings->offset[k] = val[k];
-    _copy_bytes(val, data+72, 3);
+    _copy_bytes (val, data+72, 3);
     for (k = 0; k < 3; k++) settings->gain[k] = val[k];
-    settings->light = _get_byte(data, 75);
-    settings->exposureTime[3] = _get_short(data, 98);
-    settings->offset[3] = _get_byte(data, 100);
-    settings->gain[3] = _get_byte(data, 102);
+    settings->light = _get_byte (data, 75);
+    settings->exposureTime[3] = _get_short (data, 98);
+    settings->offset[3] = _get_byte (data, 100);
+    settings->gain[3] = _get_byte (data, 102);
 
     DBG (DBG_info_scan, "pieusb_cmd_get_gain_offset() set:\n");
     DBG (DBG_info_scan, " saturationlevels = %d-%d-%d\n", settings->saturationLevel[0], settings->saturationLevel[1], settings->saturationLevel[2]);
@@ -1239,7 +1238,7 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
 
     DBG (DBG_info_scan, "pieusb_cmd_set_gain_offset()\n");
 
-    _prep_scsi_cmd(command, SCSI_WRITE_GAIN_OFFSET, size);
+    _prep_scsi_cmd (command, SCSI_WRITE_GAIN_OFFSET, size);
 
     DBG (DBG_info_scan, "pieusb_cmd_set_gain_offset() set:\n");
     DBG (DBG_info_scan, " exposure times = %d-%d-%d-%d\n", settings->exposureTime[0], settings->exposureTime[1], settings->exposureTime[2], settings->exposureTime[3]);
@@ -1250,12 +1249,12 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     DBG (DBG_info_scan, " extra entries = %02x\n", settings->extraEntries);
 
     /* Code data */
-    memset(data, '\0', size);
+    memset (data, '\0', size);
     _set_shorts (settings->exposureTime, data, 3);
     for (k = 0; k < 3; k++) {
       val[k] = settings->offset[k];
     }
-    _copy_bytes(data + 6, val, 3);
+    _copy_bytes (data + 6, val, 3);
     for (k = 0; k < 3; k++) {
       val[k] = settings->gain[k];
     }
@@ -1303,7 +1302,7 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
      * 00000017: 00 00 00 00 00 00
      */
 
-    pieusb_command(device_number, command, data, size, status);
+    status->pieusb_status = pieusb_command(device_number, command, data, size);
 #undef GAIN_OFFSET_SIZE
 }
 
@@ -1326,10 +1325,10 @@ pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state
     /* Execute READ STATUS command */
     DBG (DBG_info_scan, "pieusb_cmd_read_state()\n");
 
-    _prep_scsi_cmd(command, SCSI_READ_STATE, size);
+    _prep_scsi_cmd (command, SCSI_READ_STATE, size);
 
-    memset(data, '\0', size);
-    pieusb_command(device_number, command, data, size, status);
+    memset (data, '\0', size);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
 
     /* Decode data recieved */
     state->buttonPushed = _get_byte(data, 0);
