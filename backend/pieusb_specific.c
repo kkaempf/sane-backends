@@ -1624,8 +1624,9 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
 }
 
 /*
- *
+ * Set frame (from scanner options)
  */
+
 SANE_Status
 pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
 {
@@ -1637,16 +1638,14 @@ pieusb_set_frame_from_options(Pieusb_Scanner * scanner)
     scanner->frame.y0 = SANE_UNFIX(scanner->val[OPT_TL_Y].w) * dpmm;
     scanner->frame.x1 = SANE_UNFIX(scanner->val[OPT_BR_X].w) * dpmm;
     scanner->frame.y1 = SANE_UNFIX(scanner->val[OPT_BR_Y].w) * dpmm;
-    scanner->frame.code = 0x12;
-    scanner->frame.index = 0x00;
-    scanner->frame.size = 0x0A;
-    pieusb_cmd_set_scan_frame(scanner->device_number, 0, &(scanner->frame), &status);
-    DBG(DBG_info_sane,"pieusb_set_frame_from_options(): pieusb_cmd_set_scan_frame status %s\n", sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+    scanner->frame.index = 0x80; /* 0x80: value from cyberview */
+    pieusb_cmd_set_scan_frame (scanner->device_number, scanner->frame.index, &(scanner->frame), &status);
+    DBG (DBG_info_sane, "pieusb_set_frame_from_options(): pieusb_cmd_set_scan_frame status %s\n", sane_strstatus (pieusb_convert_status (status.pieusb_status)));
     return status.pieusb_status;
 }
 
 /*
- *
+ * Set mode (from scanner options)
  */
 
 SANE_Status

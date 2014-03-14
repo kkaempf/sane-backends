@@ -241,8 +241,6 @@ struct Pieusb_Halftone_Pattern {
 };
 
 struct Pieusb_Scan_Frame {
-    SANE_Int code; /* 0x92 */
-    SANE_Int size; /* number of bytes in rest of structure */
     SANE_Int index; /* scan frame index (0-7) */
     SANE_Int x0; /* top left, is origin */
     SANE_Int y0;

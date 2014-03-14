@@ -408,22 +408,18 @@ pieusb_cmd_get_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
 
     memset(data, '\0', size);
     sst = pieusb_scsi_command(device_number, command, data, size);
-    /* FIXME */
+
     /* Decode data */
-    frame->code = _get_byte(data, 0);
-    frame->size = _get_short(data, 2);
-    frame->index = _get_byte(data, 4);
-    frame->x0 = _get_short(data, 6);
-    frame->y0 = _get_short(data, 8);
-    frame->x1 = _get_short(data, 10);
-    frame->y1 = _get_short(data, 12);
+    frame->index = _get_byte (data, 4);
+    frame->x0 = _get_short (data, 6);
+    frame->y0 = _get_short (data, 8);
+    frame->x1 = _get_short (data, 10);
+    frame->y1 = _get_short (data, 12);
 
     DBG (DBG_info_scan, "pieusb_cmd_get_scan_frame() set:\n");
     DBG (DBG_info_scan, " x0,y0 = %d,%d\n", frame->x0, frame->y0);
     DBG (DBG_info_scan, " x1,y1 = %d,%d\n", frame->x1, frame->y1);
-    DBG (DBG_info_scan, " code = %d\n", frame->code);
     DBG (DBG_info_scan, " index = %d\n", frame->index);
-    DBG (DBG_info_scan, " size = %d\n", frame->size);
 #undef FRAME_SIZE
 }
 
@@ -626,22 +622,19 @@ pieusb_cmd_set_scan_frame(SANE_Int device_number, SANE_Int index, struct Pieusb_
 
     _prep_scsi_cmd(command, SCSI_WRITE, size);
 
-    DBG (DBG_info_scan, "pieusb_cmd_set_scan_frame() set:\n");
-    DBG (DBG_info_scan, " x0,y0 = %d,%d\n",frame->x0,frame->y0);
-    DBG (DBG_info_scan, " x1,y1 = %d,%d\n",frame->x1,frame->y1);
-    DBG (DBG_info_scan, " code = %d\n",frame->code);
-    DBG (DBG_info_scan, " index = %d\n",frame->index);
-    DBG (DBG_info_scan, " size = %d\n",frame->size);
+    DBG (DBG_info_scan, " x0,y0 = %d,%d\n", frame->x0, frame->y0);
+    DBG (DBG_info_scan, " x1,y1 = %d,%d\n", frame->x1, frame->y1);
+    DBG (DBG_info_scan, " index = %d\n", index);
 
     /* Code data */
-    memset(data, '\0', size);
-    _set_short(SCSI_SCAN_FRAME, data, 0);
-    _set_short(size-4, data, 2); /* size: one frame, 5 shorts */
-    _set_short(index, data, 4);
-    _set_short(frame->x0, data, 6);
-    _set_short(frame->y0, data, 8);
-    _set_short(frame->x1, data, 10);
-    _set_short(frame->y1, data, 12);
+    memset (data, '\0', size);
+    _set_short (SCSI_SCAN_FRAME, data, 0);
+    _set_short (size-4, data, 2); /* size: one frame, 5 shorts */
+    _set_short (index, data, 4);
+    _set_short (frame->x0, data, 6);
+    _set_short (frame->y0, data, 8);
+    _set_short (frame->x1, data, 10);
+    _set_short (frame->y1, data, 12);
 
     pieusb_command(device_number, command, data, size, status);
 #undef FRAME_SIZE
