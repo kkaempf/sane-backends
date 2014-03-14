@@ -200,7 +200,7 @@ pieusb_convert_scsi_status(PIEUSB_SCSI_Status status)
  * hex dump 'size' bytes starting at 'ptr'
  */
 static void
-_hexdump(unsigned char *ptr, int size)
+_hexdump(char *msg, unsigned char *ptr, int size)
 {
   unsigned char *lptr = ptr;
   int count = 0;
@@ -209,7 +209,8 @@ _hexdump(unsigned char *ptr, int size)
   while (size-- > 0)
   {
     if ((count % 16) == 0)
-      fprintf (stderr, "\t%08lx:", start);
+      fprintf (stderr, "%s\t%08lx:", msg?msg:"", start);
+      msg = NULL;
 	fprintf (stderr, " %02x", *ptr++);
 	count++;
 	start++;
@@ -458,7 +459,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
       /*
        * send additional data to usb
        */
-      _hexdump(data, size);
+      _hexdump("Out", data, size);
       for (i = 0; i < size; ++i) {
 	st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[i]);
 	if (st != SANE_STATUS_GOOD) {
@@ -494,7 +495,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
 	  }
 	  remsize -= partsize;
 	}
-	_hexdump(data, size);
+	_hexdump("In", data, size);
 	size = 0; /* done with reading */
       }
       /* stay in loop */
