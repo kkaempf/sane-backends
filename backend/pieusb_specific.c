@@ -658,7 +658,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_SHADING_ANALYSIS].type = SANE_TYPE_BOOL;
     scanner->opt[OPT_SHADING_ANALYSIS].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_SHADING_ANALYSIS].constraint_type = SANE_CONSTRAINT_NONE;
-    scanner->val[OPT_SHADING_ANALYSIS].b = SANE_TRUE;
+    scanner->val[OPT_SHADING_ANALYSIS].b = SANE_FALSE;
     scanner->opt[OPT_SHADING_ANALYSIS].cap |= SANE_CAP_SOFT_SELECT;
 
     /* use auto-calibration settings for scan */
@@ -1019,11 +1019,11 @@ pieusb_on_cancel (Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
 
-    DBG(DBG_info_proc,"pieusb_on_cancel()\n");
+    DBG (DBG_info_proc, "pieusb_on_cancel()\n");
 
-    pieusb_cmd_stop_scan(scanner->device_number, &status);
-    cmdSetScanHead(scanner->device_number, 1, 0, &status);
-    pieusb_buffer_delete(&scanner->buffer);
+    pieusb_cmd_stop_scan (scanner->device_number, &status);
+    cmdSetScanHead (scanner->device_number, 1, 0, &status);
+    pieusb_buffer_delete (&scanner->buffer);
     scanner->scanning = SANE_FALSE;
     return SANE_STATUS_CANCELLED;
 }

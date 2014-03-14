@@ -418,14 +418,17 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
   SANE_Status st;
   SANE_Byte usbstat = USB_STATUS_AGAIN;
   int i;
+  int count;
 
   DBG (DBG_info_usb, "pieusb_scsi_command(): %02x:%s\n", command[0], scsi_cmd_to_text(command[0]));
+
   /*
    * status loop
    */
 
+  count = 0;
   for (;;) {
-    
+    count += 1;
     if (usbstat == USB_STATUS_AGAIN) {
       DBG (DBG_info_usb, "pieusb_scsi_command(): sending scsi cmd\n");
       st = pieusb_ieee_command (device_number, IEEE1284_SCSI);
@@ -433,7 +436,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
 	return SCSI_IEEE1284_ERROR;
       }
       for (i = 0; i < SCSI_COMMAND_LEN; ++i) {
-	st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, command[i]); /* CTRL_VAL_CMD */
+	st = _ctrl_out_byte (device_number, PORT_SCSI_CMD, command[i]); /* CTRL_VAL_CMD */
 	if (st != SANE_STATUS_GOOD) {
 	  DBG(DBG_error, "pieusb_scsi_command() fails command out, after %d bytes: %d\n", i, st);
 	  return SCSI_IEEE1284_ERROR;
@@ -442,7 +445,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
     }
   
     /* Verify this sequence */
-    st = _ctrl_in_byte(device_number, &usbstat);
+    st = _ctrl_in_byte (device_number, &usbstat);
     if (st != SANE_STATUS_GOOD) {
         DBG(DBG_error, "pieusb_scsi_command() fails 1st verification, 1st byte: %d\n", st);
         return SCSI_IEEE1284_ERROR;
@@ -461,7 +464,7 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
        */
       _hexdump("Out", data, size);
       for (i = 0; i < size; ++i) {
-	st = _ctrl_out_byte(device_number, PORT_SCSI_CMD, data[i]);
+	st = _ctrl_out_byte (device_number, PORT_SCSI_CMD, data[i]);
 	if (st != SANE_STATUS_GOOD) {
 	  DBG(DBG_error, "pieusb_scsi_command() fails data out after %d bytes: %d\n", i, st);
 	  return SCSI_IEEE1284_ERROR;
@@ -483,12 +486,12 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
 	DBG(DBG_info_usb, "pieusb_scsi_command(): USB_STATUS_DATA_AVAILABLE\n");
 	while (remsize > 0) {
 	  partsize = remsize > 65520 ? 65520 : remsize;
-	  st = _ctrl_out_int(device_number, partsize);
+	  st = _ctrl_out_int (device_number, partsize);
 	  if (st != SANE_STATUS_GOOD) {
 	    DBG (DBG_error, "pieusb_scsi_command() prepare read data failed for size %d: %d\n", partsize, st);
 	    return st;
 	  }
-	  st = _bulk_in(device_number, data + size - remsize, partsize);
+	  st = _bulk_in (device_number, data + size - remsize, partsize);
 	  if (st != SANE_STATUS_GOOD) {
 	    DBG (DBG_error, "pieusb_scsi_command() read data failed for size %d: %d\n", partsize, st);
 	    return st;
@@ -502,13 +505,16 @@ pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[
       break;
      case USB_STATUS_02:
       DBG (DBG_error, "pieusb_scsi_command() unknown usbstat 0x02\n");
-      return SCSI_IEEE1284_ERROR;
+      usbstat = USB_STATUS_OK;
+      break;
      case USB_STATUS_BUSY:
       DBG (DBG_error, "pieusb_scsi_command() usb busy\n");
       /* stay in loop */
       break;
      case USB_STATUS_AGAIN:
       DBG (DBG_info_usb, "pieusb_scsi_command(): repeat cmd\n");
+      if (count % 5 == 0)
+	sleep(1);
       /* stay in loop */
       break;
      default:
