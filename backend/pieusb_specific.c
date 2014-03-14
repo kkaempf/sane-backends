@@ -1944,7 +1944,6 @@ SANE_Status
 pieusb_get_ccd_mask(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
-    SANE_Status ret;
 
     DBG(DBG_info_proc, "pieusb_get_ccd_mask()\n");
 
@@ -1974,7 +1973,6 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
     struct Pieusb_Command_Status status;
     struct Pieusb_Scan_Parameters parameters;
     const char *mode;
-    SANE_Status ret;
 
     DBG (DBG_info_proc, "pieusb_get_parameters()\n");
 
@@ -1989,19 +1987,19 @@ pieusb_get_parameters(Pieusb_Scanner * scanner)
      * one color actually contains data. For the index format, the bytes field
      * gives the size of a single color line. */
     mode = scanner->val[OPT_MODE].s;
-    if (strcmp(mode,SANE_VALUE_SCAN_MODE_LINEART) == 0) {
+    if (strcmp (mode, SANE_VALUE_SCAN_MODE_LINEART) == 0) {
         scanner->scan_parameters.format = SANE_FRAME_GRAY;
         scanner->scan_parameters.depth = 1;
         scanner->scan_parameters.bytes_per_line = parameters.bytes/3;
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
+    } else if (strcmp (mode, SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
         scanner->scan_parameters.format = SANE_FRAME_GRAY;
         scanner->scan_parameters.depth = 1;
         scanner->scan_parameters.bytes_per_line = parameters.bytes/3;
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_GRAY) == 0) {
+    } else if (strcmp (mode, SANE_VALUE_SCAN_MODE_GRAY) == 0) {
         scanner->scan_parameters.format = SANE_FRAME_GRAY;
         scanner->scan_parameters.depth = scanner->val[OPT_BIT_DEPTH].w;
         scanner->scan_parameters.bytes_per_line = parameters.bytes/3;
-    } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_RGBI) == 0) {
+    } else if (strcmp (mode, SANE_VALUE_SCAN_MODE_RGBI) == 0) {
         scanner->scan_parameters.format = SANE_FRAME_RGBI;
         scanner->scan_parameters.depth = scanner->val[OPT_BIT_DEPTH].w;
         scanner->scan_parameters.bytes_per_line = 4*parameters.bytes;
