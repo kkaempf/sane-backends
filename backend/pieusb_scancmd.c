@@ -260,7 +260,6 @@ pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Comm
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define SLIDE_DATA_SIZE 4
     SANE_Byte data[SLIDE_DATA_SIZE];
-    PIEUSB_SCSI_Status sst;
 
     DBG (DBG_info_scan, "pieusb_cmd_slide(0x%02x)\n", action);
 
@@ -435,7 +434,6 @@ pieusb_cmd_17(SANE_Int device_number, SANE_Int value, struct Pieusb_Command_Stat
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define CMD_17_SIZE 6
     SANE_Byte data[CMD_17_SIZE];
-    PIEUSB_SCSI_Status sst;
 
     DBG (DBG_info_scan, "pieusb_cmd_17(%d)\n", value);
 
@@ -448,7 +446,7 @@ pieusb_cmd_17(SANE_Int device_number, SANE_Int value, struct Pieusb_Command_Stat
     status->pieusb_status = pieusb_command (device_number, command, data, CMD_17_SIZE);
 #undef CMD_17_SIZE
     if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_info_scan, "pieusb_cmd_17 failed with scsi err 0x%02x\n", sst);
+      DBG (DBG_info_scan, "pieusb_cmd_17 failed: 0x%02x\n", status->pieusb_status);
       return;
     }
     pieusb_wait_ready (device_number, status);
