@@ -77,22 +77,7 @@ struct Pieusb_Command_Status {
     SANE_Byte senseQualifier; /* sense code qualifier */
 };
 
-/* SCSI status codes */
-
-typedef enum {
- SCSI_STATUS_OK = 0x00,
- SCSI_STATUS_SENSE = 0x02,
- SCSI_STATUS_BUSY = 0x08,
- SCSI_STATUS_TIMEOUT = 0x09,
- SCSI_STATUS_WRITE_ERROR = 0x0A,
- SCSI_STATUS_READ_ERROR = 0x0B,
- SCSI_READ_ERROR = 0xfd,    /* error reading usb byte */
- SCSI_IEEE1284_ERROR = 0xfe /* error writing to ieee1284 */
-} PIEUSB_SCSI_Status;
-
-/* returns SCSI_STATUS_xxx */
 PIEUSB_Status pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size);
-PIEUSB_Status pieusb_convert_scsi_status(PIEUSB_SCSI_Status status);
 
 #endif	/* PIEUSB_USB_H */
 
