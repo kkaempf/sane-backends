@@ -113,8 +113,18 @@ static PIEUSB_USB_Status _pieusb_scsi_command(SANE_Int device_number, SANE_Byte 
 /* Standard SCSI Sense codes*/
 #define SCSI_NO_ADDITIONAL_SENSE_INFORMATION 0x00
 
-struct scsi_cmd_text_t { int cmd; char *text; };
-static struct scsi_cmd_text_t scsi_cmd_text[] = {
+struct code_text_t { int code; char *text; };
+static struct code_text_t usb_code_text[] = {
+  { 0x00, "Ok" },
+  { 0x01, "Read" },
+  { 0x02, "Check" },
+  { 0x03, "Busy" },
+  { 0x08, "Again" },
+  { 0xff, "Error" },
+  { -1, NULL }
+};
+
+static struct code_text_t scsi_code_text[] = {
   { 0x00, "Test Unit Ready" }
   ,{ 0x01, "Calibrate" }
   ,{ 0x03, "Request Sense" }
@@ -141,13 +151,12 @@ static struct scsi_cmd_text_t scsi_cmd_text[] = {
 };
 
 static char *
-scsi_cmd_to_text(int cmd)
+code_to_text(struct code_text_t *list, int code)
 {
-  int i = 0;
-  while (scsi_cmd_text[i].text) {
-    if (scsi_cmd_text[i].cmd == cmd)
-      return scsi_cmd_text[i].text;
-    i++;
+  while (list && list->text) {
+    if (list->code == code)
+      return list->text;
+    list++;
   }
   return "**unknown**";
 }
@@ -248,14 +257,14 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
   SANE_Byte usbstat;
   PIEUSB_USB_Status status = USB_STATUS_AGAIN;
 
-  DBG (DBG_info_usb,"***\tpieusb_command(%02x:%s): size 0x%02x\n", command[0], scsi_cmd_to_text(command[0]), size);
+  DBG (DBG_info_usb,"***\tpieusb_command(%02x:%s): size 0x%02x\n", command[0], code_to_text (scsi_code_text, command[0]), size);
 
   do {
     k--;
     if (status == USB_STATUS_AGAIN) {
       status = _pieusb_scsi_command (device_number, command, data, size);
     }
-    DBG (DBG_info_usb, "pieusb_command(): try %d, status %d\n", MAXTRIES-k, status);
+    DBG (DBG_info_usb, "pieusb_command(): try %d, status %d:%s\n", MAXTRIES-k, status, code_to_text (usb_code_text, status));
 
     switch (status) {
       case USB_STATUS_OK: /* 0x00 */
@@ -299,7 +308,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	    /* This is a busy condition.
 	     * Decrement number of remaining retries and pause */
 	    status = USB_STATUS_BUSY;
-	    DBG (DBG_info_usb, "pieusb_command(): checked - busy - try %d\n", k);
+	    DBG (DBG_info_usb, "pieusb_command(): sense - busy - try %d\n", MAXTRIES - k);
 	    if (k > 0) {
 	      sleep(PIEUSB_WAIT_BUSY);
 	    }
@@ -315,7 +324,6 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	break;
       }
       case USB_STATUS_BUSY:  /* wait on usb */
-        DBG (DBG_info_usb, "pieusb_command(): busy - try %d\n", k);
 	st = _ctrl_in_byte (device_number, &usbstat);
 	if (st != SANE_STATUS_GOOD) {
 	  DBG (DBG_error, "pieusb_scsi_command() fails data out: %d\n", st);
@@ -394,7 +402,7 @@ _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
   SANE_Byte usbstat;
   int i;
 
-  DBG (DBG_info_usb, "_pieusb_scsi_command(): %02x:%s\n", command[0], scsi_cmd_to_text (command[0]));
+  DBG (DBG_info_usb, "_pieusb_scsi_command(): %02x:%s\n", command[0], code_to_text (scsi_code_text, command[0]));
 
   if (pieusb_ieee_command (device_number, IEEE1284_SCSI) != SANE_STATUS_GOOD) {
     DBG (DBG_error, "_pieusb_scsi_command() can't prep scsi cmd\n");
