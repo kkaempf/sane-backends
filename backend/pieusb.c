@@ -894,7 +894,7 @@ sane_start (SANE_Handle handle)
     if (scanner->state.warmingUp) {
         DBG (DBG_error, "sane_start(): warming up, exiting\n");
         /* Seen SANE_STATUS_WARMING_UP in scanimage => enabled */
-        sleep(2); /* scanimage does not pause, so do it here */
+        sleep (5); /* scanimage does not pause, so do it here */
         return SANE_STATUS_WARMING_UP;
     }
 
