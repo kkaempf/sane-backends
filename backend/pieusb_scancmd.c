@@ -185,42 +185,6 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
 }
 
 
-/* =========================================================================
- *
- * Pieusb scanner commands
- *
- * ========================================================================= */
-
-/* Standard SCSI command codes */
-#define SCSI_TEST_UNIT_READY    0x00
-#define SCSI_REQUEST_SENSE      0x03
-#define SCSI_READ               0x08
-#define SCSI_WRITE              0x0A
-#define SCSI_PARAM              0x0F
-#define SCSI_INQUIRY            0x12
-#define SCSI_MODE_SELECT        0x15
-#define SCSI_COPY               0x18
-#define SCSI_MODE_SENSE         0x1A
-#define SCSI_SCAN               0x1B
-
-/* Non-standard SCSI command codes */
-#define SCSI_SLIDE              0xD1
-#define SCSI_SET_SCAN_HEAD      0xD2
-#define SCSI_READ_GAIN_OFFSET   0xD7
-#define SCSI_WRITE_GAIN_OFFSET  0xDC
-#define SCSI_READ_STATE         0xDD
-
-/* Additional SCSI READ/WRITE codes, |0x80 for Read */
-#define SCSI_POWER_SAVE_CONTROL 0x01
-#define SCSI_GAMMA_TABLE        0x10
-#define SCSI_HALFTONE_PATTERN   0x11
-#define SCSI_SCAN_FRAME         0x12
-#define SCSI_EXPOSURE           0x13
-#define SCSI_HIGHLIGHT_SHADOW   0x14
-#define SCSI_CALIBRATION_INFO   0x15
-#define SCSI_CAL_DATA           0x16
-#define SCSI_CMD_17             0x17 /* used by CyberView */
-
 /**
  * Perform a TEST UNIT READY (SCSI command code 0x00)
  * Returns status->pieusb_status:
@@ -1328,7 +1292,8 @@ pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state
     memset (data, '\0', size);
     status->pieusb_status = pieusb_command (device_number, command, data, size);
 
-    if (status->pieusb_status == PIEUSB_STATUS_WARMING_UP) {
+    if (status->pieusb_status == PIEUSB_STATUS_WARMING_UP
+        || status->pieusb_status == PIEUSB_STATUS_DEVICE_BUSY) {
       data[5] = 1;
       status->pieusb_status = PIEUSB_STATUS_GOOD;
     }

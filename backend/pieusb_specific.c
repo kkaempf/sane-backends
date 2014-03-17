@@ -208,24 +208,28 @@ pieusb_find_device_callback (const char *devicename)
     retry = 2;
     while (retry > 0) {
       retry--;
+      /* get inquiry data length */
       pieusb_cmd_inquiry (device_number, &inq, 5, &status);
       if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
 	break;
       }
-      if (retry > 0) {
-	DBG (DBG_info_proc, "inquiry failed, resetting usb\n");
-	if (pieusb_usb_reset(device_number) == SANE_STATUS_GOOD) {
-	  continue; /* retry after IEEE1284 reset */
-	}
-	if (sanei_usb_reset(device_number) == SANE_STATUS_GOOD) {
-	  continue; /* retry after USB reset */
+      else if (status.pieusb_status == PIEUSB_STATUS_IO_ERROR) {
+	if (retry > 0) {
+	  DBG (DBG_info_proc, "inquiry failed, resetting usb\n");
+	  if (pieusb_usb_reset(device_number) == SANE_STATUS_GOOD) {
+	    continue; /* retry after IEEE1284 reset */
+	  }
+	  if (sanei_usb_reset(device_number) == SANE_STATUS_GOOD) {
+	    continue; /* retry after USB reset */
+	  }
 	}
       }
       free (dev);
-      DBG (DBG_error, "pieusb_find_device_callback: get scanner properties (5 bytes) failed\n");
+      DBG (DBG_error, "pieusb_find_device_callback: get scanner properties (5 bytes) failed with %d\n", status.pieusb_status);
       sanei_usb_close (device_number);
       return status.pieusb_status;
     }
+    /* get full inquiry data */
     pieusb_cmd_inquiry(device_number, &inq, inq.additionalLength+4, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         free (dev);

@@ -237,7 +237,7 @@ _hexdump(char *msg, unsigned char *ptr, int size)
 PIEUSB_Status
 pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size)
 {
-#define MAXTIME 5 /* max 5 seconds */
+#define MAXTIME 10 /* max 10 seconds */
   time_t start;
   SANE_Status sane_status;
   PIEUSB_Status ret = PIEUSB_STATUS_DEVICE_BUSY;
@@ -302,6 +302,10 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	break;
       }
       case USB_STATUS_BUSY:  /* wait on usb */
+        if (command[0] == SCSI_READ_STATE
+	    || command[0] == SCSI_TEST_UNIT_READY) {
+	  sleep (1);
+        }
         sane_status = _ctrl_in_byte (device_number, &usbstat);
 	if (sane_status != SANE_STATUS_GOOD) {
 	  DBG (DBG_error, "pieusb_scsi_command() fails status in: %d\n", sane_status);
@@ -320,7 +324,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
         start = 0;
         break;
     }
-  } while (start > 0 && ((time(NULL)-start) < MAXTIME));
+  } while (start > 0 && ((time(NULL)-start) <= MAXTIME));
 
   DBG (DBG_info_usb, "pieusb_command() finished with state %d\n", ret);
   return ret;
