@@ -362,23 +362,21 @@ _ieee_command(SANE_Int device_number, SANE_Byte command)
     /* 2 x 4 + 3 bytes preceding command, then SCSI_COMMAND_LEN bytes command */
     /* IEEE1284 command, see hpsj5s.c:cpp_daisy() */
   for (i = 0; i < SEQUENCE_LEN; ++i) {
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, sequence[i]);
+    st = _ctrl_out_byte (device_number, PORT_PAR_DATA, sequence[i]);
     if (st != SANE_STATUS_GOOD)
       return st;
   }
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, command);
-  if (st != SANE_STATUS_GOOD)
-    return st;
-    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT|C1284_NSTROBE); /* CTRL_VAL_FINAL */
-  if (st != SANE_STATUS_GOOD)
-    return st;
-  usleep(3000); /* 3.000 usec -> 3 msec */
-    st = _ctrl_out_byte(device_number, PORT_PAR_CTRL, C1284_NINIT);
-  if (st != SANE_STATUS_GOOD)
-    return st;
-    st = _ctrl_out_byte(device_number, PORT_PAR_DATA, 0xff);
-  if (st != SANE_STATUS_GOOD)
-    return st;
+  st = _ctrl_out_byte (device_number, PORT_PAR_DATA, command);
+  if (st == SANE_STATUS_GOOD) {
+    usleep(3000); /* 3.000 usec -> 3 msec */
+    st = _ctrl_out_byte (device_number, PORT_PAR_CTRL, C1284_NINIT|C1284_NSTROBE); /* CTRL_VAL_FINAL */
+    if (st == SANE_STATUS_GOOD) {
+      st = _ctrl_out_byte (device_number, PORT_PAR_CTRL, C1284_NINIT);
+      if (st == SANE_STATUS_GOOD) {
+	st = _ctrl_out_byte (device_number, PORT_PAR_DATA, 0xff);
+      }
+    }
+  }
 
   return st;
 #undef SEQUENCE_LEN
