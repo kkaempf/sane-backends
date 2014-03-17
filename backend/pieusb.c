@@ -1041,23 +1041,8 @@ sane_start (SANE_Handle handle)
       case PIEUSB_STATUS_GOOD:
         /* OK, proceed */
       break;
-      case PIEUSB_STATUS_CHECK_CONDITION:
-        /* May be a case of overriding skip calibration */
-        if (scanner->mode.skipShadingAnalysis
-	    && status.senseKey == SCSI_SENSE_UNIT_ATTENTION
-	    && status.senseCode == 0x82
-	    && status.senseQualifier == 0x00) {
-            scanner->mode.skipShadingAnalysis = SANE_FALSE;
-        } else {
-            /* Other sense */
-            DBG (DBG_error, "sane_start(): sense %02x:%02x-%02x\n", status.senseKey, status.senseCode, status.senseQualifier);
-            scanner->scanning = SANE_FALSE;
-            return SANE_STATUS_IO_ERROR;
-        }
-      break;
-      case PIEUSB_STATUS_WARMING_UP:
-        scanner->scanning = SANE_FALSE;
-        return SANE_STATUS_WARMING_UP;
+      case PIEUSB_STATUS_WARMING_UP:        /* Overriding skip calibration */
+        scanner->mode.skipShadingAnalysis = SANE_FALSE;
       break;
       default:
         scanner->scanning = SANE_FALSE;
