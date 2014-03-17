@@ -90,25 +90,9 @@ typedef enum {
 } PIEUSB_USB_Status;
 
 static PIEUSB_USB_Status _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size);
+static SANE_String _decode_sense(struct Pieusb_Sense* sense, PIEUSB_Status *status);
 
-
-/* Standard SCSI Sense keys */
-#define SCSI_NO_SENSE        0x00
-#define SCSI_RECOVERED_ERROR 0x01
-#define SCSI_NOT_READY       0x02
-#define SCSI_MEDIUM_ERROR    0x03
-#define SCSI_HARDWARE_ERROR  0x04
-#define SCSI_ILLEGAL_REQUEST 0x05
-#define SCSI_UNIT_ATTENTION  0x06
-#define SCSI_DATA_PROTECT    0x07
-#define SCSI_BLANK_CHECK     0x08
-#define SCSI_VENDOR_SPECIFIC 0x09
-#define SCSI_COPY_ABORTED    0x0A
-#define SCSI_ABORTED_COMMAND 0x0B
-#define SCSI_EQUAL           0x0C
-#define SCSI_VOLUME_OVERFLOW 0x0D
-#define SCSI_MISCOMPARE      0x0E
-#define SCSI_RESERVED        0x0F
+#define SENSE_CODE_WARMING_UP 4
 
 /* Standard SCSI Sense codes*/
 #define SCSI_NO_ADDITIONAL_SENSE_INFORMATION 0x00
@@ -253,30 +237,34 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 {
 #define MAXTRIES 10
   int k = MAXTRIES;
-  SANE_Status st;
+  SANE_Status sane_status;
+  PIEUSB_Status ret = PIEUSB_STATUS_DEVICE_BUSY;
   SANE_Byte usbstat;
-  PIEUSB_USB_Status status = USB_STATUS_AGAIN;
+  PIEUSB_USB_Status usb_status = USB_STATUS_AGAIN;
 
   DBG (DBG_info_usb,"***\tpieusb_command(%02x:%s): size 0x%02x\n", command[0], code_to_text (scsi_code_text, command[0]), size);
 
   do {
     k--;
-    if (status == USB_STATUS_AGAIN) {
-      status = _pieusb_scsi_command (device_number, command, data, size);
+    if (usb_status == USB_STATUS_AGAIN) {
+      usb_status = _pieusb_scsi_command (device_number, command, data, size);
     }
-    DBG (DBG_info_usb, "pieusb_command(): try %d, status %d:%s\n", MAXTRIES-k, status, code_to_text (usb_code_text, status));
+    DBG (DBG_info_usb, "pieusb_command(): try %d, status %d:%s\n", MAXTRIES-k, usb_status, code_to_text (usb_code_text, usb_status));
 
-    switch (status) {
+    switch (usb_status) {
       case USB_STATUS_OK: /* 0x00 */
-        return PIEUSB_STATUS_GOOD;
+        ret = PIEUSB_STATUS_GOOD;
+        k = 0;
         break;
       case USB_STATUS_READ: /* 0x01 */
-        st = _ctrl_in_byte (device_number, &usbstat);
-        if (st != SANE_STATUS_GOOD) {
-	  DBG (DBG_error, "pieusb_command() fails data in: %d\n", st);
-	  return USB_STATUS_ERROR;
+        sane_status = _ctrl_in_byte (device_number, &usbstat);
+        if (sane_status != SANE_STATUS_GOOD) {
+	  DBG (DBG_error, "pieusb_command() fails data in: %d\n", sane_status);
+	  ret = PIEUSB_STATUS_IO_ERROR;
+	  k = 0;
+	  break;
 	}
-        status = usbstat;
+        usb_status = usbstat;
         break;
       case USB_STATUS_CHECK: /* check condition */
       {
@@ -288,7 +276,9 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 
 	if (command[0] == SCSI_REQUEST_SENSE) {
 	  DBG (DBG_error, "pieusb_command() recursive SCSI_REQUEST_SENSE\n");
-	  return USB_STATUS_ERROR;
+	  ret = PIEUSB_STATUS_INVAL;
+	  k = 0;
+	  break;
 	}
 
 	/* A check sense may be a busy state in disguise
@@ -297,50 +287,42 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	 * PIEUSB_STATUS_CHECK_SENSE as 'sense data available'. */
 
 	pieusb_cmd_get_sense (device_number, &sense, &senseStatus);
-	sd = senseDescription (&sense);
+	if (senseStatus.pieusb_status != PIEUSB_STATUS_GOOD) {
+	  DBG (DBG_error, "pieusb_command(): CHECK CONDITION, but REQUEST SENSE fails\n");
+	  ret = senseStatus.pieusb_status;
+	  k = 0;
+	  break;
+	}
+	sd = _decode_sense (&sense, &ret);
 	DBG (DBG_info_usb, "pieusb_command(): CHECK CONDITION: %s\n", sd);
 	free(sd);
-
-	if (senseStatus.pieusb_status == PIEUSB_STATUS_GOOD) {
-	  if (sense.senseKey == SCSI_NOT_READY ||
-	      sense.senseCode == 4 ||
-	      sense.senseQualifier == 1) {
-	    /* This is a busy condition.
-	     * Decrement number of remaining retries and pause */
-	    status = USB_STATUS_BUSY;
-	    DBG (DBG_info_usb, "pieusb_command(): sense - busy - try %d\n", MAXTRIES - k);
-	    if (k > 0) {
-	      sleep(PIEUSB_WAIT_BUSY);
-	    }
-	  } else {
-	    status = USB_STATUS_CHECK;
-	    k = 0;
-	  }
-	} else {
-	  DBG (DBG_error, "pieusb_command(): CHECK CONDITION, but REQUEST SENSE fails\n");
-	  status = USB_STATUS_ERROR;
-	  k = 0;
-	}
+	k = 0;
 	break;
       }
       case USB_STATUS_BUSY:  /* wait on usb */
-	st = _ctrl_in_byte (device_number, &usbstat);
-	if (st != SANE_STATUS_GOOD) {
-	  DBG (DBG_error, "pieusb_scsi_command() fails data out: %d\n", st);
-	  return USB_STATUS_ERROR;
+        sleep(1);
+        sane_status = _ctrl_in_byte (device_number, &usbstat);
+	if (sane_status != SANE_STATUS_GOOD) {
+	  DBG (DBG_error, "pieusb_scsi_command() fails status in: %d\n", sane_status);
+	  ret = PIEUSB_STATUS_IO_ERROR;
+	  k = 0;
+	  break;
 	}
-        status = usbstat;
+        usb_status = usbstat;
         break;
       case USB_STATUS_AGAIN: /* re-send scsi cmd */
+        if (k == 0)
+	  ret = PIEUSB_STATUS_DEVICE_BUSY;
 	break;
       case USB_STATUS_ERROR:
+        ret = PIEUSB_STATUS_IO_ERROR;
         k = 0;
         break;
     }
   } while (k > 0);
   
-  DBG (DBG_info_usb, "pieusb_command() finished with state %d\n", status);
-  return status;
+  DBG (DBG_info_usb, "pieusb_command() finished with state %d\n", ret);
+  return ret;
 }
 
 /**
@@ -560,45 +542,65 @@ _bulk_in(SANE_Int device_number, SANE_Byte data[], unsigned int size) {
 }
 
 
+static struct code_text_t sense_code_text[] = {
+  { SCSI_SENSE_NO_SENSE, "No Sense" },
+  { SCSI_SENSE_RECOVERED_ERROR, "Recovered Error" },
+  { SCSI_SENSE_NOT_READY, "Not Ready" },
+  { SCSI_SENSE_MEDIUM_ERROR, "Medium Error" },
+  { SCSI_SENSE_HARDWARE_ERROR, "Hardware Error" },
+  { SCSI_SENSE_ILLEGAL_REQUEST, "Illegal Request" },
+  { SCSI_SENSE_UNIT_ATTENTION, "Unit Attention" },
+  { SCSI_SENSE_DATA_PROTECT, "Data Protect" },
+  { SCSI_SENSE_BLANK_CHECK, "Blank Check" },
+  { SCSI_SENSE_VENDOR_SPECIFIC, "Vendor Specific" },
+  { SCSI_SENSE_COPY_ABORTED, "Copy Aborted" },
+  { SCSI_SENSE_ABORTED_COMMAND, "Aborted Command" },
+  { SCSI_SENSE_EQUAL, "Equal" },
+  { SCSI_SENSE_VOLUME_OVERFLOW, "Volume Overflow" },
+  { SCSI_SENSE_MISCOMPARE, "Miscompare" },
+  { SCSI_SENSE_RESERVED, "Reserved" },
+  { -1, NULL }
+};
+
 /**
  * Return a textual description of the given sense code.
  *
  * @param sense
  * @return description
  */
-SANE_String senseDescription(struct Pieusb_Sense* sense)
+static SANE_String
+_decode_sense(struct Pieusb_Sense* sense, PIEUSB_Status *status)
 {
     SANE_Char* desc = malloc(200);
-    if (sense->senseKey == 0x02) {
-        strcpy (desc,"NOT READY");
-    } else if (sense->senseKey == 5) {
-        strcpy (desc,"ILLEGAL REQUEST");
-    } else if (sense->senseKey == 6) {
-        strcpy (desc,"UNIT ATTENTION");
-    } else if (sense->senseKey == 11) {
-        strcpy (desc,"ABORTED COMMAND");
-    } else {
-        sprintf (desc,"senseKey %d", sense->senseKey);
-    }
+    strcpy (desc, code_to_text (sense_code_text, sense->senseKey));
 
-    if (sense->senseCode == 4 && sense->senseQualifier == 1) {
+    if (sense->senseCode == SENSE_CODE_WARMING_UP && sense->senseQualifier == 1) {
         strcat (desc,": Logical unit is in the process of becoming ready");
+        *status = PIEUSB_STATUS_WARMING_UP;
     } else if (sense->senseCode == 26 && sense->senseQualifier == 0) {
         strcat (desc,": Invalid field in parameter list");
+        *status = PIEUSB_STATUS_INVAL;
     } else if (sense->senseCode == 32 && sense->senseQualifier == 0) {
-        strcat (desc,": Invald command operation code");
+        strcat (desc,": Invalid command operation code");
+        *status = PIEUSB_STATUS_INVAL;
     } else if (sense->senseCode == 130 && sense->senseQualifier == 0) {
         strcat (desc,": SCAN entering Calibration phase (vs)");
+        *status = PIEUSB_STATUS_WARMING_UP;
     } else if (sense->senseCode == 0 && sense->senseQualifier == 6) {
         strcat (desc,": I/O process terminated");
+        *status = PIEUSB_STATUS_IO_ERROR;
     } else if (sense->senseCode == 38 && sense->senseQualifier == 130) {
         strcat (desc,": MODE SELECT value invalid: resolution too high (vs)");
+        *status = PIEUSB_STATUS_INVAL;
     } else if (sense->senseCode == 38 && sense->senseQualifier == 131) {
         strcat (desc,": MODE SELECT value invalid: select only one color (vs)");
+        *status = PIEUSB_STATUS_INVAL;
     } else if (sense->senseCode == 38 && sense->senseQualifier == 131) {
         strcat (desc,": MODE SELECT value invalid: unsupported bit depth (vs)");
+        *status = PIEUSB_STATUS_INVAL;
     } else {
         sprintf (desc,": senseCode %d, senseQualifier %d", sense->senseCode, sense->senseQualifier);
+        *status = PIEUSB_STATUS_GOOD;
     }
     return desc;
 }

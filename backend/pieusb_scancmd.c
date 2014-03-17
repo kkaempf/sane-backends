@@ -1328,6 +1328,10 @@ pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state
     memset (data, '\0', size);
     status->pieusb_status = pieusb_command (device_number, command, data, size);
 
+    if (status->pieusb_status == PIEUSB_STATUS_WARMING_UP) {
+      data[5] = 1;
+      status->pieusb_status = PIEUSB_STATUS_GOOD;
+    }
     /* Decode data recieved */
     state->buttonPushed = _get_byte(data, 0);
     state->warmingUp = _get_byte(data, 5);

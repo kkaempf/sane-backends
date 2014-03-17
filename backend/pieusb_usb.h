@@ -63,6 +63,8 @@ typedef enum {
   PIEUSB_STATUS_NO_MEM,		/* out of memory */
   PIEUSB_STATUS_ACCESS_DENIED,	/* access to resource has been denied */
   PIEUSB_MAX_SANE_STATUS,       /* -- separator -- */
+  PIEUSB_STATUS_WARMING_UP,     /* lamp not ready, please retry */
+  PIEUSB_STATUS_HW_LOCKED,      /* scanner mechanism locked for transport */
   PIEUSB_STATUS_CHECK_CONDITION
 } PIEUSB_Status;
 
@@ -78,6 +80,24 @@ struct Pieusb_Command_Status {
 };
 
 PIEUSB_Status pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size);
+
+/* Standard SCSI Sense keys */
+#define SCSI_SENSE_NO_SENSE        0x00
+#define SCSI_SENSE_RECOVERED_ERROR 0x01
+#define SCSI_SENSE_NOT_READY       0x02
+#define SCSI_SENSE_MEDIUM_ERROR    0x03
+#define SCSI_SENSE_HARDWARE_ERROR  0x04
+#define SCSI_SENSE_ILLEGAL_REQUEST 0x05
+#define SCSI_SENSE_UNIT_ATTENTION  0x06
+#define SCSI_SENSE_DATA_PROTECT    0x07
+#define SCSI_SENSE_BLANK_CHECK     0x08
+#define SCSI_SENSE_VENDOR_SPECIFIC 0x09
+#define SCSI_SENSE_COPY_ABORTED    0x0A
+#define SCSI_SENSE_ABORTED_COMMAND 0x0B
+#define SCSI_SENSE_EQUAL           0x0C
+#define SCSI_SENSE_VOLUME_OVERFLOW 0x0D
+#define SCSI_SENSE_MISCOMPARE      0x0E
+#define SCSI_SENSE_RESERVED        0x0F
 
 #endif	/* PIEUSB_USB_H */
 

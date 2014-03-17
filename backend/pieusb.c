@@ -888,7 +888,9 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
     pieusb_cmd_read_state(scanner->device_number, &(scanner->state), &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        DBG (DBG_error, "sane_start(): warmed up check returns status %s\n",  sane_strstatus(pieusb_convert_status(status.pieusb_status)));
+        if (status.pieusb_status == PIEUSB_STATUS_DEVICE_BUSY)
+	  return SANE_STATUS_WARMING_UP;
+        DBG (DBG_error, "sane_start(): warmed up check returns status %s\n",  sane_strstatus (pieusb_convert_status(status.pieusb_status)));
         return SANE_STATUS_IO_ERROR;
     }
     if (scanner->state.warmingUp) {
@@ -1035,12 +1037,14 @@ sane_start (SANE_Handle handle)
     scanner->cancel_request = SANE_FALSE;
     pieusb_cmd_start_scan (scanner->device_number, &status);
     /* Default status check */
-    if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
+    switch (status.pieusb_status) {
+      case PIEUSB_STATUS_GOOD:
         /* OK, proceed */
-    } else if (status.pieusb_status == PIEUSB_STATUS_CHECK_CONDITION) {
+      break;
+      case PIEUSB_STATUS_CHECK_CONDITION:
         /* May be a case of overriding skip calibration */
         if (scanner->mode.skipShadingAnalysis
-	    && status.senseKey == 0x06
+	    && status.senseKey == SCSI_SENSE_UNIT_ATTENTION
 	    && status.senseCode == 0x82
 	    && status.senseQualifier == 0x00) {
             scanner->mode.skipShadingAnalysis = SANE_FALSE;
@@ -1050,7 +1054,12 @@ sane_start (SANE_Handle handle)
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
-    } else {
+      break;
+      case PIEUSB_STATUS_WARMING_UP:
+        scanner->scanning = SANE_FALSE;
+        return SANE_STATUS_WARMING_UP;
+      break;
+      default:
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }

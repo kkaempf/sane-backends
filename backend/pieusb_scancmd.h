@@ -348,9 +348,5 @@ void pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* 
 
 void pieusb_cmd_read_state(SANE_Int device_number, struct Pieusb_Scanner_State* state, struct Pieusb_Command_Status *status);
 
-/* Utility */
-
-SANE_String senseDescription(struct Pieusb_Sense* sense);
-
 #endif	/* PIEUSB_SCANCMD_H */
 
