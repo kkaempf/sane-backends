@@ -404,7 +404,7 @@ _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
   /* Verify this sequence */
   st = _ctrl_in_byte (device_number, &usbstat);
   if (st != SANE_STATUS_GOOD) {
-    DBG (DBG_error, "_pieusb_scsi_command() fails command out: %d\n", st);
+    DBG (DBG_error, "_pieusb_scsi_command() fails status after command out: %d\n", st);
     return USB_STATUS_ERROR;
   }
   /* Process rest of the data, if present; either input or output, possibly bulk */
