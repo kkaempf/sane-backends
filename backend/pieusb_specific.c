@@ -213,6 +213,10 @@ pieusb_find_device_callback (const char *devicename)
 	break;
       }
       if (retry > 0) {
+	DBG (DBG_info_proc, "inquiry failed, resetting usb\n");
+	if (pieusb_usb_reset(device_number) == SANE_STATUS_GOOD) {
+	  continue; /* retry after IEEE1284 reset */
+	}
 	if (sanei_usb_reset(device_number) == SANE_STATUS_GOOD) {
 	  continue; /* retry after USB reset */
 	}

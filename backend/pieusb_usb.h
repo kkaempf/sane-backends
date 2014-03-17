@@ -49,6 +49,8 @@
 
 #define SCSI_COMMAND_LEN 6
 
+SANE_Status pieusb_usb_reset(SANE_Int device_number);
+
 typedef enum {
   PIEUSB_STATUS_GOOD = 0,	/* everything A-OK */
   PIEUSB_STATUS_UNSUPPORTED,	/* operation is not supported */

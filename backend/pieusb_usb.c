@@ -56,6 +56,7 @@ static SANE_Status _ctrl_out_byte(SANE_Int device_number, SANE_Int port, SANE_By
 static SANE_Status _ctrl_out_int(SANE_Int device_number, unsigned int size);
 static SANE_Status _ctrl_in_byte(SANE_Int device_number, SANE_Byte* b);
 static SANE_Status _bulk_in(SANE_Int device_number, SANE_Byte* data, unsigned int size);
+static SANE_Status _ieee_command(SANE_Int device_number, SANE_Byte command);
 
 /* Defines for use in USB functions */
 
@@ -326,16 +327,29 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 }
 
 /**
+ * Reset IEEE1284 interface
+ * 
+ * @param device_number Device number
+ * @returns SANE_Status
+ */
+
+SANE_Status
+pieusb_usb_reset(SANE_Int device_number)
+{
+  return _ieee_command (device_number, IEEE1284_RESET);
+}
+
+/**
  * Prepare IEEE1284 interface
  * Issue one of IEEE1284_ADDR, IEEE1284_RESET, or IEEE1284_SCSI
  * 
  * @param device_number Device number
  * @param command - IEEE1284 command
- * @param status Pieusb_Command_Status
+ * @returns SANE_Status
  */
 
 static SANE_Status
-pieusb_ieee_command(SANE_Int device_number, SANE_Byte command)
+_ieee_command(SANE_Int device_number, SANE_Byte command)
 {
     SANE_Status st;
   static int sequence[] = { 0xff, 0xaa, 0x55, 0x00, 0xff, 0x87, 0x78 };
@@ -386,7 +400,7 @@ _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
 
   DBG (DBG_info_usb, "_pieusb_scsi_command(): %02x:%s\n", command[0], code_to_text (scsi_code_text, command[0]));
 
-  if (pieusb_ieee_command (device_number, IEEE1284_SCSI) != SANE_STATUS_GOOD) {
+  if (_ieee_command (device_number, IEEE1284_SCSI) != SANE_STATUS_GOOD) {
     DBG (DBG_error, "_pieusb_scsi_command() can't prep scsi cmd\n");
     return USB_STATUS_ERROR;
   }
@@ -577,25 +591,25 @@ _decode_sense(struct Pieusb_Sense* sense, PIEUSB_Status *status)
     if (sense->senseCode == SENSE_CODE_WARMING_UP && sense->senseQualifier == 1) {
         strcat (desc,": Logical unit is in the process of becoming ready");
         *status = PIEUSB_STATUS_WARMING_UP;
-    } else if (sense->senseCode == 26 && sense->senseQualifier == 0) {
+    } else if (sense->senseCode == 0x1a && sense->senseQualifier == 0) {
         strcat (desc,": Invalid field in parameter list");
         *status = PIEUSB_STATUS_INVAL;
-    } else if (sense->senseCode == 32 && sense->senseQualifier == 0) {
+    } else if (sense->senseCode == 0x20 && sense->senseQualifier == 0) {
         strcat (desc,": Invalid command operation code");
         *status = PIEUSB_STATUS_INVAL;
-    } else if (sense->senseCode == 130 && sense->senseQualifier == 0) {
+    } else if (sense->senseCode == 0x82 && sense->senseQualifier == 0) {
         strcat (desc,": SCAN entering Calibration phase (vs)");
         *status = PIEUSB_STATUS_WARMING_UP;
-    } else if (sense->senseCode == 0 && sense->senseQualifier == 6) {
+    } else if (sense->senseCode == 0x00 && sense->senseQualifier == 6) {
         strcat (desc,": I/O process terminated");
         *status = PIEUSB_STATUS_IO_ERROR;
-    } else if (sense->senseCode == 38 && sense->senseQualifier == 130) {
+    } else if (sense->senseCode == 0x26 && sense->senseQualifier == 0x82) {
         strcat (desc,": MODE SELECT value invalid: resolution too high (vs)");
         *status = PIEUSB_STATUS_INVAL;
-    } else if (sense->senseCode == 38 && sense->senseQualifier == 131) {
+    } else if (sense->senseCode == 0x26 && sense->senseQualifier == 0x83) {
         strcat (desc,": MODE SELECT value invalid: select only one color (vs)");
         *status = PIEUSB_STATUS_INVAL;
-    } else if (sense->senseCode == 38 && sense->senseQualifier == 131) {
+    } else if (sense->senseCode == 0x26 && sense->senseQualifier == 0x83) {
         strcat (desc,": MODE SELECT value invalid: unsupported bit depth (vs)");
         *status = PIEUSB_STATUS_INVAL;
     } else {
