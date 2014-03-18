@@ -153,18 +153,7 @@ code_to_text(struct code_text_t *list, int code)
 SANE_Status
 pieusb_convert_status(PIEUSB_Status status)
 {
-  switch (status) {
-    case PIEUSB_STATUS_CHECK_CONDITION:
-      return PIEUSB_STATUS_DEVICE_BUSY;
-      break;
-    case PIEUSB_MAX_SANE_STATUS:
-    /*fallthru*/
-    default:
-      if (status < PIEUSB_MAX_SANE_STATUS) {
-        return (SANE_Status)status;
-      }
-  }
-  return SANE_STATUS_INVAL;
+  return (SANE_Status)status;
 }
 
 

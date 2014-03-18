@@ -52,22 +52,21 @@
 SANE_Status pieusb_usb_reset(SANE_Int device_number);
 
 typedef enum {
-  PIEUSB_STATUS_GOOD = 0,	/* everything A-OK */
-  PIEUSB_STATUS_UNSUPPORTED,	/* operation is not supported */
-  PIEUSB_STATUS_CANCELLED,	/* operation was cancelled */
-  PIEUSB_STATUS_DEVICE_BUSY,	/* device is busy; try again later */
-  PIEUSB_STATUS_INVAL,		/* data is invalid (includes no dev at open) */
-  PIEUSB_STATUS_EOF,		/* no more data available (end-of-file) */
-  PIEUSB_STATUS_JAMMED,		/* document feeder jammed */
-  PIEUSB_STATUS_NO_DOCS,	/* document feeder out of documents */
-  PIEUSB_STATUS_COVER_OPEN,	/* scanner cover is open */
-  PIEUSB_STATUS_IO_ERROR,	/* error during device I/O */
-  PIEUSB_STATUS_NO_MEM,		/* out of memory */
-  PIEUSB_STATUS_ACCESS_DENIED,	/* access to resource has been denied */
-  PIEUSB_MAX_SANE_STATUS,       /* -- separator -- */
-  PIEUSB_STATUS_WARMING_UP,     /* lamp not ready, please retry */
-  PIEUSB_STATUS_HW_LOCKED,      /* scanner mechanism locked for transport */
-  PIEUSB_STATUS_CHECK_CONDITION
+  PIEUSB_STATUS_GOOD = 0,	/*  0 everything A-OK */
+  PIEUSB_STATUS_UNSUPPORTED,	/*  1 operation is not supported */
+  PIEUSB_STATUS_CANCELLED,	/*  2 operation was cancelled */
+  PIEUSB_STATUS_DEVICE_BUSY,	/*  3 device is busy; try again later */
+  PIEUSB_STATUS_INVAL,		/*  4 data is invalid (includes no dev at open) */
+  PIEUSB_STATUS_EOF,		/*  5 no more data available (end-of-file) */
+  PIEUSB_STATUS_JAMMED,		/*  6 document feeder jammed */
+  PIEUSB_STATUS_NO_DOCS,	/*  7 document feeder out of documents */
+  PIEUSB_STATUS_COVER_OPEN,	/*  8 scanner cover is open */
+  PIEUSB_STATUS_IO_ERROR,	/*  9 error during device I/O */
+  PIEUSB_STATUS_NO_MEM,		/* 10 out of memory */
+  PIEUSB_STATUS_ACCESS_DENIED,	/* 11 access to resource has been denied */
+  PIEUSB_STATUS_WARMING_UP,     /* 12 lamp not ready, please retry */
+  PIEUSB_STATUS_HW_LOCKED,      /* 13 scanner mechanism locked for transport */
+  PIEUSB_STATUS_CHECK_CONDITION /* 14 */
 } PIEUSB_Status;
 
 SANE_Status pieusb_convert_status(PIEUSB_Status status);

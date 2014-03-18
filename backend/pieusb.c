@@ -1020,10 +1020,10 @@ sane_start (SANE_Handle handle)
       DBG (DBG_error, "sane_start(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
       return SANE_STATUS_IO_ERROR;
     }
-    status.pieusb_status = pieusb_wait_ready (scanner, 0);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error, "sane_open: scanner not ready %d\n", status.pieusb_status);
-      return SANE_STATUS_DEVICE_BUSY;
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
+      return st;
     }
 
     /* Enter SCAN phase 1 */
@@ -1049,6 +1049,12 @@ sane_start (SANE_Handle handle)
         return SANE_STATUS_IO_ERROR;
     }
     
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
+      return st;
+    }
+
     /* Process shading data if requested */
     if (!scanner->mode.skipShadingAnalysis) {
       DBG (DBG_info_sane, "sane_start(): process shading data\n");
