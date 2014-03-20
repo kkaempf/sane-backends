@@ -118,7 +118,7 @@ PIEUSB_Status pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_B
 #define SCSI_CAL_DATA           0x16
 #define SCSI_CMD_17             0x17 /* used by CyberView */
 
-/* Standard SCSI Sense keys */
+/* Standard SCSI Sense keys, see http://www.t10.org/lists/2sensekey.htm */
 #define SCSI_SENSE_NO_SENSE        0x00
 #define SCSI_SENSE_RECOVERED_ERROR 0x01
 #define SCSI_SENSE_NOT_READY       0x02
@@ -134,7 +134,7 @@ PIEUSB_Status pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_B
 #define SCSI_SENSE_EQUAL           0x0C
 #define SCSI_SENSE_VOLUME_OVERFLOW 0x0D
 #define SCSI_SENSE_MISCOMPARE      0x0E
-#define SCSI_SENSE_RESERVED        0x0F
+#define SCSI_SENSE_COMPLETED       0x0F
 
 #endif	/* PIEUSB_USB_H */
 
