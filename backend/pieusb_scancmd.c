@@ -231,7 +231,6 @@ pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Comm
     memset(data, '\0', SLIDE_DATA_SIZE);
     data[0] = action;
     data[1] = 0x01;
-    data[3] = (action == SLIDE_RELOAD) ? 0x00 : 0x7c;
 
     status->pieusb_status = pieusb_command(device_number, command, data, SLIDE_DATA_SIZE);
 #undef SLIDE_DATA_SIZE
