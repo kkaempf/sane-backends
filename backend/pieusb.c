@@ -1042,19 +1042,14 @@ sane_start (SANE_Handle handle)
         /* OK, proceed */
       break;
       case PIEUSB_STATUS_WARMING_UP:        /* Overriding skip calibration */
-        scanner->mode.skipShadingAnalysis = SANE_FALSE;
+/*        scanner->mode.skipShadingAnalysis = SANE_FALSE; */
+          sleep(5);
       break;
       default:
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
     
-    st = pieusb_wait_ready (scanner, 0);
-    if (st != SANE_STATUS_GOOD) {
-      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
-      return st;
-    }
-
     /* Process shading data if requested */
     if (!scanner->mode.skipShadingAnalysis) {
       DBG (DBG_info_sane, "sane_start(): process shading data\n");
