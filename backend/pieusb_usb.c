@@ -582,47 +582,54 @@ static SANE_String
 _decode_sense(struct Pieusb_Sense* sense, PIEUSB_Status *status)
 {
     SANE_Char* desc = malloc(200);
+    SANE_Char* ptr;
     strcpy (desc, code_to_text (sense_code_text, sense->senseKey));
+    ptr = desc + strlen(desc);
 
   switch (sense->senseKey) {
-   case SCSI_SENSE_UNIT_ATTENTION:
+   case SCSI_SENSE_NOT_READY:
     if (sense->senseCode == SENSE_CODE_WARMING_UP && sense->senseQualifier == 1) {
-        strcat (desc,": Logical unit is in the process of becoming ready");
-        *status = PIEUSB_STATUS_WARMING_UP;
-      break;
-    } else if (sense->senseCode == 0x1a && sense->senseQualifier == 0) {
-        strcat (desc,": Invalid field in parameter list");
+      strcpy (ptr, ": Logical unit is in the process of becoming ready");
+      *status = PIEUSB_STATUS_WARMING_UP;
+    }
+    else {
+      sprintf (ptr, ": senseCode 0x%02x, senseQualifier 0x%02x", sense->senseCode, sense->senseQualifier);
+      *status = PIEUSB_STATUS_INVAL;
+    }
+    break;
+   case SCSI_SENSE_UNIT_ATTENTION:
+    if (sense->senseCode == 0x1a && sense->senseQualifier == 0) {
+        strcpy (ptr, ": Invalid field in parameter list");
         *status = PIEUSB_STATUS_INVAL;
       break;
     } else if (sense->senseCode == 0x20 && sense->senseQualifier == 0) {
-        strcat (desc,": Invalid command operation code");
+        strcpy (ptr, ": Invalid command operation code");
         *status = PIEUSB_STATUS_INVAL;
       break;
     } else if (sense->senseCode == 0x82 && sense->senseQualifier == 0) {
-        strcat (desc,": SCAN entering Calibration phase (vs)");
+        strcpy (ptr, ": Calibration disable not granted");
         *status = PIEUSB_STATUS_WARMING_UP;
       break;
     } else if (sense->senseCode == 0x00 && sense->senseQualifier == 6) {
-        strcat (desc,": I/O process terminated");
+        strcpy (ptr, ": I/O process terminated");
         *status = PIEUSB_STATUS_IO_ERROR;
       break;
     } else if (sense->senseCode == 0x26 && sense->senseQualifier == 0x82) {
-        strcat (desc,": MODE SELECT value invalid: resolution too high (vs)");
+        strcpy (ptr, ": MODE SELECT value invalid: resolution too high (vs)");
         *status = PIEUSB_STATUS_INVAL;
       break;
     } else if (sense->senseCode == 0x26 && sense->senseQualifier == 0x83) {
-        strcat (desc,": MODE SELECT value invalid: select only one color (vs)");
+        strcpy (ptr, ": MODE SELECT value invalid: select only one color (vs)");
         *status = PIEUSB_STATUS_INVAL;
       break;
     } else if (sense->senseCode == 0x26 && sense->senseQualifier == 0x83) {
-        strcat (desc,": MODE SELECT value invalid: unsupported bit depth (vs)");
+        strcpy (ptr, ": MODE SELECT value invalid: unsupported bit depth (vs)");
         *status = PIEUSB_STATUS_INVAL;
       break;
     }
     /*fallthru*/
    case SCSI_SENSE_NO_SENSE:
    case SCSI_SENSE_RECOVERED_ERROR:
-   case SCSI_SENSE_NOT_READY:
    case SCSI_SENSE_MEDIUM_ERROR:
    case SCSI_SENSE_HARDWARE_ERROR:
    case SCSI_SENSE_ILLEGAL_REQUEST:
@@ -636,9 +643,8 @@ _decode_sense(struct Pieusb_Sense* sense, PIEUSB_Status *status)
    case SCSI_SENSE_MISCOMPARE:
    case SCSI_SENSE_COMPLETED:
    default:
-      sprintf (desc,": senseKey 0x%02x senseCode 0x%02x, senseQualifier 0x%02x", sense->senseKey, sense->senseCode, sense->senseQualifier);
+      sprintf (ptr, ": senseCode 0x%02x, senseQualifier 0x%02x", sense->senseCode, sense->senseQualifier);
       *status = PIEUSB_STATUS_INVAL;
   }
   return desc;
 }
-
