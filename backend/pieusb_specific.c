@@ -1916,23 +1916,31 @@ pieusb_get_shading_data(Pieusb_Scanner * scanner)
     SANE_Byte* buffer;
   SANE_Status res;
 
+  DBG (DBG_info_sane, "pieusb_get_shading_data()\n");
     shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
     shading_height = scanner->device->shading_parameters[0].nLines;
     switch (scanner->mode.colorFormat) {
         case SCAN_COLOR_FORMAT_PIXEL: /* Pixel */
-            buffer = malloc((2*shading_width)*shading_height*4);
-            pieusb_cmd_get_scanned_lines(scanner->device_number, buffer, shading_height*4, (2*shading_width)*shading_height*4, &status);
+            buffer = malloc ((2*shading_width) * shading_height * 4);
+            if (buffer == NULL) {
+	      return SANE_STATUS_NO_MEM;
+	    }
+            pieusb_cmd_get_scanned_lines (scanner->device_number, buffer, shading_height * 4, (2*shading_width) * shading_height * 4, &status);
             break;
         case SCAN_COLOR_FORMAT_INDEX: /* Indexed */
-            buffer = malloc((2*shading_width+2)*shading_height*4);
-            pieusb_cmd_get_scanned_lines(scanner->device_number, buffer, shading_height*4, (2*shading_width+2)*shading_height*4, &status);
+            buffer = malloc ((2*shading_width + 2) * shading_height * 4);
+            if (buffer == NULL) {
+	      return SANE_STATUS_NO_MEM;
+	    }
+            pieusb_cmd_get_scanned_lines (scanner->device_number, buffer, shading_height * 4, (2*shading_width + 2) * shading_height * 4, &status);
             break;
         default:
-            DBG(DBG_error,"pieusb_get_shading_data(): color format %d not implemented\n",scanner->mode.colorFormat);
+            DBG (DBG_error, "pieusb_get_shading_data(): color format %d not implemented\n", scanner->mode.colorFormat);
             return SANE_STATUS_INVAL;
     }
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-        return SANE_STATUS_INVAL;
+      free (buffer);
+      return SANE_STATUS_INVAL;
     }
     pieusb_calculate_shading (scanner, buffer);
     free (buffer);
