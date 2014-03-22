@@ -666,7 +666,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_SHADING_ANALYSIS].type = SANE_TYPE_BOOL;
     scanner->opt[OPT_SHADING_ANALYSIS].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_SHADING_ANALYSIS].constraint_type = SANE_CONSTRAINT_NONE;
-    scanner->val[OPT_SHADING_ANALYSIS].b = SANE_FALSE;
+    scanner->val[OPT_SHADING_ANALYSIS].b = SANE_TRUE;
     scanner->opt[OPT_SHADING_ANALYSIS].cap |= SANE_CAP_SOFT_SELECT;
 
     /* use auto-calibration settings for scan */
