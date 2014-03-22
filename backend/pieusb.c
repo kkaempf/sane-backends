@@ -1032,6 +1032,7 @@ sane_start (SANE_Handle handle)
     }
 
     /* Enter SCAN phase 1 */
+    DBG (DBG_info_sane, "sane_start(): scan phase 1\n");
 
     /* ----------------------------------------------------------------------
      *
@@ -1079,7 +1080,7 @@ sane_start (SANE_Handle handle)
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
-
+#if 0
         /* ------------------------------------------------------------------
          *
          * Obtain shading data
@@ -1092,7 +1093,7 @@ sane_start (SANE_Handle handle)
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
-
+#endif
     }
 
     /* Enter SCAN phase 2 */
