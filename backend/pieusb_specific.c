@@ -2181,6 +2181,8 @@ pieusb_wait_ready(Pieusb_Scanner * scanner, SANE_Int device_number)
   for(;;) {
     pieusb_cmd_test_unit_ready(device_number, &status);
     DBG (DBG_info_proc, "-> pieusb_cmd_test_unit_ready: %d\n", status.pieusb_status);
+    if (status.pieusb_status == PIEUSB_STATUS_GOOD)
+      break;    
     if (status.pieusb_status == PIEUSB_STATUS_IO_ERROR)
       break;
     pieusb_cmd_read_state(device_number, &state, &status);
