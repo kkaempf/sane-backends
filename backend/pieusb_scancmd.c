@@ -412,7 +412,6 @@ pieusb_cmd_17(SANE_Int device_number, SANE_Int value, struct Pieusb_Command_Stat
       DBG (DBG_info_scan, "pieusb_cmd_17 failed: 0x%02x\n", status->pieusb_status);
       return;
     }
-    pieusb_wait_ready (device_number, status);
 }
 
 /**
