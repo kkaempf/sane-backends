@@ -250,14 +250,9 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
         start = 0;
         break;
       case USB_STATUS_READ: /* 0x01 */
-        sane_status = _ctrl_in_byte (device_number, &usbstat);
-        if (sane_status != SANE_STATUS_GOOD) {
-	  DBG (DBG_error, "\tpieusb_command() fails data in: %d\n", sane_status);
-	  ret = PIEUSB_STATUS_IO_ERROR;
-	  start = 0;
-	  break;
-	}
-        usb_status = usbstat;
+        DBG (DBG_error, "\tpieusb_command() 2nd STATUS_READ ?!\n");
+        ret = PIEUSB_STATUS_IO_ERROR;
+        start = 0;
         break;
       case USB_STATUS_CHECK: /* check condition */
       {
@@ -314,6 +309,9 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
         ret = PIEUSB_STATUS_IO_ERROR;
         start = 0;
         break;
+      default:
+        DBG (DBG_error, "\tpieusb_command() unhandled usb status 0x%02x\n", usb_status);
+      break;
     }
   } while (start > 0 && ((time(NULL)-start) <= MAXTIME));
 
@@ -408,6 +406,7 @@ _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
       return USB_STATUS_ERROR;
     }
   }
+  _hexdump ("Cmd", command, SCSI_COMMAND_LEN);
   
   /* Verify this sequence */
   st = _ctrl_in_byte (device_number, &usbstat);
@@ -429,7 +428,12 @@ _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
 	return USB_STATUS_ERROR;
       }
     }
-    usbstat = USB_STATUS_BUSY; /* force status re-read */
+    /* Verify data out */
+    st = _ctrl_in_byte (device_number, &usbstat);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "\t\t_pieusb_scsi_command fails status after data out: %d\n", st);
+      return USB_STATUS_ERROR;
+    }
   }
   else if (usbstat == USB_STATUS_READ) {
     /* Intermediate status OK, device has made data available for reading */
@@ -456,6 +460,12 @@ _pieusb_scsi_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data
 	return USB_STATUS_ERROR;
       }
       remsize -= partsize;
+    }
+    /* Verify data in */
+    st = _ctrl_in_byte (device_number, &usbstat);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "\t\t_pieusb_scsi_command fails status after data in: %d\n", st);
+      return USB_STATUS_ERROR;
     }
     _hexdump ("In", data, size);
   }
