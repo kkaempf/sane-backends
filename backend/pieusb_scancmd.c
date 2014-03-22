@@ -866,12 +866,12 @@ pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pie
     /* cyberview
      * 00 0f entries
      * f4 01 resolution 500
-     * 80    passes
-     * 04    color depth
+     * 80    RGB (90: RGBI)
+     * 04    color depth (4: 8 bit, 20: 16 bit)
      * 04    color format
      * 00
      * 01    byte order
-     * 08    quality bitmask: skip shading analysis
+     * 08    quality bitmask: 80=fast infrared, 08=skip shading analysis, 02=sharpen
      * 00 00
      * 00    halftone pattern
      * 80    line threshold
@@ -905,6 +905,7 @@ pieusb_cmd_set_mode(SANE_Int device_number, struct Pieusb_Mode* mode, struct Pie
     _set_byte (quality, data, 9);
     _set_byte (mode->halftonePattern, data, 12);
     _set_byte (mode->lineThreshold, data, 13);
+    _set_byte (0x10, data, 14); /* ? */
 
     status->pieusb_status = pieusb_command (device_number, command, data, size);
 #undef MODE_SIZE
