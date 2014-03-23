@@ -1002,7 +1002,8 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
 
-    if (pieusb_set_gain_offset (scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) {
+/*    if (pieusb_set_gain_offset (scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) { */
+    if (pieusb_set_gain_offset (scanner, scanner->val[OPT_CALIBRATION_MODE].s) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
     }
 
@@ -1060,6 +1061,7 @@ sane_start (SANE_Handle handle)
         return SANE_STATUS_IO_ERROR;
     }
     
+#if 0
     /* Process shading data if requested */
     if (!scanner->mode.skipShadingAnalysis) {
       DBG (DBG_info_sane, "sane_start(): process shading data\n");
@@ -1080,7 +1082,6 @@ sane_start (SANE_Handle handle)
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
-#if 0
         /* ------------------------------------------------------------------
          *
          * Obtain shading data
@@ -1093,8 +1094,8 @@ sane_start (SANE_Handle handle)
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }
-#endif
     }
+#endif
 
     /* Enter SCAN phase 2 */
     DBG (DBG_info_sane, "sane_start(): scan phase 2\n");
