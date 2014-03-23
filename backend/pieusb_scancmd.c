@@ -464,27 +464,25 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
     SANE_Int size = SHADING_SIZE;
     SANE_Byte data[SHADING_SIZE];
     int k;
-    PIEUSB_Status st;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_shading_parms()\n");
 
     /* Ask scanner to prepare the scan frame with the given index. Only SCSI_COMMAND_LEN bytes of data. */
-    _prep_scsi_cmd(command, SCSI_WRITE, SCSI_COMMAND_LEN);
-    memset(data, '\0', PREP_READ_SIZE);
+    _prep_scsi_cmd (command, SCSI_WRITE, SCSI_COMMAND_LEN);
+    memset (data, '\0', PREP_READ_SIZE);
     data[0] = SCSI_CALIBRATION_INFO | 0x80; /* set bit 7 means prepare read */
 
-    st = pieusb_command(device_number, command, data, PREP_READ_SIZE);
-    if (st != PIEUSB_STATUS_GOOD) {
-      status->pieusb_status = st;
+    status->pieusb_status = pieusb_command (device_number, command, data, PREP_READ_SIZE);
+    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
       return;
     }
 
     /* Read shading parameters */
     _prep_scsi_cmd(command, SCSI_READ, size);
 
-    memset(data, '\0', size);
-    status->pieusb_status = pieusb_command(device_number, command, data, size);
-    if (status->pieusb_status = PIEUSB_STATUS_GOOD) {
+    memset (data, '\0', size);
+    status->pieusb_status = pieusb_command (device_number, command, data, size);
+    if (status->pieusb_status != PIEUSB_STATUS_GOOD) {
       return;
     }
 
@@ -500,11 +498,11 @@ pieusb_cmd_get_shading_parms(SANE_Int device_number, struct Pieusb_Shading_Param
       26: 20 10 10 14 1a 1d
      */
     for (k = 0; k < data[4]; k++) {
-        shading[k].type = _get_byte(data, 8 + data[5]*k);
-        shading[k].sendBits = _get_byte(data, 9 + data[5]*k);
-        shading[k].recieveBits = _get_byte(data, 10 + data[5]*k);
-        shading[k].nLines = _get_byte(data, 11 + data[5]*k);
-        shading[k].pixelsPerLine = _get_short(data, 12 + data[5]*k);
+        shading[k].type = _get_byte (data, 8 + data[5]*k);
+        shading[k].sendBits = _get_byte (data, 9 + data[5]*k);
+        shading[k].recieveBits = _get_byte (data, 10 + data[5]*k);
+        shading[k].nLines = _get_byte (data, 11 + data[5]*k);
+        shading[k].pixelsPerLine = _get_short (data, 12 + data[5]*k);
     }
 #undef PREP_READ_SIZE
 #undef SHADING_SIZE
