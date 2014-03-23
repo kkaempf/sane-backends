@@ -227,7 +227,7 @@ _hexdump(char *msg, unsigned char *ptr, int size)
 PIEUSB_Status
 pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size)
 {
-#define MAXTIME 10 /* max 10 seconds */
+#define MAXTIME 30 /* max 30 seconds */
   time_t start;
   SANE_Status sane_status;
   PIEUSB_Status ret = PIEUSB_STATUS_DEVICE_BUSY;
@@ -237,7 +237,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
   DBG (DBG_info_usb,"*** pieusb_command(%02x:%s): size 0x%02x\n", command[0], code_to_text (scsi_code_text, command[0]), size);
 
   start = time(NULL);
-  do {
+  for (;;) {
     DBG (DBG_info_usb, "\tpieusb_command loop, status %d:%s\n", usb_status, code_to_text (usb_code_text, usb_status));
     if (usb_status == USB_STATUS_AGAIN) {
       usb_status = _pieusb_scsi_command (device_number, command, data, size);
@@ -313,7 +313,13 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
         DBG (DBG_error, "\tpieusb_command() unhandled usb status 0x%02x\n", usb_status);
       break;
     }
-  } while (start > 0 && ((time(NULL)-start) <= MAXTIME));
+    if (start == 0)
+      break;
+    if ((time(NULL)-start) > MAXTIME) {
+      DBG (DBG_info_usb, "\tpieusb_command() timeout !\n");
+      break;
+    }
+  }
 
   DBG (DBG_info_usb, "\tpieusb_command() finished with state %d\n", ret);
   return ret;
