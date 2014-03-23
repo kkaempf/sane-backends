@@ -66,7 +66,7 @@ typedef enum {
   PIEUSB_STATUS_ACCESS_DENIED,	/* 11 access to resource has been denied */
   PIEUSB_STATUS_WARMING_UP,     /* 12 lamp not ready, please retry */
   PIEUSB_STATUS_HW_LOCKED,      /* 13 scanner mechanism locked for transport */
-  PIEUSB_STATUS_CHECK_CONDITION /* 14 */
+  PIEUSB_STATUS_MUST_CALIBRATE  /* 14 */
 } PIEUSB_Status;
 
 SANE_Status pieusb_convert_status(PIEUSB_Status status);

@@ -624,7 +624,7 @@ _decode_sense(struct Pieusb_Sense* sense, PIEUSB_Status *status)
       break;
     } else if (sense->senseCode == 0x82 && sense->senseQualifier == 0) {
         strcpy (ptr, ": Calibration disable not granted");
-        *status = PIEUSB_STATUS_WARMING_UP;
+        *status = PIEUSB_STATUS_MUST_CALIBRATE;
       break;
     } else if (sense->senseCode == 0x00 && sense->senseQualifier == 6) {
         strcpy (ptr, ": I/O process terminated");

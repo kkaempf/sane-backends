@@ -190,8 +190,6 @@ _set_shorts(SANE_Word* src, SANE_Byte* dst, SANE_Byte count) {
  * Returns status->pieusb_status:
  * - PIEUSB_STATUS_GOOD if device is ready
  * - PIEUSB_STATUS_DEVICE_BUSY if device is still busy after timeout
- * - PIEUSB_STATUS_CHECK_CONDITION with accompanying sense codes if command
- *   returned a CHECK CONDITION
  * - other SANE status code if TEST UNIT READY failed or if it returned
  *   CHECK CONDITION and REQUEST SENSE failed
  *
@@ -755,8 +753,6 @@ pieusb_cmd_get_parameters(SANE_Int device_number, struct Pieusb_Scan_Parameters*
  * Returns status->pieusb_status:
  * - PIEUSB_STATUS_GOOD if the INQUIRY command succeeded
  * - PIEUSB_STATUS_DEVICE_BUSY if device is busy after repeat retries
- * - PIEUSB_STATUS_CHECK_CONDITION with accompanying sense codes if the command
- *   returned a CHECK CONDITION
  * - other SANE status code if INQUIRY failed or if it returned CHECK CONDITION
  *   and REQUEST SENSE failed
  *
