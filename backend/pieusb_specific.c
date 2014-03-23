@@ -656,7 +656,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_SHARPEN].type = SANE_TYPE_BOOL;
     scanner->opt[OPT_SHARPEN].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_SHARPEN].constraint_type = SANE_CONSTRAINT_NONE;
-    scanner->val[OPT_SHARPEN].b = SANE_TRUE;
+    scanner->val[OPT_SHARPEN].b = SANE_FALSE;
     scanner->opt[OPT_SHARPEN].cap |= SANE_CAP_SOFT_SELECT;
 
     /* skip the auto-calibration phase before the scan */
@@ -666,7 +666,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_SHADING_ANALYSIS].type = SANE_TYPE_BOOL;
     scanner->opt[OPT_SHADING_ANALYSIS].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_SHADING_ANALYSIS].constraint_type = SANE_CONSTRAINT_NONE;
-    scanner->val[OPT_SHADING_ANALYSIS].b = SANE_TRUE;
+    scanner->val[OPT_SHADING_ANALYSIS].b = SANE_FALSE;
     scanner->opt[OPT_SHADING_ANALYSIS].cap |= SANE_CAP_SOFT_SELECT;
 
     /* use auto-calibration settings for scan */
@@ -1585,7 +1585,7 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
             }
             break;
         default:
-            DBG(DBG_error,"sane_start(): color format %d not implemented\n",scanner->mode.colorFormat);
+            DBG (DBG_error,"sane_start(): color format %d not implemented\n",scanner->mode.colorFormat);
             return;
     }
     /* Mean reference value needs division */
@@ -1601,7 +1601,7 @@ static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* 
             scanner->shading_mean[k] += scanner->shading_ref[k][m];
         }
         scanner->shading_mean[k] = lround((double)scanner->shading_mean[k]/shading_width);
-        DBG(DBG_error,"Shading_mean[%d] = %d\n",k,scanner->shading_mean[k]);
+        DBG (DBG_error,"Shading_mean[%d] = %d\n",k,scanner->shading_mean[k]);
     }
 
     /* Set shading data present */
@@ -1740,9 +1740,9 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     SANE_Status ret;
     double gain;
 
-    DBG(DBG_info_sane,"pieusb_set_gain_offset(): mode = %s\n", calibration_mode);
+    DBG (DBG_info_sane,"pieusb_set_gain_offset(): mode = %s\n", calibration_mode);
 
-    if (strcmp(calibration_mode, SCAN_CALIBRATION_DEFAULT) == 0) {
+    if (strcmp (calibration_mode, SCAN_CALIBRATION_DEFAULT) == 0) {
         /* Default values */
         DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from defaults\n");
         scanner->settings.exposureTime[0] = DEFAULT_EXPOSURE;
@@ -1823,8 +1823,8 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         }
         status.pieusb_status = PIEUSB_STATUS_GOOD;
 */
-    } else if (strcmp(calibration_mode,SCAN_CALIBRATION_OPTIONS) == 0) {
-        DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from options\n");
+    } else if (strcmp (calibration_mode, SCAN_CALIBRATION_OPTIONS) == 0) {
+        DBG (DBG_info_sane, "pieusb_set_gain_offset(): get calibration data from options\n");
         /* Exposure times */
         scanner->settings.exposureTime[0] = scanner->val[OPT_SET_EXPOSURE].wa[0];
         scanner->settings.exposureTime[1] = scanner->val[OPT_SET_EXPOSURE].wa[1];
@@ -1846,55 +1846,62 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
         status.pieusb_status = PIEUSB_STATUS_GOOD;
     } else { /* SCAN_CALIBRATION_AUTO */
-        DBG(DBG_info_sane,"pieusb_set_gain_offset(): get calibration data from scanner\n");
-        pieusb_cmd_get_gain_offset(scanner->device_number, &scanner->settings, &status);
+        DBG (DBG_info_sane, "pieusb_set_gain_offset(): get calibration data from scanner\n");
+        pieusb_cmd_get_gain_offset (scanner->device_number, &scanner->settings, &status);
     }
     /* Check status */
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+    if (status.pieusb_status == PIEUSB_STATUS_DEVICE_BUSY) {
+      ret = pieusb_wait_ready (scanner, 0);
+      if (ret != SANE_STATUS_GOOD) {
+	DBG (DBG_error,"pieusb_set_gain_offset(): not ready after pieusb_cmd_get_gain_offset(): %d\n", ret);
+	return ret;
+      }
+    }
+    else if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         return SANE_STATUS_INVAL;
     }
     /* Adjust gain */
     gain = 1.0;
-    if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_08) ==0) {
+    if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_08) == 0) {
         gain = 0.8;
-    } else if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_10) ==0) {
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_10) == 0) {
         gain = 1.0;
-    } else if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_12) ==0) {
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_12) == 0) {
         gain = 1.2;
-    } else if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_16) ==0) {
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_16) == 0) {
         gain = 1.6;
-    } else if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_19) ==0) {
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_19) == 0) {
         gain = 1.9;
-    } else if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_24) ==0) {
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_24) == 0) {
         gain = 2.4;
-    } else if (strcmp(scanner->val[OPT_GAIN_ADJUST].s,SCAN_GAIN_ADJUST_30) ==0) {
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_30) == 0) {
         gain = 3.0;
     }
     switch (scanner->mode.passes) {
         case SCAN_ONE_PASS_RGBI:
         case SCAN_ONE_PASS_COLOR:
-            updateGain2(scanner,0,gain);
-            updateGain2(scanner,1,gain);
-            updateGain2(scanner,2,gain);
+            updateGain2 (scanner, 0, gain);
+            updateGain2 (scanner, 1, gain);
+            updateGain2 (scanner, 2, gain);
             /* Don't correct IR, hampers cleaning process... */
             break;
         case SCAN_FILTER_INFRARED:
-            updateGain2(scanner,3,gain);
+            updateGain2 (scanner, 3, gain);
             break;
         case SCAN_FILTER_BLUE:
-            updateGain2(scanner,2,gain);
+            updateGain2 (scanner, 2, gain);
             break;
         case SCAN_FILTER_GREEN:
-            updateGain2(scanner,1,gain);
+            updateGain2 (scanner, 1, gain);
             break;
         case SCAN_FILTER_RED:
-            updateGain2(scanner,0,gain);
+            updateGain2 (scanner, 0, gain);
             break;
         case SCAN_FILTER_NEUTRAL:
             break;
     }
     /* Now set values for gain, offset and exposure */
-    pieusb_cmd_set_gain_offset(scanner->device_number, &(scanner->settings), &status);
+    pieusb_cmd_set_gain_offset (scanner->device_number, &(scanner->settings), &status);
     ret = pieusb_convert_status (status.pieusb_status);
     DBG (DBG_info_sane, "pieusb_set_gain_offset(): status %s\n", sane_strstatus (ret));
     if (ret == SANE_STATUS_GOOD) {
