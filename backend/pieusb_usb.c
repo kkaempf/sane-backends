@@ -227,7 +227,7 @@ _hexdump(char *msg, unsigned char *ptr, int size)
 PIEUSB_Status
 pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SANE_Int size)
 {
-#define MAXTIME 30 /* max 30 seconds */
+#define MAXTIME 60 /* max 60 seconds */
   time_t start;
   SANE_Status sane_status;
   PIEUSB_Status ret = PIEUSB_STATUS_DEVICE_BUSY;
