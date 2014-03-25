@@ -60,6 +60,7 @@
 #include <sane/sanei_debug.h>
 
 
+#include "pieusb_scancmd.h"
 #include "pieusb_usb.h"
 
 /* Additional SANE status code */

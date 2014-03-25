@@ -248,13 +248,14 @@ pieusb_cmd_slide(SANE_Int device_number, slide_action action, struct Pieusb_Comm
  * @see struc Pieusb_Sense
  */
 void
-pieusb_cmd_get_sense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Command_Status *status)
+pieusb_cmd_get_sense(SANE_Int device_number, struct Pieusb_Sense* sense, struct Pieusb_Command_Status *status, PIEUSB_Status *ret)
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 #define DATA_SIZE 14
     SANE_Int size = DATA_SIZE;
     SANE_Byte data[DATA_SIZE];
     PIEUSB_Status st;
+  SANE_Char* sd;
 
     DBG (DBG_info_scan, "pieusb_cmd_get_sense()\n");
 
@@ -279,6 +280,9 @@ pieusb_cmd_get_sense(SANE_Int device_number, struct Pieusb_Sense* sense, struct 
     sense->senseQualifier = _get_byte (data, 13);
     status->pieusb_status = PIEUSB_STATUS_GOOD;
 #undef DATA_SIZE
+  sd = pieusb_decode_sense (sense, ret?ret:&st);
+  DBG (DBG_info_scan, "\tsense: %s\n", sd);
+  free(sd);
 }
 
 /**
