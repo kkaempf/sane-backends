@@ -182,7 +182,7 @@ _hexdump(char *msg, unsigned char *ptr, int size)
 	start++;
 	if (size == 0)
 	{
-	    while ((count%16) != 0)
+	    while ((count % 16) != 0)
 	    {
 		fprintf (stderr, "   ");
 		count++;
@@ -193,8 +193,8 @@ _hexdump(char *msg, unsigned char *ptr, int size)
 	    fprintf (stderr, " ");
 	    while (lptr < ptr)
 	    {
-	        unsigned char c = ((*lptr&0x7f) < 32)?'.':(*lptr & 0x7f);
-		fprintf (stderr, "%c", c);
+	        unsigned char c = *lptr & 0x7f;
+		fprintf (stderr, "%c", ((c < 0x20)||(c == 0x7f)) ? '.' : c);
 		lptr++;
 	    }
 	    fprintf (stderr, "\n");
