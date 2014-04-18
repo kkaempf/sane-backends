@@ -234,6 +234,10 @@ struct Pieusb_Device_Definition
     int maximum_exposure;	   /* max exposure */
 
     struct Pieusb_Shading_Parameters_Info shading_parameters[4]; /* array with shading data parameters */
+
+    int x0, y0, x1, y1;
+    SANE_String production;
+    SANE_String signature;
 };
 
 typedef struct Pieusb_Device_Definition Pieusb_Device_Definition;

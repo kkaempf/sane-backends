@@ -242,7 +242,7 @@ pieusb_find_device_callback (const char *devicename)
     sanei_usb_close(device_number);
 
     /* Initialize device definition */
-    r = pieusb_initialize_device_definition(dev, &inq,devicename, pieusb_supported_usb_device.vendor, pieusb_supported_usb_device.product);
+    r = pieusb_initialize_device_definition(dev, &inq, devicename, pieusb_supported_usb_device.vendor, pieusb_supported_usb_device.product);
     if (r != SANE_STATUS_GOOD) {
       return r;
     }
@@ -355,6 +355,13 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     dev->minimum_exposure = inq->minimumExposure;
     dev->maximum_exposure = inq->maximumExposure*4; /* *4 to solve the strange situation that the default value is out of range */
 
+    dev->x0 = inq->x0;
+    dev->y0 = inq->y0;
+    dev->x1 = inq->x1;
+    dev->y1 = inq->y1;
+    dev->production = strndup(inq->production, 24);
+    dev->signature = strndup(inq->signature, 40);
+
     /* Ranges for various quantities */
     dev->x_range.min = SANE_FIX (0);
     dev->x_range.quant = SANE_FIX (0);
@@ -464,7 +471,7 @@ pieusb_print_inquiry (Pieusb_Device_Definition * dev)
   DBG (DBG_inquiry, "\n");
   DBG (DBG_inquiry, "vendor........................: '%s'\n", dev->sane.vendor);
   DBG (DBG_inquiry, "product.......................: '%s'\n", dev->sane.model);
-  DBG (DBG_inquiry, "model  .......................: 0x%02x\n", dev->model);
+  DBG (DBG_inquiry, "model  .......................: 0x%04x\n", dev->model);
   DBG (DBG_inquiry, "version.......................: '%s'\n", dev->version);
 
   DBG (DBG_inquiry, "X resolution..................: %d dpi\n",
@@ -556,6 +563,14 @@ pieusb_print_inquiry (Pieusb_Device_Definition * dev)
        dev->minimum_exposure);
   DBG (DBG_inquiry, "Max Exposure..................: %d\n",
        dev->maximum_exposure);
+
+  DBG (DBG_inquiry, "x0,y0 x1,y1...................: %d,%d %d,%d\n",
+       dev->x0, dev->y0, dev->x1, dev->y1);
+  DBG (DBG_inquiry, "production....................: %24s\n",
+       dev->production);
+  DBG (DBG_inquiry, "signature.....................: %40s\n",
+       dev->signature);
+
 }
 
 /**
