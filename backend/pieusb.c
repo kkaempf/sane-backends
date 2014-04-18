@@ -886,11 +886,12 @@ sane_start (SANE_Handle handle)
      * Exit with pause if not warmed up
      *
      * ---------------------------------------------------------------------- */
+    sleep(1);
     pieusb_cmd_read_state (scanner->device_number, &(scanner->state), &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         if (status.pieusb_status == PIEUSB_STATUS_DEVICE_BUSY)
 	  return SANE_STATUS_WARMING_UP;
-        DBG (DBG_error, "sane_start(): warmed up check returns status %s\n",  sane_strstatus (pieusb_convert_status(status.pieusb_status)));
+        DBG (DBG_error, "sane_start(): warmed up check returns status: %s\n",  sane_strstatus (pieusb_convert_status(status.pieusb_status)));
         return SANE_STATUS_IO_ERROR;
     }
     if (scanner->state.warmingUp) {
@@ -1049,11 +1050,22 @@ sane_start (SANE_Handle handle)
         /* OK, proceed */
       break;
       case PIEUSB_STATUS_WARMING_UP:
-        st = pieusb_wait_ready (scanner, 0);
-        if (st != SANE_STATUS_GOOD) {
-          DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
-          return st;
+      {
+	struct Pieusb_Sense sense;
+	int i = 0;
+	while (i < 10) {
+	  sleep(2);
+	  pieusb_cmd_get_sense(scanner->device_number, &sense, &status, NULL);
+	  if (status.pieusb_status == SANE_STATUS_GOOD) {
+	    break;
+	  }
+	  i++;
         }
+	if (status.pieusb_status != SANE_STATUS_GOOD) {
+          DBG (DBG_error, "sane_start: scanner not ready: %d\n", status.pieusb_status);
+          return PIEUSB_STATUS_WARMING_UP;
+	}
+      }
       break;
       case PIEUSB_STATUS_MUST_CALIBRATE:        /* Overriding skip calibration */
         DBG (DBG_info_sane, "sane_start(): process shading data\n");
@@ -1084,6 +1096,7 @@ sane_start (SANE_Handle handle)
         }      
       break;
       default:
+        DBG (DBG_error, "sane_start: unhandled status %d after pieusb_cmd_start_scan\n", status.pieusb_status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
