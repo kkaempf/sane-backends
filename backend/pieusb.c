@@ -1328,6 +1328,21 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
 }
 
 /**
+ * Device control operation, ioctl()-style
+ *
+ * @param handle Scanner handle
+ */
+SANE_Status
+sane_control_device (SANE_Handle handle, SANE_Int cmd, void *data)
+{
+    struct Pieusb_Scanner *scanner = handle;
+
+    DBG (DBG_info_sane, "sane_control_device\n");
+
+    return SANE_STATUS_GOOD;
+}
+
+/**
  * Request cancellation of current scanning process.
  *
  * @param handle Scanner handle

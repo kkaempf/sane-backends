@@ -128,6 +128,7 @@ extern SANE_Status ENTRY(get_parameters) (SANE_Handle, SANE_Parameters *);
 extern SANE_Status ENTRY(start) (SANE_Handle);
 extern SANE_Status ENTRY(read) (SANE_Handle, SANE_Byte *, SANE_Int,
                                 SANE_Int *);
+extern SANE_Status ENTRY(control_device) (SANE_Handle, SANE_Int, void *);
 extern SANE_Status ENTRY(set_io_mode) (SANE_Handle, SANE_Bool);
 extern SANE_Status ENTRY(get_select_fd) (SANE_Handle, SANE_Int *);
 extern void ENTRY(cancel) (SANE_Handle);
@@ -147,6 +148,7 @@ extern void ENTRY(exit) (void);
 #define sane_read(a,b,c,d)              ENTRY(read) (a,b,c,d)
 #define sane_set_io_mode(a,b)           ENTRY(set_io_mode) (a,b)
 #define sane_get_select_fd(a,b)         ENTRY(get_select_fd) (a,b)
+#define sane_control_device(a,b,c)      ENTRY(control_device) (a,b,c)
 #define sane_cancel(a)                  ENTRY(cancel) (a)
 #define sane_close(a)                   ENTRY(close) (a)
 #define sane_exit(a)                    ENTRY(exit) (a)
