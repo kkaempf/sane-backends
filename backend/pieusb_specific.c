@@ -2068,7 +2068,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
 {
     struct Pieusb_Command_Status status;
     struct Pieusb_Scan_Parameters parameters;
-    SANE_Int lines_to_read, lines_to_store, lines_read;
+    SANE_Int lines_to_read, lines_remaining;
     SANE_Int ppl, bpl;
     SANE_Byte *linebuf, *lboff;
     SANE_Bool compress;
@@ -2079,26 +2079,28 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
             lines_to_read = scanner->buffer.height;
             break;
         case SCAN_COLOR_FORMAT_INDEX: /* Indexed */
-            lines_to_read = scanner->buffer.colors*scanner->buffer.height;
+            lines_to_read = scanner->buffer.colors * scanner->buffer.height;
             break;
         default:
-            DBG(DBG_error,"pieusb_get_scan_data(): color format %d not implemented\n",scanner->mode.colorFormat);
+            DBG(DBG_error, "pieusb_get_scan_data(): color format %d not implemented\n",scanner->mode.colorFormat);
             return SANE_STATUS_INVAL;
     }
-    lines_read = 0;
-/*
+    lines_remaining = lines_to_read;
+    DBG (DBG_info_proc, "pieusb_get_scan_data(colorFormat %d), lines_to_read %d\n", scanner->mode.colorFormat, lines_to_read);
+
+    pieusb_cmd_get_parameters(scanner->device_number, &parameters, &status);
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+        /* Error, return */
+        return SANE_STATUS_INVAL;
+    }
+  /*
     fdraw = open("/tmp/pieusb.raw", O_WRONLY | O_CREAT | O_TRUNC, (mode_t)0600);
     if (fdraw == -1) {
          perror("error opening raw image buffer file");
     }
 */
-    while (lines_read < lines_to_read) {
-        pieusb_cmd_get_parameters(scanner->device_number,&parameters, &status);
-        if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-            /* Error, return */
-            return SANE_STATUS_INVAL;
-        }
-        if (parameters.availableLines > 0) {
+    while (lines_remaining > 0) {
+      SANE_Int lines;
             /* Read lines */
             /* The amount of bytes_per_line varies with color format setting; only 'pixel' and 'index' implemented */
             ppl = parameters.width;
@@ -2110,12 +2112,13 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
                     bpl = parameters.bytes + 2; /* Index bytes! */
                     break;
                 default:
-                    DBG(DBG_error,"pieusb_get_scan_data(): color format %d not implemented\n",scanner->mode.colorFormat);
+                    DBG(DBG_error, "pieusb_get_scan_data(): color format %d not implemented\n", scanner->mode.colorFormat);
                     return SANE_STATUS_INVAL;
             }
-            DBG(DBG_info_sane,"pieusb_get_scan_data(): reading lines: already %d, now %d (bytes per line = %d)\n",lines_read,parameters.availableLines,bpl);
-            linebuf = malloc(parameters.availableLines*bpl);
-            pieusb_cmd_get_scanned_lines(scanner->device_number, linebuf, parameters.availableLines, parameters.availableLines*bpl, &status);
+      lines = (lines_remaining < 1023) ? lines_remaining : 1023;
+            DBG(DBG_info_sane, "pieusb_get_scan_data(): reading lines: now %d, bytes per line = %d\n", lines, bpl);
+            linebuf = malloc(lines * bpl);
+            pieusb_cmd_get_scanned_lines(scanner->device_number, linebuf, lines, lines * bpl, &status);
             if (status.pieusb_status != PIEUSB_STATUS_GOOD ) {
                 /* Error, return */
                 free(linebuf);
@@ -2124,14 +2127,13 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
             /* Save raw data */
 /*
             if (fdraw != -1) {
-                wcnt = write(fdraw,linebuf,parameters.availableLines*bpl);
+                wcnt = write(fdraw,linebuf,parameters.lines*bpl);
                 DBG(DBG_info_sane,"Raw written %d\n",wcnt);
             }
 */
             /* Copy into official buffer
              * Sometimes the scanner returns too many lines. Take care not to
              * overflow the buffer. */
-            lines_to_store = (lines_to_read - lines_read >= parameters.availableLines) ? parameters.availableLines : lines_to_read - lines_read;
             lboff = linebuf;
             switch (scanner->mode.colorFormat) {
                 case SCAN_COLOR_FORMAT_PIXEL:
@@ -2140,10 +2142,11 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
                      * eliminate the excess samples from the line buffer before
                      * handing it to buffer_put_full_color_line(). */
                     compress = SANE_FALSE;
-                    if (scanner->buffer.colors == 1 && bpl*scanner->buffer.packing_density/ppl == 3*scanner->buffer.packet_size_bytes) {
-                        compress = SANE_TRUE;
+                    if (scanner->buffer.colors == 1
+			&& (bpl * scanner->buffer.packing_density / ppl) == (3 * scanner->buffer.packet_size_bytes)) {
+		        compress = SANE_TRUE;
                     }
-                    for (n = 0; n < lines_to_store; n++) {
+                    for (n = 0; n < lines; n++) {
                         if (compress) {
                             /* Move samples to fill up all unused locations */
                             int ps = scanner->buffer.packet_size_bytes;
@@ -2162,7 +2165,7 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
                     break;
                 case SCAN_COLOR_FORMAT_INDEX:
                     /* Indexed data */
-                    for (n = 0; n < lines_to_store; n++) {
+                    for (n = 0; n < lines; n++) {
                         if (pieusb_buffer_put_single_color_line(&scanner->buffer, *lboff, lboff+2, bpl-2) == 0) {
                             /* Error, return */
                             return SANE_STATUS_INVAL;
@@ -2171,17 +2174,13 @@ pieusb_get_scan_data(Pieusb_Scanner * scanner)
                     }
                     break;
                 default:
-                    DBG(DBG_error,"pieusb_get_scan_data(): store color format %d not implemented\n",scanner->mode.colorFormat);
+                    DBG(DBG_error, "pieusb_get_scan_data(): store color format %d not implemented\n", scanner->mode.colorFormat);
                     free(linebuf);
                     return SANE_STATUS_INVAL;
             }
             free(linebuf);
-            lines_read += parameters.availableLines; /* Note: excess discarded */
-            DBG(DBG_info_sane,"pieusb_get_scan_data(): reading lines: total read %d of to read %d\n",lines_read,lines_to_read);
-        } else {
-            /* Wait for the scanner to prepare new lines */
-            usleep(200000); /* 0.2 s */
-        }
+            lines_remaining -= lines; /* Note: excess discarded */
+            DBG(DBG_info_sane, "pieusb_get_scan_data(): reading lines: remaining %d\n", lines_remaining);
     }
 /*
     if (fdraw != -1) close(fdraw);
