@@ -534,7 +534,7 @@ pieusb_cmd_get_scanned_lines(SANE_Int device_number, SANE_Byte* data, SANE_Int l
 {
     SANE_Byte command[SCSI_COMMAND_LEN];
 
-    DBG (DBG_info_scan, "pieusb_cmd_get_scanned_lines(): %d (%d bytes)\n", lines, size);
+    DBG (DBG_info_scan, "pieusb_cmd_get_scanned_lines(): %d lines (%d bytes)\n", lines, size);
 
     _prep_scsi_cmd (command, SCSI_READ, lines);
     memset (data, '\0', size);
