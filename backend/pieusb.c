@@ -1182,23 +1182,23 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
 
     mode = scanner->val[OPT_MODE].s;
-    if (strcmp (mode,SANE_VALUE_SCAN_MODE_LINEART) == 0) {
+    if (strcmp(mode, SANE_VALUE_SCAN_MODE_LINEART) == 0) {
         shading_correction_relevant = SANE_FALSE; /* Shading correction irrelavant at bit depth 1 */
         infrared_post_processing_relevant = SANE_FALSE; /* No infrared, no postprocessing */
-    } else if (strcmp (mode,SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
+    } else if (strcmp(mode, SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
         shading_correction_relevant = SANE_FALSE; /* Shading correction irrelavant at bit depth 1 */
         infrared_post_processing_relevant = SANE_FALSE; /* No infrared, no postprocessing */
-    } else if (strcmp (mode,SANE_VALUE_SCAN_MODE_GRAY) == 0) {
+    } else if (strcmp(mode, SANE_VALUE_SCAN_MODE_GRAY) == 0) {
         shading_correction_relevant = SANE_TRUE;
         infrared_post_processing_relevant = SANE_FALSE; /* No infrared, no postprocessing */
     } else if (scanner->val[OPT_PREVIEW].b) {
         /* Catch preview here, otherwise next ifs get complicated */
         shading_correction_relevant = SANE_TRUE;
         infrared_post_processing_relevant = SANE_FALSE;
-    } else if (strcmp (mode,SANE_VALUE_SCAN_MODE_RGBI) == 0) {
+    } else if (strcmp(mode, SANE_VALUE_SCAN_MODE_RGBI) == 0) {
         shading_correction_relevant = SANE_TRUE;
         infrared_post_processing_relevant = SANE_TRUE;
-    } else if (strcmp (mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b) {
+    } else if (strcmp(mode, SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b) {
         shading_correction_relevant = SANE_TRUE;
         infrared_post_processing_relevant = SANE_TRUE;
     } else { /* SANE_VALUE_SCAN_MODE_COLOR */
@@ -1209,7 +1209,7 @@ sane_start (SANE_Handle handle)
         if (scanner->shading_data_present) {
             pieusb_correct_shading (scanner, &scanner->buffer);
         } else {
-            DBG(DBG_warning,"sane_start(): unable to correct for shading, no shading data available\n");
+            DBG(DBG_warning, "sane_start(): unable to correct for shading, no shading data available\n");
         }
     }
     if ((scanner->val[OPT_CORRECT_INFRARED].b || scanner->val[OPT_CLEAN_IMAGE].b) && !scanner->val[OPT_PREVIEW].b && infrared_post_processing_relevant) {
@@ -1236,7 +1236,7 @@ sane_start (SANE_Handle handle)
 
     /* Modify buffer in case the buffer has infrared, but no infrared should be returned */
     if (scanner->buffer.colors == PLANES && (strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b)) {
-        DBG(DBG_info_sane,"sane_start(): modifying buffer to ignore I\n");
+        DBG(DBG_info_sane, "sane_start(): modifying buffer to ignore I\n");
         /* Base buffer parameters */
         scanner->buffer.colors = 3;
         /* Derived quantities */
@@ -1266,7 +1266,7 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
     struct Pieusb_Scanner *scanner = handle;
     SANE_Int return_size;
 
-    DBG(DBG_info_sane,"sane_read(): requested %d bytes\n", max_len);
+    DBG(DBG_info_sane, "sane_read(): requested %d bytes\n", max_len);
 
     /* No reading if not scanning */
     if (!scanner->scanning) {
@@ -1280,48 +1280,48 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
     }
 
     /* Return image data, just read from scanner buffer */
-    DBG(DBG_info_sane,"sane_read():\n");
-    DBG(DBG_info_sane,"  image size %d\n",scanner->buffer.image_size_bytes);
-    DBG(DBG_info_sane,"  unread     %d\n",scanner->buffer.bytes_unread);
-    DBG(DBG_info_sane,"  read       %d\n",scanner->buffer.bytes_read);
-    DBG(DBG_info_sane,"  max_len    %d\n",max_len);
+    DBG(DBG_info_sane, "sane_read():\n");
+    DBG(DBG_info_sane, "  image size %d\n", scanner->buffer.image_size_bytes);
+    DBG(DBG_info_sane, "  unread     %d\n", scanner->buffer.bytes_unread);
+    DBG(DBG_info_sane, "  read       %d\n", scanner->buffer.bytes_read);
+    DBG(DBG_info_sane, "  max_len    %d\n", max_len);
 
     if (scanner->buffer.bytes_read > scanner->buffer.image_size_bytes) {
         /* Test if not reading past buffer boundaries */
-        DBG(DBG_error,"sane_read(): reading past buffer boundaries (contains %d, read %d)\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
+        DBG(DBG_error, "sane_read(): reading past buffer boundaries (contains %d, read %d)\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
         *len = 0;
         pieusb_on_cancel(scanner);
         return SANE_STATUS_EOF;
     } else if (scanner->buffer.bytes_read == scanner->buffer.image_size_bytes) {
         /* Return EOF since all data of this frame has already been read. */
         *len = 0;
-        pieusb_on_cancel(scanner);
+        scanner->scanning = SANE_FALSE;
         return SANE_STATUS_EOF;
     } else if (scanner->buffer.bytes_unread >= max_len) {
         /* Already enough data to return, do not read */
-        DBG(DBG_info_sane,"sane_read(): buffer suffices (contains %d, requested %d)\n", scanner->buffer.bytes_unread, max_len);
+        DBG(DBG_info_sane, "sane_read(): buffer suffices (contains %d, requested %d)\n", scanner->buffer.bytes_unread, max_len);
         return_size = max_len;
     } else if (scanner->buffer.bytes_read + scanner->buffer.bytes_unread == scanner->buffer.image_size_bytes) {
         /* All the remaining data is in the buffer, do not read */
-        DBG(DBG_info_sane,"sane_read(): buffer suffices (contains %d, requested %d, last batch though)\n", scanner->buffer.bytes_unread, max_len);
+        DBG(DBG_info_sane, "sane_read(): buffer suffices (contains %d, requested %d, last batch though)\n", scanner->buffer.bytes_unread, max_len);
         return_size = scanner->buffer.bytes_unread;
     } else {
         /* Should not happen in this implementation - all data read by sane_start() */
-        DBG(DBG_error,"sane_read(): shouldn't be here...\n");
+        DBG(DBG_error, "sane_read(): shouldn't be here...\n");
         return SANE_STATUS_IO_ERROR;
     }
 
     /* Check */
     if (return_size == 0 && scanner->buffer.bytes_read < scanner->buffer.image_size_bytes) {
-        DBG(DBG_error,"sane_read(): unable to service read request, %d bytes in frame, %d read\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
+        DBG(DBG_error, "sane_read(): unable to service read request, %d bytes in frame, %d read\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
     }
 
     /* Return the available data: Output return_size bytes from buffer */
     pieusb_buffer_get(&scanner->buffer, buf, max_len, len);
-    DBG(DBG_info_sane,"sane_read(): currently read %.2f lines of %d\n",
+    DBG(DBG_info_sane, "sane_read(): currently read %.2f lines of %d\n",
       (double)scanner->buffer.bytes_written/(scanner->buffer.line_size_bytes*scanner->buffer.colors),
       scanner->buffer.height);
-    DBG(DBG_info_sane,"sane_read(): returning %d bytes (requested %d), returned %d of %d \n",
+    DBG(DBG_info_sane, "sane_read(): returning %d bytes (requested %d), returned %d of %d \n",
       *len, max_len,scanner->buffer.bytes_read, scanner->buffer.image_size_bytes);
     return SANE_STATUS_GOOD;
 
