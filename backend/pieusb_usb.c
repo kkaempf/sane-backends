@@ -203,7 +203,7 @@ _hexdump(char *msg, unsigned char *ptr, int size)
     if ((count % 16) != 0)
 	fprintf (stderr, "\n");
     if (clipped > 0)
-      fprintf (stderr, "\t%08lx bytes clipped", clipped);
+      fprintf (stderr, "\t%08lx bytes clipped\n", clipped);
 
     fflush(stderr);
     return;
@@ -302,8 +302,9 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
         usb_status = usbstat;
         break;
       case USB_STATUS_AGAIN: /* re-send scsi cmd */
-        if (start == 0)
+        if (start == 0) {
 	  ret = PIEUSB_STATUS_DEVICE_BUSY;
+	}
 	break;
       case USB_STATUS_ERROR:
         pieusb_usb_reset(device_number);
@@ -336,6 +337,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 SANE_Status
 pieusb_usb_reset(SANE_Int device_number)
 {
+  DBG (DBG_info_sane, "\tpieusb_usb_reset()\n");
   return _ieee_command (device_number, IEEE1284_RESET);
 }
 
