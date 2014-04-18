@@ -166,7 +166,7 @@ _hexdump(char *msg, unsigned char *ptr, int size)
   unsigned char *lptr = ptr;
   int count = 0;
   long start = 0;
-  int clipped = 0;
+  long clipped = 0;
   
   if (size > 255) {
     clipped = size;
@@ -306,6 +306,7 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	  ret = PIEUSB_STATUS_DEVICE_BUSY;
 	break;
       case USB_STATUS_ERROR:
+        pieusb_usb_reset(device_number);
         ret = PIEUSB_STATUS_IO_ERROR;
         start = 0;
         break;
@@ -460,8 +461,10 @@ _ieee_command(SANE_Int device_number, SANE_Byte command)
     /* IEEE1284 command, see hpsj5s.c:cpp_daisy() */
   for (i = 0; i < SEQUENCE_LEN; ++i) {
     st = _ctrl_out_byte (device_number, PORT_PAR_DATA, sequence[i]);
-    if (st != SANE_STATUS_GOOD)
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "\t\t_ieee_command fails after %d bytes\n", i);
       return st;
+    }
   }
   st = _ctrl_out_byte (device_number, PORT_PAR_DATA, command);
   if (st == SANE_STATUS_GOOD) {
@@ -471,7 +474,16 @@ _ieee_command(SANE_Int device_number, SANE_Byte command)
       st = _ctrl_out_byte (device_number, PORT_PAR_CTRL, C1284_NINIT);
       if (st == SANE_STATUS_GOOD) {
 	st = _ctrl_out_byte (device_number, PORT_PAR_DATA, 0xff);
+	if (st != SANE_STATUS_GOOD) {
+	  DBG (DBG_error, "\t\t_ieee_command fails to write final data\n");
+	}
       }
+      else {
+	DBG (DBG_error, "\t\t_ieee_command fails to reset strobe\n");
+      }
+    }
+    else {
+      DBG (DBG_error, "\t\t_ieee_command fails to set strobe\n");
     }
   }
 
