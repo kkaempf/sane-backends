@@ -986,7 +986,7 @@ sane_start (SANE_Handle handle)
     }
     st = pieusb_wait_ready (scanner, 0);
     if (st != SANE_STATUS_GOOD) {
-      DBG (DBG_error, "sane_start(): scanner not ready after pieusb_cmd_17: %d\n", status);
+      DBG (DBG_error, "sane_start(): scanner not ready after pieusb_cmd_17: %d\n", st);
       return st;
     }
 
@@ -1056,12 +1056,12 @@ sane_start (SANE_Handle handle)
 	while (i < 10) {
 	  sleep(2);
 	  pieusb_cmd_get_sense(scanner->device_number, &sense, &status, NULL);
-	  if (status.pieusb_status == SANE_STATUS_GOOD) {
+	  if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
 	    break;
 	  }
 	  i++;
         }
-	if (status.pieusb_status != SANE_STATUS_GOOD) {
+	if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
           DBG (DBG_error, "sane_start: scanner not ready: %d\n", status.pieusb_status);
           return PIEUSB_STATUS_WARMING_UP;
 	}
@@ -1336,8 +1336,14 @@ SANE_Status
 sane_control_device (SANE_Handle handle, SANE_Int cmd, void *data)
 {
     struct Pieusb_Scanner *scanner = handle;
+    struct Pieusb_Command_Status status;
 
     DBG (DBG_info_sane, "sane_control_device\n");
+    pieusb_cmd_slide(scanner->device_number, SLIDE_NEXT, &status);
+    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+      DBG (DBG_error, "sane_device_control(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
+      return SANE_STATUS_IO_ERROR;
+    }
 
     return SANE_STATUS_GOOD;
 }
