@@ -237,6 +237,7 @@ struct Pieusb_Device_Definition
 
     int x0, y0, x1, y1;
     SANE_String production;
+    SANE_String timestamp;
     SANE_String signature;
 };
 

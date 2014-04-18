@@ -108,7 +108,8 @@ struct Pieusb_Scanner_Properties {
     SANE_Int y1; /* 0xc015 = 5568 transparency bottom right y */
     SANE_Int model; /* 0x3000 => model number */
     /* SANE_Int div_118; 0x0000 meaning? */
-    SANE_Char production[24]; /* null terminated */
+    SANE_Char production[4]; /* null terminated */
+    SANE_Char timestamp[20]; /* null terminated */
     SANE_Byte signature[40]; /* null terminated */
 };
 

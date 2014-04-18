@@ -818,10 +818,11 @@ pieusb_cmd_inquiry(SANE_Int device_number, struct Pieusb_Scanner_Properties* inq
     inq->x1 = _get_short(data, 112);
     inq->y1 = _get_short(data, 114);
     inq->model = _get_short(data, 116);
-    _copy_bytes((SANE_Byte*)(inq->production), data+120, 24);
+    _copy_bytes((SANE_Byte*)(inq->production), data+120, 4);
+    _copy_bytes((SANE_Byte*)(inq->timestamp), data+124, 20);
     _copy_bytes((SANE_Byte*)(inq->signature), data+144, 40);
     /* remove newline in signature */
-    for (k=0; k<40; k++) if (inq->signature[k]=='\n') inq->signature[k]=' ';
+    for (k=0; k<40; k++) if (inq->signature[k]==0x0a || inq->signature[k]==0x0d) inq->signature[k]=' ';
 #undef INQUIRY_SIZE
 }
 

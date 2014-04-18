@@ -359,7 +359,8 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     dev->y0 = inq->y0;
     dev->x1 = inq->x1;
     dev->y1 = inq->y1;
-    dev->production = strndup(inq->production, 24);
+    dev->production = strndup(inq->production, 4);
+    dev->timestamp = strndup(inq->timestamp, 20);
     dev->signature = strndup(inq->signature, 40);
 
     /* Ranges for various quantities */
@@ -566,9 +567,11 @@ pieusb_print_inquiry (Pieusb_Device_Definition * dev)
 
   DBG (DBG_inquiry, "x0,y0 x1,y1...................: %d,%d %d,%d\n",
        dev->x0, dev->y0, dev->x1, dev->y1);
-  DBG (DBG_inquiry, "production....................: %24s\n",
+  DBG (DBG_inquiry, "production....................: '%s'\n",
        dev->production);
-  DBG (DBG_inquiry, "signature.....................: %40s\n",
+  DBG (DBG_inquiry, "timestamp.....................: '%s'\n",
+       dev->timestamp);
+  DBG (DBG_inquiry, "signature.....................: '%s'\n",
        dev->signature);
 
 }
