@@ -172,9 +172,9 @@ _hexdump(char *msg, unsigned char *ptr, int size)
   if (DBG_info_proc > DBG_LEVEL)
     return;
 
-  if (size > 255) {
+  if (size > 127) {
     clipped = size;
-    size = 256;
+    size = 128;
   }
   while (size-- > 0)
   {
