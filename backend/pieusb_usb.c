@@ -89,6 +89,7 @@ typedef enum {
   USB_STATUS_CHECK = 0x02, /* check condition */
   USB_STATUS_BUSY  = 0x03, /* wait on usb */
   USB_STATUS_AGAIN = 0x08, /* re-send scsi cmd */
+  USB_STATUS_FAIL  = 0x88, /* ??? */
   USB_STATUS_ERROR = 0xff  /* usb i/o error */
 } PIEUSB_USB_Status;
 
@@ -167,7 +168,10 @@ _hexdump(char *msg, unsigned char *ptr, int size)
   int count = 0;
   long start = 0;
   long clipped = 0;
-  
+
+  if (DBG_info_proc > DBG_LEVEL)
+    return;
+
   if (size > 255) {
     clipped = size;
     size = 256;
@@ -306,6 +310,10 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
 	  ret = PIEUSB_STATUS_DEVICE_BUSY;
 	}
 	break;
+      case USB_STATUS_FAIL:
+        DBG (DBG_error, "\tpieusb_command() usb status again2\n");
+        usb_status = USB_STATUS_ERROR;
+        /*FALLTHRU*/
       case USB_STATUS_ERROR:
         pieusb_usb_reset(device_number);
         ret = PIEUSB_STATUS_IO_ERROR;
@@ -313,6 +321,8 @@ pieusb_command(SANE_Int device_number, SANE_Byte command[], SANE_Byte data[], SA
         break;
       default:
         DBG (DBG_error, "\tpieusb_command() unhandled usb status 0x%02x\n", usb_status);
+        ret = PIEUSB_STATUS_IO_ERROR;
+        start = 0;
       break;
     }
     if (start == 0)
