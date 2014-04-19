@@ -280,6 +280,15 @@ pieusb_cmd_get_sense(SANE_Int device_number, struct Pieusb_Sense* sense, struct 
     sense->senseQualifier = _get_byte (data, 13);
     status->pieusb_status = PIEUSB_STATUS_GOOD;
 #undef DATA_SIZE
+  DBG (DBG_info_scan, "\tsense details:\n");
+  DBG (DBG_info_scan, "\t\terror......... : 0x%02x\n", sense->errorCode);
+  DBG (DBG_info_scan, "\t\tsegment....... : %d\n", sense->segment);
+  DBG (DBG_info_scan, "\t\tsenseKey...... : 0x%02x\n", sense->senseKey);
+  DBG (DBG_info_scan, "\t\tinfo.......... : %02x %02x %02x %02x\n", sense->info[0], sense->info[1], sense->info[2], sense->info[3]);
+  DBG (DBG_info_scan, "\t\taddLength..... : %d\n", sense->addLength);
+  DBG (DBG_info_scan, "\t\tcmdInfo....... : %02x %02x %02x %02x\n", sense->cmdInfo[0], sense->cmdInfo[1], sense->cmdInfo[2], sense->cmdInfo[3]);
+  DBG (DBG_info_scan, "\t\tsenseCode..... : 0x%02x\n", sense->senseCode);
+  DBG (DBG_info_scan, "\t\tsenseQualifier : 0x%02x\n", sense->senseQualifier);
   sd = pieusb_decode_sense (sense, ret?ret:&st);
   DBG (DBG_info_scan, "\tsense: %s\n", sd);
   free(sd);
