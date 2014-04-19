@@ -286,7 +286,7 @@ pieusb_buffer_put_single_color_line(struct Pieusb_Read_Buffer* buffer, SANE_Byte
         DBG(DBG_error, "pieusb_buffer_put_single_color_line(): color '%c' not specified when buffer was created\n", color);
         return 0;
     }
-    DBG(DBG_info_proc, "pieusb_buffer_put_single_color_line() line color = %d (0=R, 1=G, 2=B, 3=I)\n",c);
+    DBG(DBG_info_buffer, "pieusb_buffer_put_single_color_line() line color = %d (0=R, 1=G, 2=B, 3=I)\n",c);
 
     /* Check line size (for a line with a single color) */
     if (buffer->line_size_bytes != size) {
@@ -375,7 +375,7 @@ pieusb_buffer_put_full_color_line(struct Pieusb_Read_Buffer* buffer, void* line,
 {
     int k, c, m, n;
 
-    DBG(DBG_info_proc,"pieusb_buffer_put_full_color_line() entered\n");
+    DBG(DBG_info_buffer, "pieusb_buffer_put_full_color_line() entered\n");
 
     /* Check line size */
     if (buffer->line_size_bytes * buffer->colors != size) {
@@ -478,7 +478,7 @@ pieusb_buffer_get(struct Pieusb_Read_Buffer* buffer, SANE_Byte* data, SANE_Int m
     SANE_Byte *pdata;
     SANE_Int n, i, n_bits, N;
 
-    DBG(DBG_info_proc,"pieusb_buffer_get() entered\n");
+    DBG(DBG_info_buffer, "pieusb_buffer_get() entered\n");
 
     /* Read from the p_read locations */
     pdata = data;
@@ -593,8 +593,8 @@ static void buffer_output_state(struct Pieusb_Read_Buffer* buffer)
 
     line_size = buffer->line_size_bytes * buffer->colors; /* Full line size in bytes */
 
-    DBG(DBG_info,"Buffer data\n");
-    DBG(DBG_info,"  width/height/colors/depth = %d %d %d %d (buffer size %d)\n",
+    DBG(DBG_info_buffer, "Buffer data\n");
+    DBG(DBG_info_buffer,"  width/height/colors/depth = %d %d %d %d (buffer size %d)\n",
         buffer->width, buffer->height, buffer->colors, buffer->depth, buffer->image_size_bytes);
 
     /* Summary */
@@ -605,22 +605,22 @@ static void buffer_output_state(struct Pieusb_Read_Buffer* buffer)
     for (k = buffer->colors; k < 4; k++) {
         loc[k] = 0;
     }
-    DBG(DBG_info,"  reading at: lines = %d:%d:%d:%d\n", loc[0], loc[1], loc[2], loc[3]);
+    DBG(DBG_info_buffer, "  reading at: lines = %d:%d:%d:%d\n", loc[0], loc[1], loc[2], loc[3]);
     for (k = 0; k < buffer->colors; k++) {
         loc[k] = buffer->p_write[k] - buffer->data - k*N;
     }
     for (k = buffer->colors; k < 4; k++) {
         loc[k] = 0;
     }
-    DBG(DBG_info,"  writing at: lines = %d:%d:%d:%d\n", loc[0], loc[1], loc[2], loc[3]);
+    DBG(DBG_info_buffer, "  writing at: lines = %d:%d:%d:%d\n", loc[0], loc[1], loc[2], loc[3]);
 
     /* Progress */
     double fdata = (double)buffer->bytes_unread/buffer->image_size_bytes*100;
     double fread = (double)buffer->bytes_read/buffer->image_size_bytes*100;
     double fwritten = (double)buffer->bytes_written/buffer->image_size_bytes*100;
-    DBG(DBG_info,"  byte counts: image = %d, data = %d (%.0f%%), read = %d (%.0f%%), written = %d (%.0f%%)\n",
+    DBG(DBG_info_buffer, "  byte counts: image = %d, data = %d (%.0f%%), read = %d (%.0f%%), written = %d (%.0f%%)\n",
         buffer->image_size_bytes, buffer->bytes_unread, fdata, buffer->bytes_read, fread, buffer->bytes_written, fwritten);
-    DBG(DBG_info,"  line counts: image = %.1f, data = %.1f, read = %.1f, written = %.1f\n",
+    DBG(DBG_info_buffer, "  line counts: image = %.1f, data = %.1f, read = %.1f, written = %.1f\n",
         (double)buffer->image_size_bytes/line_size, (double)buffer->bytes_unread/line_size, (double)buffer->bytes_read/line_size, (double)buffer->bytes_written/line_size);
 
 }

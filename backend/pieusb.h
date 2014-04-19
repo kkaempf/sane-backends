@@ -99,6 +99,7 @@ extern struct Pieusb_Device_Definition *definition_list_head;
 #define DBG_info_proc    9      /* information pieusb backend functions */
 #define DBG_info_scan   11      /* information scanner commands */
 #define DBG_info_usb    13      /* information usb level functions */
+#define DBG_info_buffer 15      /* information buffer functions */
 
 /* R G B I */
 #define PLANES 4
