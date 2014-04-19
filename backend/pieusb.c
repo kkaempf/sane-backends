@@ -1055,6 +1055,7 @@ sane_start (SANE_Handle handle)
 	int i = 0;
 	while (i < 10) {
 	  sleep(2);
+	  pieusb_wait_ready (scanner, 0);
 	  pieusb_cmd_get_sense(scanner->device_number, &sense, &status, NULL);
 	  if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
 	    break;
@@ -1120,12 +1121,15 @@ sane_start (SANE_Handle handle)
      * Get CCD mask
      *
      * ---------------------------------------------------------------------- */
+#if 0
     if (pieusb_get_ccd_mask (scanner) != SANE_STATUS_GOOD) {
         pieusb_cmd_stop_scan (scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-
+#else
+    pieusb_get_ccd_mask(scanner);
+#endif
     /* Enter SCAN phase 4 */
 
     /* ----------------------------------------------------------------------
@@ -1278,14 +1282,14 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
     if (scanner->cancel_request) {
         return pieusb_on_cancel(scanner);
     }
-
+#if 0
     /* Return image data, just read from scanner buffer */
     DBG(DBG_info_sane, "sane_read():\n");
     DBG(DBG_info_sane, "  image size %d\n", scanner->buffer.image_size_bytes);
     DBG(DBG_info_sane, "  unread     %d\n", scanner->buffer.bytes_unread);
     DBG(DBG_info_sane, "  read       %d\n", scanner->buffer.bytes_read);
     DBG(DBG_info_sane, "  max_len    %d\n", max_len);
-
+#endif
     if (scanner->buffer.bytes_read > scanner->buffer.image_size_bytes) {
         /* Test if not reading past buffer boundaries */
         DBG(DBG_error, "sane_read(): reading past buffer boundaries (contains %d, read %d)\n", scanner->buffer.image_size_bytes, scanner->buffer.bytes_read);
@@ -1318,11 +1322,13 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
 
     /* Return the available data: Output return_size bytes from buffer */
     pieusb_buffer_get(&scanner->buffer, buf, max_len, len);
+#if 0
     DBG(DBG_info_sane, "sane_read(): currently read %.2f lines of %d\n",
       (double)scanner->buffer.bytes_written/(scanner->buffer.line_size_bytes*scanner->buffer.colors),
       scanner->buffer.height);
     DBG(DBG_info_sane, "sane_read(): returning %d bytes (requested %d), returned %d of %d \n",
       *len, max_len,scanner->buffer.bytes_read, scanner->buffer.image_size_bytes);
+#endif
     return SANE_STATUS_GOOD;
 
 }
@@ -1337,8 +1343,14 @@ sane_control_device (SANE_Handle handle, SANE_Int cmd, void *data)
 {
     struct Pieusb_Scanner *scanner = handle;
     struct Pieusb_Command_Status status;
+    SANE_Status st;
 
     DBG (DBG_info_sane, "sane_control_device\n");
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_device_control(): device not ready: %d\n", st);
+      return st;
+    }
     pieusb_cmd_slide(scanner->device_number, SLIDE_NEXT, &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
       DBG (DBG_error, "sane_device_control(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
