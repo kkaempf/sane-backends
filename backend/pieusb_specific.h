@@ -308,8 +308,8 @@ SANE_Status pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_
 /* sub to sane_start() */
 SANE_Status pieusb_post (Pieusb_Scanner *scanner,  uint16_t **in_img, int planes);
 void pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer *buffer);
-SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner);
-SANE_Status pieusb_get_parameters(Pieusb_Scanner * scanner);
+SANE_Status pieusb_get_scan_data(Pieusb_Scanner * scanner, SANE_Int parameter_bytes);
+SANE_Status pieusb_get_parameters(Pieusb_Scanner * scanner, SANE_Int *parameter_bytes);
 SANE_Status pieusb_get_ccd_mask(Pieusb_Scanner * scanner);
 SANE_Status pieusb_get_shading_data(Pieusb_Scanner * scanner);
 SANE_Status pieusb_set_mode_from_options(Pieusb_Scanner * scanner);

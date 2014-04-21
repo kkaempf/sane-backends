@@ -326,9 +326,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
     Pieusb_Device_Definition *dev;
     SANE_Status status;
     Pieusb_Scanner *scanner, *s;
-    struct Pieusb_Command_Status rs;
-    SANE_Int shading_width;
-    SANE_Int k;
 
     DBG (DBG_info_sane, "sane_open(%s)\n", devicename);
 
@@ -345,9 +342,9 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
             SANE_Word product;
             int i = 0;
 
-            status = sanei_usb_get_vendor_product_byname (devicename,&vendor,&product);
+            status = sanei_usb_get_vendor_product_byname (devicename, &vendor, &product);
             if (status != SANE_STATUS_GOOD) {
-                DBG (DBG_error, "sane_open: sanei_usb_get_vendor_product_byname failed %s\n",devicename);
+                DBG (DBG_error, "sane_open: sanei_usb_get_vendor_product_byname failed %s\n", devicename);
                 return status;
             }
             /* Get vendor-product-model & verify that is is supported */
@@ -368,7 +365,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
                         /* Did not succeed in opening the USB device, which is an error.
                          * This error is not caught by sanei_usb_find_devices(), so handle
                          * it here. */
-                        DBG (DBG_error, "sane_open: sanei_usb_find_devices did not open device %s\n",devicename);
+                        DBG (DBG_error, "sane_open: sanei_usb_find_devices did not open device %s\n", devicename);
                         return SANE_STATUS_INVAL;
                     }
                 }
@@ -422,29 +419,6 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
       return status;
     }
 
-    pieusb_cmd_get_shading_parms (scanner->device_number, scanner->device->shading_parameters, &rs);
-    if (rs.pieusb_status != PIEUSB_STATUS_GOOD) {
-      sanei_usb_close(scanner->device_number);
-      free (scanner);
-      DBG (DBG_error, "sane_open: pieusb_cmd_get_shading_parms failed: %d\n", rs.pieusb_status);
-        return SANE_STATUS_INVAL;
-    }
-    shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
-    for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
-        scanner->shading_ref[k] = calloc(2 * shading_width, sizeof(SANE_Int));
-        if (scanner->shading_ref[k] == NULL) {
-          sanei_usb_close(scanner->device_number);
-          free (scanner);
-	  return SANE_STATUS_NO_MEM;
-	}
-    }
-    scanner->ccd_mask = malloc (shading_width);
-    scanner->ccd_mask_size = shading_width;
-    if (scanner->ccd_mask == NULL) {
-      sanei_usb_close(scanner->device_number);
-      free (scanner);
-      return SANE_STATUS_NO_MEM;
-    }
     /* First time settings */
     /* ? */
     /* Insert newly opened handle into list of open handles: */
@@ -556,7 +530,6 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
     SANE_String_Const name;
 
     DBG(DBG_info_sane,"sane_control_option()\n");
-
     if (info) {
         *info = 0;
     }
@@ -799,19 +772,19 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
             params->lines = height / MM_PER_INCH * resolution;
             params->pixels_per_line = width / MM_PER_INCH * resolution;
             mode = scanner->val[OPT_MODE].s;
-            if (strcmp(mode,SANE_VALUE_SCAN_MODE_LINEART)==0) {
+            if (strcmp(mode, SANE_VALUE_SCAN_MODE_LINEART) == 0) {
                 params->format = SANE_FRAME_GRAY;
                 params->depth = 1;
                 colors = 1;
-            } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_HALFTONE)==0) {
+            } else if(strcmp(mode, SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
                 params->format = SANE_FRAME_GRAY;
                 params->depth = 1;
                 colors = 1;
-            } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_GRAY)==0) {
+            } else if(strcmp(mode, SANE_VALUE_SCAN_MODE_GRAY) == 0) {
                 params->format = SANE_FRAME_GRAY;
                 params->depth = scanner->val[OPT_BIT_DEPTH].w;
                 colors = 1;
-            } else if(strcmp(mode,SANE_VALUE_SCAN_MODE_RGBI)==0) {
+            } else if(strcmp(mode, SANE_VALUE_SCAN_MODE_RGBI) == 0) {
                 params->format = SANE_FRAME_RGBI;
                 params->depth = scanner->val[OPT_BIT_DEPTH].w;
                 colors = 4;
@@ -868,6 +841,7 @@ sane_start (SANE_Handle handle)
     SANE_Bool shading_correction_relevant;
     SANE_Bool infrared_post_processing_relevant;
     SANE_Status st;
+    SANE_Int bytes_per_line;
 
     DBG (DBG_info_sane, "sane_start()\n");
 
@@ -886,7 +860,7 @@ sane_start (SANE_Handle handle)
      * Exit with pause if not warmed up
      *
      * ---------------------------------------------------------------------- */
-    sleep(1);
+
     pieusb_cmd_read_state (scanner->device_number, &(scanner->state), &status);
     if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         if (status.pieusb_status == PIEUSB_STATUS_DEVICE_BUSY)
@@ -932,6 +906,34 @@ sane_start (SANE_Handle handle)
       if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
         DBG (DBG_error, "sane_start(): pieusb_cmd_set_highlight_shadow failed: %d\n", status.pieusb_status);
         return SANE_STATUS_IO_ERROR;
+      }
+    } while (0);
+
+    /* ----------------------------------------------------------------------
+     * get calibration info
+     * ---------------------------------------------------------------------- */
+
+    do {
+      SANE_Int shading_width;
+      SANE_Int k;
+
+      pieusb_cmd_get_shading_parms (scanner->device_number, scanner->device->shading_parameters, &status);
+      if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+	DBG (DBG_error, "sane_scan: pieusb_cmd_get_shading_parms failed: %d\n", status.pieusb_status);
+        return SANE_STATUS_INVAL;
+      }
+      shading_width = scanner->device->shading_parameters[0].pixelsPerLine;
+      DBG (DBG_info, "shading_width %d\n", shading_width);
+      for (k = 0; k < SHADING_PARAMETERS_INFO_COUNT; k++) {
+        scanner->shading_ref[k] = realloc(scanner->shading_ref[k], 2 * shading_width * sizeof(SANE_Int));
+        if (scanner->shading_ref[k] == NULL) {
+	  return SANE_STATUS_NO_MEM;
+	}
+      }
+      scanner->ccd_mask = realloc (scanner->ccd_mask, shading_width);
+      scanner->ccd_mask_size = shading_width;
+      if (scanner->ccd_mask == NULL) {
+	return SANE_STATUS_NO_MEM;
       }
     } while (0);
 
@@ -1003,9 +1005,14 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
 
-/*    if (pieusb_set_gain_offset (scanner, SCAN_CALIBRATION_DEFAULT) != SANE_STATUS_GOOD) { */
     if (pieusb_set_gain_offset (scanner, scanner->val[OPT_CALIBRATION_MODE].s) != SANE_STATUS_GOOD) {
         return SANE_STATUS_IO_ERROR;
+    }
+
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
+      return st;
     }
 
     /* ----------------------------------------------------------------------
@@ -1044,31 +1051,11 @@ sane_start (SANE_Handle handle)
     scanner->scanning = SANE_TRUE;
     scanner->cancel_request = SANE_FALSE;
     pieusb_cmd_start_scan (scanner->device_number, &status);
-    /* Default status check */
-    switch (status.pieusb_status) {
-      case PIEUSB_STATUS_GOOD:
-        /* OK, proceed */
-      break;
-      case PIEUSB_STATUS_WARMING_UP:
-      {
-	struct Pieusb_Sense sense;
-	int i = 0;
-	while (i < 10) {
-	  sleep(2);
-	  pieusb_wait_ready (scanner, 0);
-	  pieusb_cmd_get_sense(scanner->device_number, &sense, &status, NULL);
-	  if (status.pieusb_status == PIEUSB_STATUS_GOOD) {
-	    break;
-	  }
-	  i++;
-        }
-	if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-          DBG (DBG_error, "sane_start: scanner not ready: %d\n", status.pieusb_status);
-          return PIEUSB_STATUS_WARMING_UP;
-	}
-      }
-      break;
-      case PIEUSB_STATUS_MUST_CALIBRATE:        /* Overriding skip calibration */
+    pieusb_wait_ready (scanner, 0);
+    if ((status.pieusb_status == PIEUSB_STATUS_MUST_CALIBRATE)
+        || (scanner->val[OPT_SHADING_ANALYSIS].b != 0)) {
+
+        /* Overriding skip calibration */
         DBG (DBG_info_sane, "sane_start(): process shading data\n");
 
         /* ------------------------------------------------------------------
@@ -1095,17 +1082,18 @@ sane_start (SANE_Handle handle)
             scanner->scanning = SANE_FALSE;
             return SANE_STATUS_IO_ERROR;
         }      
-      break;
-      default:
-        DBG (DBG_error, "sane_start: unhandled status %d after pieusb_cmd_start_scan\n", status.pieusb_status);
-        scanner->scanning = SANE_FALSE;
-        return SANE_STATUS_IO_ERROR;
     }
 
     /* Enter SCAN phase 2 */
     DBG (DBG_info_sane, "sane_start(): scan phase 2\n");
 
     /* SCAN phase 2 (line-by-line scan) not implemented */
+
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
+      return st;
+    }
 
     /* Enter SCAN phase 3 */
 
@@ -1121,15 +1109,13 @@ sane_start (SANE_Handle handle)
      * Get CCD mask
      *
      * ---------------------------------------------------------------------- */
-#if 0
+
     if (pieusb_get_ccd_mask (scanner) != SANE_STATUS_GOOD) {
         pieusb_cmd_stop_scan (scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
     }
-#else
-    pieusb_get_ccd_mask(scanner);
-#endif
+
     /* Enter SCAN phase 4 */
 
     /* ----------------------------------------------------------------------
@@ -1137,10 +1123,16 @@ sane_start (SANE_Handle handle)
      * Read scan parameters & wait until ready for reading
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_get_parameters (scanner) != SANE_STATUS_GOOD) {
+    if (pieusb_get_parameters (scanner, &bytes_per_line) != SANE_STATUS_GOOD) {
         pieusb_cmd_stop_scan (scanner->device_number, &status);
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
+    }
+
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
+      return st;
     }
 
     /* ----------------------------------------------------------------------
@@ -1160,10 +1152,11 @@ sane_start (SANE_Handle handle)
         case SCAN_ONE_PASS_RGBI: colors = 0x0F; break;
     }
     st = pieusb_buffer_create (&(scanner->buffer), scanner->scan_parameters.pixels_per_line,
-      scanner->scan_parameters.lines, colors, scanner->scan_parameters.depth);
+			       scanner->scan_parameters.lines, colors,
+			       scanner->scan_parameters.depth);
     if (st != SANE_STATUS_GOOD) {
-      scanner->scanning = SANE_FALSE;
-      return st;
+        scanner->scanning = SANE_FALSE;
+        return st;
     }
 
     /* ----------------------------------------------------------------------
@@ -1171,9 +1164,16 @@ sane_start (SANE_Handle handle)
      * Read all image data into the buffer
      *
      * ---------------------------------------------------------------------- */
-    if (pieusb_get_scan_data (scanner) != SANE_STATUS_GOOD) {
+    if (pieusb_get_scan_data (scanner, bytes_per_line) != SANE_STATUS_GOOD) {
         scanner->scanning = SANE_FALSE;
         return SANE_STATUS_IO_ERROR;
+    }
+    sleep(2);
+    st = pieusb_wait_ready (scanner, 0);
+    if (st != SANE_STATUS_GOOD) {
+      DBG (DBG_error, "sane_start(): scanner not ready after pieusb_get_scan_data: %d\n", st);
+      scanner->scanning = SANE_FALSE;
+      return st;
     }
 
     /* ----------------------------------------------------------------------

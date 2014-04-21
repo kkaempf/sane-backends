@@ -202,10 +202,10 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     }
 
     /* Reading and writing */
-    buffer->p_read = calloc(buffer->colors,sizeof(SANE_Uint*));
+    buffer->p_read = calloc(buffer->colors, sizeof(SANE_Uint*));
     if (buffer->p_read == NULL)
       return SANE_STATUS_NO_MEM;
-    buffer->p_write = calloc(buffer->colors,sizeof(SANE_Uint*));
+    buffer->p_write = calloc(buffer->colors, sizeof(SANE_Uint*));
     if (buffer->p_write == NULL)
       return SANE_STATUS_NO_MEM;
     for (k = 0; k < buffer->colors; k++) {
