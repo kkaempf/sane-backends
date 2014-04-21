@@ -169,11 +169,14 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
 	perror("pieusb_buffer_create(): error opening image buffer file");
         return SANE_STATUS_IO_ERROR;
     }
+    /* remove fs entry, file stays open */
+    unlink(buffer_name);
     /* Stretch the file size */
     buffer_size_bytes = buffer->width * buffer->height * buffer->colors * sizeof(SANE_Uint);
     if (buffer_size_bytes == 0) {
-      DBG(DBG_error, "pieusb_buffer_create(): buffer_size is zero: width %d, height %d, colors %d\n", buffer->width, buffer->height, buffer->colors);
-      return SANE_STATUS_INVAL;
+        close(buffer->data_file);
+        DBG(DBG_error, "pieusb_buffer_create(): buffer_size is zero: width %d, height %d, colors %d\n", buffer->width, buffer->height, buffer->colors);
+        return SANE_STATUS_INVAL;
     }
     result = lseek(buffer->data_file, buffer_size_bytes-1, SEEK_SET);
     if (result == -1) {
