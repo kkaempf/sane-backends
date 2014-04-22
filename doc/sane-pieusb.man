@@ -1,0 +1,50 @@
+.TH sane\-pieusb 5 "22 Apr 2014" "@PACKAGEVERSION@" "SANE Scanner Access Now Easy"
+.IX sane\-pieusb
+.SH NAME
+sane\-pieusb \- SANE backend for USB-connected PIE PowerSlide and
+Reflecta DigitDia slide scanners
+
+.SH DESCRIPTION
+The
+.B sane\-pieusb
+library implements a SANE (Scanner Access Now Easy) backend that
+provides access to USB-connected PIE and Reflecta Slide scanners.
+.br
+At present, the following scanners should work with this backend:
+.PP
+.ft CR
+.nf
+Model:                    Status
+------------------------- ------
+PIE PowerSlide 3600       Untested
+PIE PowerSlide 3650       Untested
+PIE PowerSlide 5000       Untested
+Reflecta CrystalScan 7200 Untested
+Reflecta ProScan 7200     Untested
+Reflecta DigitDia 4000    Untested
+Reflecta DigitDia 5000    Untested
+Reflecta DigitDia 6000    Ok
+.fi
+.ft R
+.PP
+
+.SH FILES
+.TP
+.I @CONFIGDIR@/pieusb.conf
+The backend configuration file
+.TP
+.I @LIBDIR@/libsane\-pieusb.a
+The static library implementing this backend.
+.TP
+.I @LIBDIR@/libsane\-pieusb.so
+The shared library implementing this backend (present on systems that
+support dynamic loading).
+.PP
+
+.SH SEE ALSO
+sane(7)
+
+.SH "CONTACT AND BUG-REPORTS"
+Please send any information and bug-reports to:
+.br
+.B Klaus Kaempf <kkaempf@suse.de>
