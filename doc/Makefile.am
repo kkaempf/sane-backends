@@ -182,7 +182,8 @@ DESC_FILES = descriptions/abaton.desc descriptions/agfafocus.desc \
   descriptions/microtek.desc descriptions/mustek.desc \
   descriptions/mustek_pp.desc descriptions/mustek_usb2.desc \
   descriptions/mustek_usb.desc descriptions/nec.desc descriptions/net.desc \
-  descriptions/niash.desc descriptions/pie.desc descriptions/pint.desc \
+  descriptions/niash.desc descriptions/pie.desc descriptions/pieusb.desc \
+  descriptions/pint.desc \
   descriptions/p5.desc descriptions/pixma.desc descriptions/plustek.desc \
   descriptions/plustek_pp.desc descriptions/pnm.desc descriptions/qcam.desc \
   descriptions/ricoh.desc descriptions/rts8891.desc descriptions/s9036.desc \
