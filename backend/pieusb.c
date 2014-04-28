@@ -481,7 +481,6 @@ sane_close (SANE_Handle handle)
     for (k=0; k<4; k++) free (scanner->shading_ref[k]);
     free (scanner->val[OPT_MODE].s);
     free (scanner->val[OPT_HALFTONE_PATTERN].s);
-    free (scanner->val[OPT_SET_EXPOSURE].wa);
     free (scanner->val[OPT_SET_GAIN].wa);
     free (scanner->val[OPT_SET_OFFSET].wa);
     free (scanner);		
@@ -590,15 +589,30 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_PREVIEW:
                 case OPT_SAVE_SHADINGDATA:
                 case OPT_SAVE_CCDMASK:
+                case OPT_SET_EXPOSURE_R:
+                case OPT_SET_EXPOSURE_G:
+                case OPT_SET_EXPOSURE_B:
+                case OPT_SET_EXPOSURE_I:
+#if 0
+                case OPT_SET_GAIN_R:
+                case OPT_SET_GAIN_G:
+                case OPT_SET_GAIN_B:
+                case OPT_SET_GAIN_I:
+                case OPT_SET_OFFSET_R:
+                case OPT_SET_OFFSET_G:
+                case OPT_SET_OFFSET_B:
+                case OPT_SET_OFFSET_I:
+#endif
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
                     return SANE_STATUS_GOOD;
 
                 /* word-array options: => for exposure gain offset? */
                 case OPT_CROP_IMAGE:
+#if 1
                 case OPT_SET_GAIN:
                 case OPT_SET_OFFSET:
-                case OPT_SET_EXPOSURE:
+#endif
                     memcpy (val, scanner->val[option].wa, scanner->opt[option].size);
                     return SANE_STATUS_GOOD;
 
@@ -668,14 +682,29 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_SAVE_SHADINGDATA:
                 case OPT_SAVE_CCDMASK:
                 case OPT_THRESHOLD:
+#if 0	      
+                case OPT_SET_GAIN_R:
+                case OPT_SET_GAIN_G:
+                case OPT_SET_GAIN_B:
+                case OPT_SET_GAIN_I:
+                case OPT_SET_OFFSET_R:
+                case OPT_SET_OFFSET_G:
+                case OPT_SET_OFFSET_B:
+                case OPT_SET_OFFSET_I:
+#endif
+                case OPT_SET_EXPOSURE_R:
+                case OPT_SET_EXPOSURE_G:
+                case OPT_SET_EXPOSURE_B:
+                case OPT_SET_EXPOSURE_I:
                     scanner->val[option].w = *(SANE_Word *) val;
                     break;
 
                 /* side-effect-free word-array options: */
+                case OPT_CROP_IMAGE:
+#if 1
                 case OPT_SET_GAIN:
                 case OPT_SET_OFFSET:
-                case OPT_SET_EXPOSURE:
-                case OPT_CROP_IMAGE:
+#endif
                     memcpy (scanner->val[option].wa, val, scanner->opt[option].size);
                     break;
 
@@ -1050,7 +1079,12 @@ sane_start (SANE_Handle handle)
      * ---------------------------------------------------------------------- */
     scanner->scanning = SANE_TRUE;
     scanner->cancel_request = SANE_FALSE;
-    pieusb_cmd_start_scan (scanner->device_number, &status);
+    for (;;) {
+      pieusb_cmd_start_scan (scanner->device_number, &status);
+      if (status.pieusb_status != PIEUSB_STATUS_WARMING_UP)
+	break;
+      sleep(5);
+    }
     pieusb_wait_ready (scanner, 0);
     if ((status.pieusb_status == PIEUSB_STATUS_MUST_CALIBRATE)
         || (scanner->val[OPT_SHADING_ANALYSIS].b != 0)) {
@@ -1230,13 +1264,11 @@ sane_start (SANE_Handle handle)
     }
 
     /* Save preview data. Preview data only used once to set gain and offset. */
-/*
-    if(scanner->val[OPT_PREVIEW].b) {
+    if (scanner->val[OPT_PREVIEW].b) {
         pieusb_analyze_preview(scanner);
     } else {
         scanner->preview_done = SANE_FALSE;
     }
-*/
 
     /* Modify buffer in case the buffer has infrared, but no infrared should be returned */
     if (scanner->buffer.colors == PLANES && (strcmp(mode,SANE_VALUE_SCAN_MODE_COLOR) == 0 && scanner->val[OPT_CLEAN_IMAGE].b)) {

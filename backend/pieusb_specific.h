@@ -79,9 +79,7 @@
 /* Settings for calibration mode */
 #define SCAN_CALIBRATION_DEFAULT     "default values"
 #define SCAN_CALIBRATION_AUTO        "from internal test"
-/*
 #define SCAN_CALIBRATION_PREVIEW     "from preview"
-*/
 #define SCAN_CALIBRATION_OPTIONS     "from options"
 
 /* Settings for additional gain */
@@ -143,7 +141,7 @@ enum Pieusb_Option
     OPT_CORRECT_SHADING,        /* correct scanned data for lamp variations (shading) */
     OPT_CORRECT_INFRARED,       /* correct infrared for red crosstalk */
     OPT_CLEAN_IMAGE,            /* detect and remove dust and scratch artifacts */
-    OPT_GAIN_ADJUST,            /* adjust gain (a simpler option than setting gain, exposure and ofset directly) */
+    OPT_GAIN_ADJUST,            /* adjust gain (a simpler option than setting gain, exposure and offset directly) */
     OPT_CROP_IMAGE,             /* automatically crop image */
     OPT_SMOOTH_IMAGE,           /* smoothen image */
     OPT_TRANSFORM_TO_SRGB,      /* transform to approximate sRGB data */
@@ -153,9 +151,23 @@ enum Pieusb_Option
     OPT_PREVIEW,                /* scan a preview before the actual scan */
     OPT_SAVE_SHADINGDATA,       /* output shading data */
     OPT_SAVE_CCDMASK,           /* output CCD mask */
-    OPT_SET_EXPOSURE,           /* exposure times for R, G, B and I (a 4-element array) */
-    OPT_SET_GAIN,               /* gain for R, G, B and I (a 4-element array)*/
-    OPT_SET_OFFSET,                 /* offset for R, G, B and I (a 4-element array) */
+    OPT_SET_EXPOSURE_R,           /* exposure times for R, G, B and I (a 4-element array) */
+    OPT_SET_EXPOSURE_G,           /* exposure times for R, G, B and I (a 4-element array) */
+    OPT_SET_EXPOSURE_B,           /* exposure times for R, G, B and I (a 4-element array) */
+    OPT_SET_EXPOSURE_I,           /* exposure times for R, G, B and I (a 4-element array) */
+    OPT_SET_GAIN,
+    OPT_SET_OFFSET,
+#if 1
+#else
+    OPT_SET_GAIN_R,               /* gain for R, G, B and I (a 4-element array)*/
+    OPT_SET_GAIN_G,               /* gain for R, G, B and I (a 4-element array)*/
+    OPT_SET_GAIN_B,               /* gain for R, G, B and I (a 4-element array)*/
+    OPT_SET_GAIN_I,               /* gain for R, G, B and I (a 4-element array)*/
+    OPT_SET_OFFSET_R,             /* offset for R, G, B and I (a 4-element array) */
+    OPT_SET_OFFSET_G,             /* offset for R, G, B and I (a 4-element array) */
+    OPT_SET_OFFSET_B,             /* offset for R, G, B and I (a 4-element array) */
+    OPT_SET_OFFSET_I,             /* offset for R, G, B and I (a 4-element array) */
+#endif
     /* must come last: */
     NUM_OPTIONS
 };
@@ -283,14 +295,13 @@ struct Pieusb_Scanner
     SANE_Int* shading_ref[SHADING_PARAMETERS_INFO_COUNT]; /* 4 arrays of shading references for each pixel on a line and for each color */
 
     /* Calibration using preview */
-/*
+
     SANE_Bool preview_done;
-    SANE_Int preview_exposure[4]; exposure values used in preview
-    SANE_Int preview_gain[4]; gain values used in preview
-    SANE_Int preview_offset[4]; offset values used in preview
-    SANE_Int preview_lower_bound[4]; lowest RGBI values in preview
-    SANE_Int preview_upper_bound[4]; highest RGBI values in preview
-*/
+    SANE_Int preview_exposure[4];    /* exposure values used in preview */
+    SANE_Int preview_gain[4];        /* gain values used in preview */
+    SANE_Int preview_offset[4];      /* offset values used in preview */
+    SANE_Int preview_lower_bound[4]; /* lowest RGBI values in preview */
+    SANE_Int preview_upper_bound[4]; /* highest RGBI values in preview */
 
     /* Post processing options */
 /*
@@ -328,6 +339,8 @@ SANE_Status pieusb_init_options (Pieusb_Scanner * scanner);
 SANE_Status pieusb_on_cancel (Pieusb_Scanner * scanner);
 
 SANE_Status pieusb_wait_ready(Pieusb_Scanner *scanner, SANE_Int device_number);
+SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner);
+
 
 
 #endif	/* PIEUSB_SPECIFIC_H */

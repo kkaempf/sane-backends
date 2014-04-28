@@ -1169,16 +1169,15 @@ pieusb_cmd_get_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
     settings->offset[3] = _get_byte (data, 100);
     settings->gain[3] = _get_byte (data, 102);
 
-    DBG (DBG_info_scan, "pieusb_cmd_get_gain_offset() set:\n");
-    DBG (DBG_info_scan, " saturationlevels = %d-%d-%d\n", settings->saturationLevel[0], settings->saturationLevel[1], settings->saturationLevel[2]);
-    DBG (DBG_info_scan, " minimumExposureTime = %d\n", settings->minimumExposureTime);
-    DBG (DBG_info_scan, " ---\n");
-    DBG (DBG_info_scan, " exposure times = %d-%d-%d-%d\n", settings->exposureTime[0], settings->exposureTime[1], settings->exposureTime[2], settings->exposureTime[3]);
-    DBG (DBG_info_scan, " gain = %d-%d-%d-%d\n", settings->gain[0], settings->gain[1], settings->gain[2], settings->gain[3]);
-    DBG (DBG_info_scan, " offset = %d-%d-%d-%d\n", settings->offset[0], settings->offset[1], settings->offset[2], settings->offset[3]);
-    DBG (DBG_info_scan, " light = %02x\n", settings->light);
-    DBG (DBG_info_scan, " double times = %02x\n", settings->doubleTimes);
-    DBG (DBG_info_scan, " extra entries = %02x\n", settings->extraEntries);
+    DBG (DBG_info, "pieusb_cmd_get_gain_offset() set:\n");
+    DBG (DBG_info, " saturationlevels = %d-%d-%d\n", settings->saturationLevel[0], settings->saturationLevel[1], settings->saturationLevel[2]);
+    DBG (DBG_info, " ---\n");
+    DBG (DBG_info, " exposure times = %d-%d-%d-%d\n", settings->exposureTime[0], settings->exposureTime[1], settings->exposureTime[2], settings->exposureTime[3]);
+    DBG (DBG_info, " gain = %d-%d-%d-%d\n", settings->gain[0], settings->gain[1], settings->gain[2], settings->gain[3]);
+    DBG (DBG_info, " offset = %d-%d-%d-%d\n", settings->offset[0], settings->offset[1], settings->offset[2], settings->offset[3]);
+    DBG (DBG_info, " light = %02x\n", settings->light);
+    DBG (DBG_info, " double times = %02x\n", settings->doubleTimes);
+    DBG (DBG_info, " extra entries = %02x\n", settings->extraEntries);
 #undef GAIN_OFFSET_SIZE
 }
 
@@ -1209,13 +1208,13 @@ pieusb_cmd_set_gain_offset(SANE_Int device_number, struct Pieusb_Settings* setti
 
     _prep_scsi_cmd (command, SCSI_WRITE_GAIN_OFFSET, size);
 
-    DBG (DBG_info_scan, "pieusb_cmd_set_gain_offset() set:\n");
-    DBG (DBG_info_scan, " exposure times = %d-%d-%d-%d\n", settings->exposureTime[0], settings->exposureTime[1], settings->exposureTime[2], settings->exposureTime[3]);
-    DBG (DBG_info_scan, " gain = %d-%d-%d-%d\n", settings->gain[0], settings->gain[1], settings->gain[2], settings->gain[3]);
-    DBG (DBG_info_scan, " offset = %d-%d-%d-%d\n", settings->offset[0], settings->offset[1], settings->offset[2], settings->offset[3]);
-    DBG (DBG_info_scan, " light = %02x\n", settings->light);
-    DBG (DBG_info_scan, " double times = %02x\n", settings->doubleTimes);
-    DBG (DBG_info_scan, " extra entries = %02x\n", settings->extraEntries);
+    DBG (DBG_info, "pieusb_cmd_set_gain_offset() set:\n");
+    DBG (DBG_info, " exposure times = %d-%d-%d-%d\n", settings->exposureTime[0], settings->exposureTime[1], settings->exposureTime[2], settings->exposureTime[3]);
+    DBG (DBG_info, " gain = %d-%d-%d-%d\n", settings->gain[0], settings->gain[1], settings->gain[2], settings->gain[3]);
+    DBG (DBG_info, " offset = %d-%d-%d-%d\n", settings->offset[0], settings->offset[1], settings->offset[2], settings->offset[3]);
+    DBG (DBG_info, " light = %02x\n", settings->light);
+    DBG (DBG_info, " double times = %02x\n", settings->doubleTimes);
+    DBG (DBG_info, " extra entries = %02x\n", settings->extraEntries);
 
     /* Code data */
     memset (data, '\0', size);

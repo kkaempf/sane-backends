@@ -75,10 +75,6 @@
 static SANE_Status pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scanner_Properties* inq, const char* devicename, SANE_Word vendor_id, SANE_Word product_id);
 static void pieusb_print_inquiry (Pieusb_Device_Definition * dev);
 
-/*
-static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner);
-*/
-
 /* sub to sane_start() */
 static void pieusb_calculate_shading(struct Pieusb_Scanner *scanner, SANE_Byte* buffer);
 
@@ -121,14 +117,25 @@ static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_in
 #define SCAN_OPT_DEV_ADF             0x01
 
 /* Options */
-#define SANE_NAME_EXPOSURE           "exposure-time"
-#define SANE_TITLE_EXPOSURE          "Exposure time"
-#define SANE_DESC_EXPOSURE           "The time the 4 different color filters of the CCD are exposed (R,G,B,I)"
-#define SANE_EXPOSURE_DEFAULT        2937
+#define SANE_NAME_EXPOSURE_R         "exposure-time-r"
+#define SANE_TITLE_EXPOSURE_R        "Exposure time red"
+#define SANE_DESC_EXPOSURE_R         "The time the red color filter of the CCD is exposed"
+#define SANE_NAME_EXPOSURE_G         "exposure-time-g"
+#define SANE_TITLE_EXPOSURE_G        "Exposure time green"
+#define SANE_DESC_EXPOSURE_G         "The time the green color filter of the CCD is exposed"
+#define SANE_NAME_EXPOSURE_B         "exposure-time-b"
+#define SANE_TITLE_EXPOSURE_B        "Exposure time blue"
+#define SANE_DESC_EXPOSURE_B         "The time the blue color filter of the CCD is exposed"
+#define SANE_NAME_EXPOSURE_I         "exposure-time-i"
+#define SANE_TITLE_EXPOSURE_I        "Exposure time infrared"
+#define SANE_DESC_EXPOSURE_I         "The time the infrared color filter of the CCD is exposed"
+#define SANE_EXPOSURE_DEFAULT        DEFAULT_EXPOSURE
+
 #define SANE_NAME_GAIN               "gain"
 #define SANE_TITLE_GAIN              "Gain"
 #define SANE_DESC_GAIN               "The gain of the signal processor for the 4 CCD color filters (R,G,B,I)"
 #define SANE_GAIN_DEFAULT            0x13
+
 #define SANE_NAME_OFFSET             "offset"
 #define SANE_TITLE_OFFSET            "Offset"
 #define SANE_DESC_OFFSET             "The offset of the signal processor for the 4 CCD color filters (R,G,B,I)"
@@ -403,11 +410,9 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
 
     dev->calibration_mode_list[0] = SCAN_CALIBRATION_DEFAULT;
     dev->calibration_mode_list[1] = SCAN_CALIBRATION_AUTO;
-/*
     dev->calibration_mode_list[2] = SCAN_CALIBRATION_PREVIEW;
-*/
-    dev->calibration_mode_list[2] = SCAN_CALIBRATION_OPTIONS;
-    dev->calibration_mode_list[3] = 0;
+    dev->calibration_mode_list[3] = SCAN_CALIBRATION_OPTIONS;
+    dev->calibration_mode_list[4] = 0;
 
     dev->gain_adjust_list[0] = SCAN_GAIN_ADJUST_08;
     dev->gain_adjust_list[1] = SCAN_GAIN_ADJUST_10;
@@ -865,17 +870,27 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->val[OPT_SAVE_CCDMASK].w = SANE_FALSE;
 
     /* exposure times for R, G, B and I */
-    scanner->opt[OPT_SET_EXPOSURE].name = SANE_NAME_EXPOSURE;
-    scanner->opt[OPT_SET_EXPOSURE].title = SANE_TITLE_EXPOSURE;
-    scanner->opt[OPT_SET_EXPOSURE].desc = SANE_DESC_EXPOSURE;
-    scanner->opt[OPT_SET_EXPOSURE].type = SANE_TYPE_INT;
-    scanner->opt[OPT_SET_EXPOSURE].unit = SANE_UNIT_MICROSECOND;
-    scanner->opt[OPT_SET_EXPOSURE].constraint_type = SANE_CONSTRAINT_RANGE;
-    scanner->opt[OPT_SET_EXPOSURE].constraint.range = &(scanner->device->exposure_range);
-    scanner->opt[OPT_SET_EXPOSURE].size = 4*sizeof(SANE_Word);
-    scanner->val[OPT_SET_EXPOSURE].wa = calloc(4,sizeof(SANE_Word));
-    for (i=0; i<4; i++) scanner->val[OPT_SET_EXPOSURE].wa[i] = SANE_EXPOSURE_DEFAULT;
-
+    scanner->opt[OPT_SET_EXPOSURE_R].name = SANE_NAME_EXPOSURE_R;
+    scanner->opt[OPT_SET_EXPOSURE_R].title = SANE_TITLE_EXPOSURE_R;
+    scanner->opt[OPT_SET_EXPOSURE_R].desc = SANE_DESC_EXPOSURE_R;
+    scanner->opt[OPT_SET_EXPOSURE_G].name = SANE_NAME_EXPOSURE_G;
+    scanner->opt[OPT_SET_EXPOSURE_G].title = SANE_TITLE_EXPOSURE_G;
+    scanner->opt[OPT_SET_EXPOSURE_G].desc = SANE_DESC_EXPOSURE_G;
+    scanner->opt[OPT_SET_EXPOSURE_B].name = SANE_NAME_EXPOSURE_B;
+    scanner->opt[OPT_SET_EXPOSURE_B].title = SANE_TITLE_EXPOSURE_B;
+    scanner->opt[OPT_SET_EXPOSURE_B].desc = SANE_DESC_EXPOSURE_B;
+    scanner->opt[OPT_SET_EXPOSURE_I].name = SANE_NAME_EXPOSURE_I;
+    scanner->opt[OPT_SET_EXPOSURE_I].title = SANE_TITLE_EXPOSURE_I;
+    scanner->opt[OPT_SET_EXPOSURE_I].desc = SANE_DESC_EXPOSURE_I;
+    for (i = OPT_SET_EXPOSURE_R; i <= OPT_SET_EXPOSURE_I; ++i) {
+    scanner->opt[i].type = SANE_TYPE_INT;
+    scanner->opt[i].unit = SANE_UNIT_MICROSECOND;
+    scanner->opt[i].cap |= SANE_CAP_SOFT_SELECT;
+    scanner->opt[i].constraint_type = SANE_CONSTRAINT_RANGE;
+    scanner->opt[i].constraint.range = &(scanner->device->exposure_range);
+    scanner->opt[i].size = sizeof(SANE_Word);
+    scanner->val[i].w = SANE_EXPOSURE_DEFAULT;
+    }
     /* gain for R, G, B and I */
     scanner->opt[OPT_SET_GAIN].name = SANE_NAME_GAIN;
     scanner->opt[OPT_SET_GAIN].title = SANE_TITLE_GAIN;
@@ -1516,7 +1531,7 @@ pieusb_print_options(struct Pieusb_Scanner *scanner)
                 DBG(DBG_info,"  Option %d: %s = %d\n", k, scanner->opt[k].name, scanner->val[k].b);
                 break;
             case SANE_TYPE_INT:
-                if (k >= OPT_SET_EXPOSURE && k <= OPT_SET_OFFSET) {
+                if (k >= OPT_SET_GAIN && k <= OPT_SET_OFFSET) {
                     DBG(DBG_info,"  Option %d: %s = [%d,%d,%d,%d]\n", k, scanner->opt[k].name,
                         scanner->val[k].wa[0], scanner->val[k].wa[1], scanner->val[k].wa[2], scanner->val[k].wa[3]);
                 } else {
@@ -1758,7 +1773,7 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     SANE_Status ret;
     double gain;
 
-    DBG (DBG_info_sane,"pieusb_set_gain_offset(): mode = %s\n", calibration_mode);
+    DBG (DBG_info,"pieusb_set_gain_offset(): mode = %s\n", calibration_mode);
 
     if (strcmp (calibration_mode, SCAN_CALIBRATION_DEFAULT) == 0) {
         /* Default values */
@@ -1779,10 +1794,11 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         scanner->settings.extraEntries = DEFAULT_ADDITIONAL_ENTRIES;
         scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
         status.pieusb_status = PIEUSB_STATUS_GOOD;
-    } else if (0) { /* (strcmp(calibration_mode,SCAN_CALIBRATION_PREVIEW) == 0 && scanner->preview_done) { */
+    } else if ((strcmp(calibration_mode, SCAN_CALIBRATION_PREVIEW) == 0)
+	       && scanner->preview_done) {
         /* If no preview data availble, do the auto-calibration. */
-/*
         double dg, dgi;
+        DBG (DBG_info, "pieusb_set_gain_offset(): get calibration data from preview. scanner->mode.passes %d\n", scanner->mode.passes);
         switch (scanner->mode.passes) {
             case SCAN_ONE_PASS_RGBI:
                 dg = 3.00;
@@ -1792,14 +1808,10 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
                 if (dgi < dg) dg = dgi;
                 dgi = ((double)scanner->settings.saturationLevel[2] / 65536) / ((double)scanner->preview_upper_bound[2] / HISTOGRAM_SIZE);
                 if (dgi < dg) dg = dgi;
-                don't correct I
-                dgi = ((double)scanner->settings.saturationLevel[3] / 65536) / ((double)scanner->preview_upper_bound[3] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,0,dg);
-                updateGain2(scanner,1,dg);
-                updateGain2(scanner,2,dg);
-                updateGain2(scanner,3,dg); don't correct I
-                break;
+                updateGain2(scanner, 0, dg);
+                updateGain2(scanner, 1, dg);
+                updateGain2(scanner, 2, dg);
+	    break;
             case SCAN_ONE_PASS_COLOR:
                 dg = 3.00;
                 dgi = ((double)scanner->settings.saturationLevel[0] / 65536) / ((double)scanner->preview_upper_bound[0] / HISTOGRAM_SIZE);
@@ -1808,46 +1820,39 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
                 if (dgi < dg) dg = dgi;
                 dgi = ((double)scanner->settings.saturationLevel[2] / 65536) / ((double)scanner->preview_upper_bound[2] / HISTOGRAM_SIZE);
                 if (dgi < dg) dg = dgi;
-                updateGain2(scanner,0,dg);
-                updateGain2(scanner,1,dg);
-                updateGain2(scanner,2,dg);
-                break;
-            case SCAN_FILTER_INFRARED:
-                dg = 3.00;
-                dgi = ((double)scanner->settings.saturationLevel[3] / 65536) / ((double)scanner->preview_upper_bound[3] / HISTOGRAM_SIZE);
-                if (dgi < dg) dg = dgi;
-                updateGain2(scanner,3,dg);
+                updateGain2(scanner, 0, dg);
+                updateGain2(scanner, 1, dg);
+                updateGain2(scanner, 2, dg);
                 break;
             case SCAN_FILTER_BLUE:
                 dg = 3.00;
                 dgi = ((double)scanner->settings.saturationLevel[2] / 65536) / ((double)scanner->preview_upper_bound[2] / HISTOGRAM_SIZE);
                 if (dgi < dg) dg = dgi;
-                updateGain2(scanner,2,dg);
+                updateGain2(scanner, 2, dg);
                 break;
             case SCAN_FILTER_GREEN:
                 dg = 3.00;
                 dgi = ((double)scanner->settings.saturationLevel[1] / 65536) / ((double)scanner->preview_upper_bound[1] / HISTOGRAM_SIZE);
                 if (dgi < dg) dg = dgi;
-                updateGain2(scanner,1,dg);
+                updateGain2(scanner, 1, dg);
                 break;
             case SCAN_FILTER_RED:
                 dg = 3.00;
                 dgi = ((double)scanner->settings.saturationLevel[0] / 65536) / ((double)scanner->preview_upper_bound[0] / HISTOGRAM_SIZE);
                 if (dgi < dg) dg = dgi;
-                updateGain2(scanner,0,dg);
+                updateGain2(scanner, 0, dg);
                 break;
             case SCAN_FILTER_NEUTRAL:
                 break;
         }
         status.pieusb_status = PIEUSB_STATUS_GOOD;
-*/
     } else if (strcmp (calibration_mode, SCAN_CALIBRATION_OPTIONS) == 0) {
         DBG (DBG_info_sane, "pieusb_set_gain_offset(): get calibration data from options\n");
         /* Exposure times */
-        scanner->settings.exposureTime[0] = scanner->val[OPT_SET_EXPOSURE].wa[0];
-        scanner->settings.exposureTime[1] = scanner->val[OPT_SET_EXPOSURE].wa[1];
-        scanner->settings.exposureTime[2] = scanner->val[OPT_SET_EXPOSURE].wa[2];
-        scanner->settings.exposureTime[3] = scanner->val[OPT_SET_EXPOSURE].wa[3]; /* Infrared */
+        scanner->settings.exposureTime[0] = scanner->val[OPT_SET_EXPOSURE_R].w;
+        scanner->settings.exposureTime[1] = scanner->val[OPT_SET_EXPOSURE_G].w;
+        scanner->settings.exposureTime[2] = scanner->val[OPT_SET_EXPOSURE_B].w;
+        scanner->settings.exposureTime[3] = scanner->val[OPT_SET_EXPOSURE_I].w; /* Infrared */
         /* Offsets */
         scanner->settings.offset[0] = scanner->val[OPT_SET_OFFSET].wa[0];
         scanner->settings.offset[1] = scanner->val[OPT_SET_OFFSET].wa[1];
@@ -2241,8 +2246,7 @@ pieusb_wait_ready(Pieusb_Scanner * scanner, SANE_Int device_number)
 }
 
 
-/*
-static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner)
+SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner)
 {
     int k, n;
     SANE_Parameters params;
@@ -2250,25 +2254,25 @@ static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner)
     double *norm_histo;
     double level;
 
-    DBG(DBG_info_sane,"pieusb_analyze_preview(): saving preview data\n");
+    DBG(DBG_info, "pieusb_analyze_preview(): saving preview data\n");
 
-    // Settings
+    /* Settings */
     scanner->preview_done = SANE_TRUE;
     for (k = 0; k < 4; k++) {
         scanner->preview_exposure[k] = scanner->settings.exposureTime[k];
         scanner->preview_gain[k] = scanner->settings.gain[k];
         scanner->preview_offset[k] = scanner->settings.offset[k];
     }
-    // Analyze color planes
+    /* Analyze color planes */
     N = scanner->buffer.width * scanner->buffer.height;
     params.format = SANE_FRAME_GRAY;
     params.depth = scanner->buffer.depth;
     params.pixels_per_line = scanner->buffer.width;
     params.lines = scanner->buffer.height;
     for (k = 0; k < scanner->buffer.colors; k++) {
-        // Create histogram for color k
+        /* Create histogram for color k */
         sanei_ir_create_norm_histogram (&params, scanner->buffer.data + k * N, &norm_histo);
-        // Find 1% and 99% limits
+        /* Find 1% and 99% limits */
         level = 0;
         for (n =0; n < HISTOGRAM_SIZE; n++) {
 
@@ -2280,16 +2284,16 @@ static SANE_Status pieusb_analyze_preview(Pieusb_Scanner * scanner)
                 scanner->preview_upper_bound[k] = n;
             }
         }
-        DBG(DBG_info_sane,"pieusb_analyze_preview(): 1%%-99%% levels for color %d: %d - %d\n",k,scanner->preview_lower_bound[k],scanner->preview_upper_bound[k]);
+        DBG(DBG_info,"pieusb_analyze_preview(): 1%%-99%% levels for color %d: %d - %d\n", k, scanner->preview_lower_bound[k], scanner->preview_upper_bound[k]);
     }
-    // Disable remaining color planes
+    /* Disable remaining color planes */
     for (k = scanner->buffer.colors; k < 4; k++) {
         scanner->preview_lower_bound[k] = 0;
         scanner->preview_upper_bound[k] = 0;
     }
     return SANE_STATUS_GOOD;
 }
-*/
+
 
 /**
  * Return actual gain at given gain setting
@@ -2406,19 +2410,19 @@ static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_in
 {
     double g;
 
-    DBG(DBG_info_sane,"updateGain2(): color %d preview used G=%d Exp=%d\n", color_index, scanner->settings.gain[color_index], scanner->settings.exposureTime[color_index]);
+    DBG(DBG_info,"updateGain2(): color %d preview used G=%d Exp=%d\n", color_index, scanner->settings.gain[color_index], scanner->settings.exposureTime[color_index]);
     /* Additional gain to obtain */
-    DBG(DBG_info_sane,"updateGain2(): additional gain %f\n", gain_increase);
+    DBG(DBG_info,"updateGain2(): additional gain %f\n", gain_increase);
     /* Achieve this by modifying gain and exposure */
     /* Gain used for preview */
     g = getGain(scanner->settings.gain[color_index]);
-    DBG(DBG_info_sane,"updateGain2(): preview had gain %d => %f\n",scanner->settings.gain[color_index],g);
+    DBG(DBG_info,"updateGain2(): preview had gain %d => %f\n", scanner->settings.gain[color_index], g);
     /* Look up new gain setting g*sqrt(dg) */
-    DBG(DBG_info_sane,"updateGain2(): optimized gain * %f = %f\n",sqrt(gain_increase),sqrt(gain_increase)*g);
-    scanner->settings.gain[color_index] = getGainSetting(g*sqrt(gain_increase));
-    DBG(DBG_info_sane,"updateGain2(): optimized gain setting %d => %f\n",scanner->settings.gain[color_index],getGain(scanner->settings.gain[color_index]));
+    DBG(DBG_info,"updateGain2(): optimized gain * %f = %f\n", sqrt(gain_increase), sqrt(gain_increase) * g);
+    scanner->settings.gain[color_index] = getGainSetting(g * sqrt(gain_increase));
+    DBG(DBG_info,"updateGain2(): optimized gain setting %d => %f\n", scanner->settings.gain[color_index], getGain(scanner->settings.gain[color_index]));
     /* Exposure change is straightforward */
-    DBG(DBG_info_sane,"updateGain2(): remains for exposure %f\n",gain_increase/(getGain(scanner->settings.gain[color_index])/g));
+    DBG(DBG_info,"updateGain2(): remains for exposure %f\n", gain_increase / (getGain(scanner->settings.gain[color_index]) / g));
     scanner->settings.exposureTime[color_index] = lround( g / getGain(scanner->settings.gain[color_index]) * gain_increase * scanner->settings.exposureTime[color_index] );
-    DBG(DBG_info_sane,"updateGain2(): new setting G=%d Exp=%d\n", scanner->settings.gain[color_index], scanner->settings.exposureTime[color_index]);
+    DBG(DBG_info,"updateGain2(): new setting G=%d Exp=%d\n", scanner->settings.gain[color_index], scanner->settings.exposureTime[color_index]);
 }
