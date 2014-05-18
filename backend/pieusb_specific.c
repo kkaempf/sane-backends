@@ -130,7 +130,35 @@ static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_in
 #define SANE_TITLE_EXPOSURE_I        "Exposure time infrared"
 #define SANE_DESC_EXPOSURE_I         "The time the infrared color filter of the CCD is exposed"
 #define SANE_EXPOSURE_DEFAULT        DEFAULT_EXPOSURE
+#if 1
+#define SANE_NAME_GAIN_R               "gain-r"
+#define SANE_TITLE_GAIN_R              "Gain red"
+#define SANE_DESC_GAIN_R               "The gain of the signal processor for red"
+#define SANE_NAME_GAIN_G               "gain-g"
+#define SANE_TITLE_GAIN_G              "Gain green"
+#define SANE_DESC_GAIN_G               "The gain of the signal processor for green"
+#define SANE_NAME_GAIN_B               "gain-b"
+#define SANE_TITLE_GAIN_B              "Gain blue"
+#define SANE_DESC_GAIN_B               "The gain of the signal processor for blue"
+#define SANE_NAME_GAIN_I               "gain-i"
+#define SANE_TITLE_GAIN_I              "Gain infrared"
+#define SANE_DESC_GAIN_I               "The gain of the signal processor for infrared"
+#define SANE_GAIN_DEFAULT            DEFAULT_GAIN
 
+#define SANE_NAME_OFFSET_R             "offset-r"
+#define SANE_TITLE_OFFSET_R            "Offset red"
+#define SANE_DESC_OFFSET_R             "The offset of the signal processor for red"
+#define SANE_NAME_OFFSET_G             "offset-g"
+#define SANE_TITLE_OFFSET_G            "Offset greed"
+#define SANE_DESC_OFFSET_G             "The offset of the signal processor for green"
+#define SANE_NAME_OFFSET_B             "offset-b"
+#define SANE_TITLE_OFFSET_B            "Offset blue"
+#define SANE_DESC_OFFSET_B             "The offset of the signal processor for blue"
+#define SANE_NAME_OFFSET_I             "offset-i"
+#define SANE_TITLE_OFFSET_I            "Offset infrared"
+#define SANE_DESC_OFFSET_I             "The offset of the signal processor for infrared"
+#define SANE_OFFSET_DEFAULT          DEFAULT_OFFSET
+#else
 #define SANE_NAME_GAIN               "gain"
 #define SANE_TITLE_GAIN              "Gain"
 #define SANE_DESC_GAIN               "The gain of the signal processor for the 4 CCD color filters (R,G,B,I)"
@@ -140,7 +168,7 @@ static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_in
 #define SANE_TITLE_OFFSET            "Offset"
 #define SANE_DESC_OFFSET             "The offset of the signal processor for the 4 CCD color filters (R,G,B,I)"
 #define SANE_OFFSET_DEFAULT          0
-
+#endif
 #define min(a,b) (((a)<(b))?(a):(b))
 #define max(a,b) (((a)>(b))?(a):(b))
 
@@ -869,6 +897,24 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_SAVE_CCDMASK].type = SANE_TYPE_BOOL;
     scanner->val[OPT_SAVE_CCDMASK].w = SANE_FALSE;
 
+    scanner->opt[OPT_LIGHT].name = "light";
+    scanner->opt[OPT_LIGHT].title = "Light";
+    scanner->opt[OPT_LIGHT].desc = "Light";
+    scanner->opt[OPT_LIGHT].type = SANE_TYPE_INT;
+    scanner->opt[OPT_LIGHT].unit = SANE_UNIT_MICROSECOND;
+    scanner->opt[OPT_LIGHT].cap |= SANE_CAP_SOFT_SELECT;
+    scanner->opt[OPT_LIGHT].size = sizeof(SANE_Word);
+    scanner->val[OPT_LIGHT].w = DEFAULT_LIGHT;
+
+    scanner->opt[OPT_DOUBLE_TIMES].name = "double-times";
+    scanner->opt[OPT_DOUBLE_TIMES].title = "Double times";
+    scanner->opt[OPT_DOUBLE_TIMES].desc = "Double times";
+    scanner->opt[OPT_DOUBLE_TIMES].type = SANE_TYPE_INT;
+    scanner->opt[OPT_DOUBLE_TIMES].unit = SANE_UNIT_MICROSECOND;
+    scanner->opt[OPT_DOUBLE_TIMES].cap |= SANE_CAP_SOFT_SELECT;
+    scanner->opt[OPT_DOUBLE_TIMES].size = sizeof(SANE_Word);
+    scanner->val[OPT_DOUBLE_TIMES].w = DEFAULT_DOUBLE_TIMES;
+
     /* exposure times for R, G, B and I */
     scanner->opt[OPT_SET_EXPOSURE_R].name = SANE_NAME_EXPOSURE_R;
     scanner->opt[OPT_SET_EXPOSURE_R].title = SANE_TITLE_EXPOSURE_R;
@@ -891,30 +937,49 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[i].size = sizeof(SANE_Word);
     scanner->val[i].w = SANE_EXPOSURE_DEFAULT;
     }
+
     /* gain for R, G, B and I */
-    scanner->opt[OPT_SET_GAIN].name = SANE_NAME_GAIN;
-    scanner->opt[OPT_SET_GAIN].title = SANE_TITLE_GAIN;
-    scanner->opt[OPT_SET_GAIN].desc = SANE_DESC_GAIN;
-    scanner->opt[OPT_SET_GAIN].type = SANE_TYPE_INT;
-    scanner->opt[OPT_SET_GAIN].unit = SANE_UNIT_NONE;
-    scanner->opt[OPT_SET_GAIN].constraint_type = SANE_CONSTRAINT_RANGE;
-    scanner->opt[OPT_SET_GAIN].constraint.range = &gain_range;
-    scanner->opt[OPT_SET_GAIN].size = 4*sizeof(SANE_Word);
-    scanner->val[OPT_SET_GAIN].wa = calloc(4,sizeof(SANE_Word));
-    for (i=0; i<4; i++) scanner->val[OPT_SET_GAIN].wa[i] = SANE_GAIN_DEFAULT;
-
+    scanner->opt[OPT_SET_GAIN_R].name = SANE_NAME_GAIN_R;
+    scanner->opt[OPT_SET_GAIN_R].title = SANE_TITLE_GAIN_R;
+    scanner->opt[OPT_SET_GAIN_R].desc = SANE_DESC_GAIN_R;
+    scanner->opt[OPT_SET_GAIN_G].name = SANE_NAME_GAIN_G;
+    scanner->opt[OPT_SET_GAIN_G].title = SANE_TITLE_GAIN_G;
+    scanner->opt[OPT_SET_GAIN_G].desc = SANE_DESC_GAIN_G;
+    scanner->opt[OPT_SET_GAIN_B].name = SANE_NAME_GAIN_B;
+    scanner->opt[OPT_SET_GAIN_B].title = SANE_TITLE_GAIN_B;
+    scanner->opt[OPT_SET_GAIN_B].desc = SANE_DESC_GAIN_B;
+    scanner->opt[OPT_SET_GAIN_I].name = SANE_NAME_GAIN_I;
+    scanner->opt[OPT_SET_GAIN_I].title = SANE_TITLE_GAIN_I;
+    scanner->opt[OPT_SET_GAIN_I].desc = SANE_DESC_GAIN_I;
+    for (i = OPT_SET_GAIN_R; i <= OPT_SET_GAIN_I; ++i) {
+      scanner->opt[i].type = SANE_TYPE_INT;
+      scanner->opt[i].unit = SANE_UNIT_NONE;
+      scanner->opt[i].constraint_type = SANE_CONSTRAINT_RANGE;
+      scanner->opt[i].constraint.range = &gain_range;
+      scanner->opt[i].size = sizeof(SANE_Word);
+      scanner->val[i].w = SANE_GAIN_DEFAULT;
+    }
     /* offsets for R, G, B and I */
-    scanner->opt[OPT_SET_OFFSET].name = SANE_NAME_OFFSET;
-    scanner->opt[OPT_SET_OFFSET].title = SANE_TITLE_OFFSET;
-    scanner->opt[OPT_SET_OFFSET].desc = SANE_DESC_OFFSET;
-    scanner->opt[OPT_SET_OFFSET].type = SANE_TYPE_INT;
-    scanner->opt[OPT_SET_OFFSET].unit = SANE_UNIT_NONE;
-    scanner->opt[OPT_SET_OFFSET].constraint_type = SANE_CONSTRAINT_RANGE;
-    scanner->opt[OPT_SET_OFFSET].constraint.range = &offset_range;
-    scanner->opt[OPT_SET_OFFSET].size = 4*sizeof(SANE_Word);
-    scanner->val[OPT_SET_OFFSET].wa = calloc(4,sizeof(SANE_Word));
-    for (i=0; i<4; i++) scanner->val[OPT_SET_OFFSET].wa[i] = SANE_OFFSET_DEFAULT;
-
+    scanner->opt[OPT_SET_OFFSET_R].name = SANE_NAME_OFFSET_R;
+    scanner->opt[OPT_SET_OFFSET_R].title = SANE_TITLE_OFFSET_R;
+    scanner->opt[OPT_SET_OFFSET_R].desc = SANE_DESC_OFFSET_R;
+    scanner->opt[OPT_SET_OFFSET_G].name = SANE_NAME_OFFSET_G;
+    scanner->opt[OPT_SET_OFFSET_G].title = SANE_TITLE_OFFSET_G;
+    scanner->opt[OPT_SET_OFFSET_G].desc = SANE_DESC_OFFSET_G;
+    scanner->opt[OPT_SET_OFFSET_B].name = SANE_NAME_OFFSET_B;
+    scanner->opt[OPT_SET_OFFSET_B].title = SANE_TITLE_OFFSET_B;
+    scanner->opt[OPT_SET_OFFSET_B].desc = SANE_DESC_OFFSET_B;
+    scanner->opt[OPT_SET_OFFSET_I].name = SANE_NAME_OFFSET_I;
+    scanner->opt[OPT_SET_OFFSET_I].title = SANE_TITLE_OFFSET_I;
+    scanner->opt[OPT_SET_OFFSET_I].desc = SANE_DESC_OFFSET_I;
+    for (i = OPT_SET_OFFSET_R; i <= OPT_SET_OFFSET_I; ++i) {
+      scanner->opt[i].type = SANE_TYPE_INT;
+      scanner->opt[i].unit = SANE_UNIT_NONE;
+      scanner->opt[i].constraint_type = SANE_CONSTRAINT_RANGE;
+      scanner->opt[i].constraint.range = &offset_range;
+      scanner->opt[i].size = sizeof(SANE_Word);
+      scanner->val[i].w = SANE_OFFSET_DEFAULT;
+    }
     return SANE_STATUS_GOOD;
 }
 
@@ -1531,12 +1596,7 @@ pieusb_print_options(struct Pieusb_Scanner *scanner)
                 DBG(DBG_info,"  Option %d: %s = %d\n", k, scanner->opt[k].name, scanner->val[k].b);
                 break;
             case SANE_TYPE_INT:
-                if (k >= OPT_SET_GAIN && k <= OPT_SET_OFFSET) {
-                    DBG(DBG_info,"  Option %d: %s = [%d,%d,%d,%d]\n", k, scanner->opt[k].name,
-                        scanner->val[k].wa[0], scanner->val[k].wa[1], scanner->val[k].wa[2], scanner->val[k].wa[3]);
-                } else {
-                    DBG(DBG_info,"  Option %d: %s = %d\n", k, scanner->opt[k].name, scanner->val[k].w);
-                }
+	        DBG(DBG_info,"  Option %d: %s = %d\n", k, scanner->opt[k].name, scanner->val[k].w);
                 break;
             case SANE_TYPE_FIXED:
                 DBG(DBG_info,"  Option %d: %s = %f\n", k, scanner->opt[k].name, SANE_UNFIX (scanner->val[k].w));
@@ -1854,19 +1914,19 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
         scanner->settings.exposureTime[2] = scanner->val[OPT_SET_EXPOSURE_B].w;
         scanner->settings.exposureTime[3] = scanner->val[OPT_SET_EXPOSURE_I].w; /* Infrared */
         /* Offsets */
-        scanner->settings.offset[0] = scanner->val[OPT_SET_OFFSET].wa[0];
-        scanner->settings.offset[1] = scanner->val[OPT_SET_OFFSET].wa[1];
-        scanner->settings.offset[2] = scanner->val[OPT_SET_OFFSET].wa[2];
-        scanner->settings.offset[3] = scanner->val[OPT_SET_OFFSET].wa[3]; /* Infrared */
+        scanner->settings.offset[0] = scanner->val[OPT_SET_OFFSET_R].w;
+        scanner->settings.offset[1] = scanner->val[OPT_SET_OFFSET_G].w;
+        scanner->settings.offset[2] = scanner->val[OPT_SET_OFFSET_B].w;
+        scanner->settings.offset[3] = scanner->val[OPT_SET_OFFSET_I].w; /* Infrared */
         /* Gains */
-        scanner->settings.gain[0] = scanner->val[OPT_SET_GAIN].wa[0];
-        scanner->settings.gain[1] = scanner->val[OPT_SET_GAIN].wa[1];
-        scanner->settings.gain[2] = scanner->val[OPT_SET_GAIN].wa[2];
-        scanner->settings.gain[3] = scanner->val[OPT_SET_GAIN].wa[3]; /* Infrared */
+        scanner->settings.gain[0] = scanner->val[OPT_SET_GAIN_R].w;
+        scanner->settings.gain[1] = scanner->val[OPT_SET_GAIN_G].w;
+        scanner->settings.gain[2] = scanner->val[OPT_SET_GAIN_B].w;
+        scanner->settings.gain[3] = scanner->val[OPT_SET_GAIN_I].w; /* Infrared */
         /* Light, extra entries and doubling */
-        scanner->settings.light = DEFAULT_LIGHT;
+        scanner->settings.light = scanner->val[OPT_LIGHT].w;
         scanner->settings.extraEntries = DEFAULT_ADDITIONAL_ENTRIES;
-        scanner->settings.doubleTimes = DEFAULT_DOUBLE_TIMES;
+        scanner->settings.doubleTimes = scanner->val[OPT_DOUBLE_TIMES].w;
         status.pieusb_status = PIEUSB_STATUS_GOOD;
     } else { /* SCAN_CALIBRATION_AUTO */
         DBG (DBG_info_sane, "pieusb_set_gain_offset(): get calibration data from scanner\n");

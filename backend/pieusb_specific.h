@@ -151,23 +151,20 @@ enum Pieusb_Option
     OPT_PREVIEW,                /* scan a preview before the actual scan */
     OPT_SAVE_SHADINGDATA,       /* output shading data */
     OPT_SAVE_CCDMASK,           /* output CCD mask */
-    OPT_SET_EXPOSURE_R,           /* exposure times for R, G, B and I (a 4-element array) */
-    OPT_SET_EXPOSURE_G,           /* exposure times for R, G, B and I (a 4-element array) */
-    OPT_SET_EXPOSURE_B,           /* exposure times for R, G, B and I (a 4-element array) */
-    OPT_SET_EXPOSURE_I,           /* exposure times for R, G, B and I (a 4-element array) */
-    OPT_SET_GAIN,
-    OPT_SET_OFFSET,
-#if 1
-#else
-    OPT_SET_GAIN_R,               /* gain for R, G, B and I (a 4-element array)*/
-    OPT_SET_GAIN_G,               /* gain for R, G, B and I (a 4-element array)*/
-    OPT_SET_GAIN_B,               /* gain for R, G, B and I (a 4-element array)*/
-    OPT_SET_GAIN_I,               /* gain for R, G, B and I (a 4-element array)*/
-    OPT_SET_OFFSET_R,             /* offset for R, G, B and I (a 4-element array) */
-    OPT_SET_OFFSET_G,             /* offset for R, G, B and I (a 4-element array) */
-    OPT_SET_OFFSET_B,             /* offset for R, G, B and I (a 4-element array) */
-    OPT_SET_OFFSET_I,             /* offset for R, G, B and I (a 4-element array) */
-#endif
+    OPT_LIGHT,
+    OPT_DOUBLE_TIMES,
+    OPT_SET_EXPOSURE_R,           /* exposure times for R */
+    OPT_SET_EXPOSURE_G,           /* exposure times for G */
+    OPT_SET_EXPOSURE_B,           /* exposure times for B */
+    OPT_SET_EXPOSURE_I,           /* exposure times for I */
+    OPT_SET_GAIN_R,               /* gain for R */
+    OPT_SET_GAIN_G,               /* gain for G */
+    OPT_SET_GAIN_B,               /* gain for B */
+    OPT_SET_GAIN_I,               /* gain for I */
+    OPT_SET_OFFSET_R,             /* offset for R */
+    OPT_SET_OFFSET_G,             /* offset for G */
+    OPT_SET_OFFSET_B,             /* offset for B */
+    OPT_SET_OFFSET_I,             /* offset for I */
     /* must come last: */
     NUM_OPTIONS
 };

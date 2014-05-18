@@ -481,8 +481,6 @@ sane_close (SANE_Handle handle)
     for (k=0; k<4; k++) free (scanner->shading_ref[k]);
     free (scanner->val[OPT_MODE].s);
     free (scanner->val[OPT_HALFTONE_PATTERN].s);
-    free (scanner->val[OPT_SET_GAIN].wa);
-    free (scanner->val[OPT_SET_OFFSET].wa);
     free (scanner);		
 }
 
@@ -498,7 +496,7 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
 {
     Pieusb_Scanner *scanner = handle;
 
-    DBG (DBG_info_sane, "sane_get_option_descriptor() option=%d\n", option);
+    DBG (DBG_info_proc, "sane_get_option_descriptor() option=%d\n", option);
 
     if ((unsigned) option >= NUM_OPTIONS)
     {
@@ -589,11 +587,12 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_PREVIEW:
                 case OPT_SAVE_SHADINGDATA:
                 case OPT_SAVE_CCDMASK:
+	        case OPT_LIGHT:
+	        case OPT_DOUBLE_TIMES:
                 case OPT_SET_EXPOSURE_R:
                 case OPT_SET_EXPOSURE_G:
                 case OPT_SET_EXPOSURE_B:
                 case OPT_SET_EXPOSURE_I:
-#if 0
                 case OPT_SET_GAIN_R:
                 case OPT_SET_GAIN_G:
                 case OPT_SET_GAIN_B:
@@ -602,17 +601,12 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_SET_OFFSET_G:
                 case OPT_SET_OFFSET_B:
                 case OPT_SET_OFFSET_I:
-#endif
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
                     return SANE_STATUS_GOOD;
 
                 /* word-array options: => for exposure gain offset? */
                 case OPT_CROP_IMAGE:
-#if 1
-                case OPT_SET_GAIN:
-                case OPT_SET_OFFSET:
-#endif
                     memcpy (val, scanner->val[option].wa, scanner->opt[option].size);
                     return SANE_STATUS_GOOD;
 
@@ -682,7 +676,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_SAVE_SHADINGDATA:
                 case OPT_SAVE_CCDMASK:
                 case OPT_THRESHOLD:
-#if 0	      
+	        case OPT_LIGHT:
+	        case OPT_DOUBLE_TIMES:
                 case OPT_SET_GAIN_R:
                 case OPT_SET_GAIN_G:
                 case OPT_SET_GAIN_B:
@@ -691,7 +686,6 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_SET_OFFSET_G:
                 case OPT_SET_OFFSET_B:
                 case OPT_SET_OFFSET_I:
-#endif
                 case OPT_SET_EXPOSURE_R:
                 case OPT_SET_EXPOSURE_G:
                 case OPT_SET_EXPOSURE_B:
@@ -701,10 +695,6 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
 
                 /* side-effect-free word-array options: */
                 case OPT_CROP_IMAGE:
-#if 1
-                case OPT_SET_GAIN:
-                case OPT_SET_OFFSET:
-#endif
                     memcpy (scanner->val[option].wa, val, scanner->opt[option].size);
                     break;
 
