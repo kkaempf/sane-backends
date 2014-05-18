@@ -129,6 +129,7 @@ enum Pieusb_Option
     OPT_SHARPEN,                /* create a sharper scan at the cost of scan time */
     OPT_SHADING_ANALYSIS,       /* do shading analysis before the scan */
     OPT_FAST_INFRARED,          /* scan infrared channel faster but less accurate */
+    OPT_ADVANCE_SLIDE,          /* auto-advance slide after scan */
     OPT_CALIBRATION_MODE,       /* use auto-calibarion settings for scan */
     /* ------------------------------------------- */
     OPT_GEOMETRY_GROUP,

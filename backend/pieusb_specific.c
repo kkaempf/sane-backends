@@ -750,6 +750,16 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->val[OPT_FAST_INFRARED].b = SANE_FALSE;
     scanner->opt[OPT_FAST_INFRARED].cap |= SANE_CAP_SOFT_SELECT;
 
+    /* automatically advance to next slide after scan */
+    scanner->opt[OPT_ADVANCE_SLIDE].name = "advcane";
+    scanner->opt[OPT_ADVANCE_SLIDE].title = "Advance slide";
+    scanner->opt[OPT_ADVANCE_SLIDE].desc = "Automatically advance to next slide after scan";
+    scanner->opt[OPT_ADVANCE_SLIDE].type = SANE_TYPE_BOOL;
+    scanner->opt[OPT_ADVANCE_SLIDE].unit = SANE_UNIT_NONE;
+    scanner->opt[OPT_ADVANCE_SLIDE].constraint_type = SANE_CONSTRAINT_NONE;
+    scanner->val[OPT_ADVANCE_SLIDE].w = SANE_FALSE;
+    scanner->opt[OPT_ADVANCE_SLIDE].cap |= SANE_CAP_SOFT_SELECT;
+
     /* "Geometry" group: */
     scanner->opt[OPT_GEOMETRY_GROUP].title = "Geometry";
     scanner->opt[OPT_GEOMETRY_GROUP].desc = "";

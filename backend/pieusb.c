@@ -578,6 +578,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_SHARPEN:
                 case OPT_SHADING_ANALYSIS:
                 case OPT_FAST_INFRARED:
+	        case OPT_ADVANCE_SLIDE:
                 case OPT_CORRECT_SHADING:
                 case OPT_CORRECT_INFRARED:
                 case OPT_CLEAN_IMAGE:
@@ -667,6 +668,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                   /* fall through */
                 case OPT_NUM_OPTS:
                 case OPT_PREVIEW:
+	        case OPT_ADVANCE_SLIDE:
                 case OPT_CORRECT_SHADING:
                 case OPT_CORRECT_INFRARED:
                 case OPT_CLEAN_IMAGE:
