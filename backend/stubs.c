@@ -83,10 +83,3 @@ sane_exit (void)
 {
   ENTRY(exit) ();
 }
-
-SANE_Status
-sane_control_device (SANE_Handle h, SANE_Int cmd, void *val)
-{
-  return ENTRY(control_device) (h, cmd, val);
-}
-

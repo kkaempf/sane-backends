@@ -1358,33 +1358,6 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
 }
 
 /**
- * Device control operation, ioctl()-style
- *
- * @param handle Scanner handle
- */
-SANE_Status
-sane_control_device (SANE_Handle handle, SANE_Int cmd, void *data)
-{
-    struct Pieusb_Scanner *scanner = handle;
-    struct Pieusb_Command_Status status;
-    SANE_Status st;
-
-    DBG (DBG_info_sane, "sane_control_device\n");
-    st = pieusb_wait_ready (scanner, 0);
-    if (st != SANE_STATUS_GOOD) {
-      DBG (DBG_error, "sane_device_control(): device not ready: %d\n", st);
-      return st;
-    }
-    pieusb_cmd_slide(scanner->device_number, SLIDE_NEXT, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error, "sane_device_control(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
-      return SANE_STATUS_IO_ERROR;
-    }
-
-    return SANE_STATUS_GOOD;
-}
-
-/**
  * Request cancellation of current scanning process.
  *
  * @param handle Scanner handle

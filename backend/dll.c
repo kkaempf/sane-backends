@@ -134,7 +134,6 @@ enum SANE_Ops
   OP_CANCEL,
   OP_SET_IO_MODE,
   OP_GET_SELECT_FD,
-  OP_CTL_DEVICE,
   NUM_OPS
 };
 
@@ -154,7 +153,6 @@ typedef SANE_Status (*op_read_t) (SANE_Handle, SANE_Byte *, SANE_Int,
 typedef void (*op_cancel_t) (SANE_Handle);
 typedef SANE_Status (*op_set_io_mode_t) (SANE_Handle, SANE_Bool);
 typedef SANE_Status (*op_get_select_fd_t) (SANE_Handle, SANE_Int *);
-typedef SANE_Status (*op_ctl_device_t) (SANE_Handle, SANE_Int, void *);
 
 struct backend
 {
@@ -182,8 +180,7 @@ struct backend
   extern SANE_Status BE_ENTRY(name,read) (SANE_Handle, SANE_Byte *, SANE_Int, SANE_Int *);                  \
   extern void BE_ENTRY(name,cancel) (SANE_Handle);                \
   extern SANE_Status BE_ENTRY(name,set_io_mode) (SANE_Handle, SANE_Bool);           \
-  extern SANE_Status BE_ENTRY(name,get_select_fd) (SANE_Handle, SANE_Int *); \
-  extern SANE_Status BE_ENTRY(name,control_device) (SANE_Handle, SANE_Int, void *);
+  extern SANE_Status BE_ENTRY(name,get_select_fd) (SANE_Handle, SANE_Int *);
 
 #define PRELOAD_DEFN(name)                      \
 {                                               \
@@ -206,7 +203,6 @@ struct backend
     BE_ENTRY(name,cancel),                      \
     BE_ENTRY(name,set_io_mode),                 \
     BE_ENTRY(name,get_select_fd)                \
-    BE_ENTRY(name,control_device)               \
   }                                             \
 }
 
@@ -248,13 +244,13 @@ static struct backend *first_backend;
 static const char *op_name[] = {
   "init", "exit", "get_devices", "open", "close", "get_option_descriptor",
   "control_option", "get_parameters", "start", "read", "cancel",
-  "set_io_mode", "get_select_fd", "control_device"
+  "set_io_mode", "get_select_fd"
 };
 #else
 static const char *op_name[] = {
   "sane_init", "sane_exit", "sane_get_devices", "sane_open", "sane_close", "sane_get_option_descriptor",
   "sane_control_option", "sane_get_parameters", "sane_start", "sane_read", "sane_cancel",
-  "sane_set_io_mode", "sane_get_select_fd", "sane_control_device"
+  "sane_set_io_mode", "sane_get_select_fd"
 };
 #endif /* __BEOS__ */
 
@@ -1307,15 +1303,3 @@ sane_get_select_fd (SANE_Handle handle, SANE_Int * fd)
   DBG (3, "sane_get_select_fd(handle=%p,fdp=%p)\n", handle, (void *) fd);
   return (*(op_get_select_fd_t)s->be->op[OP_GET_SELECT_FD]) (s->handle, fd);
 }
-
-SANE_Status
-sane_control_device (SANE_Handle handle, SANE_Int cmd, void *value)
-{
-  struct meta_scanner *s = handle;
-
-  DBG (3,
-       "sane_control_device(handle=%p,cmd=%d,value=%p)\n",
-       handle, cmd, value);
-  return (*(op_ctl_device_t)s->be->op[OP_CTL_DEVICE]) (s->handle, cmd, value);
-}
-

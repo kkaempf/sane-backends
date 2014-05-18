@@ -233,8 +233,6 @@ extern SANE_Status sane_get_parameters (SANE_Handle handle,
 extern SANE_Status sane_start (SANE_Handle handle);
 extern SANE_Status sane_read (SANE_Handle handle, SANE_Byte * data,
 			      SANE_Int max_length, SANE_Int * length);
-extern SANE_Status sane_control_device (SANE_Handle handle, SANE_Int cmd,
-					void *value);
 extern void sane_cancel (SANE_Handle handle);
 extern SANE_Status sane_set_io_mode (SANE_Handle handle,
 				     SANE_Bool non_blocking);
