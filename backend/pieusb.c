@@ -1204,6 +1204,19 @@ sane_start (SANE_Handle handle)
 
     /* ----------------------------------------------------------------------
      *
+     * Advance to next slide (except for preview)
+     *
+     * ---------------------------------------------------------------------- */
+    if (scanner->val[OPT_ADVANCE_SLIDE].b && !scanner->val[OPT_PREVIEW].b) {
+      pieusb_cmd_slide (scanner->device_number, SLIDE_NEXT, &status);
+      if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+	DBG (DBG_error, "sane_start(): pieusb_cmd_slide failed: %d\n", status.pieusb_status);
+
+      }
+    }
+
+    /* ----------------------------------------------------------------------
+     *
      * Post processing:
      * 1. Correct for shading
      * 2. Remove R-component from IR data
