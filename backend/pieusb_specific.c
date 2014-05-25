@@ -757,7 +757,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_ADVANCE_SLIDE].type = SANE_TYPE_BOOL;
     scanner->opt[OPT_ADVANCE_SLIDE].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_ADVANCE_SLIDE].constraint_type = SANE_CONSTRAINT_NONE;
-    scanner->val[OPT_ADVANCE_SLIDE].w = SANE_FALSE;
+    scanner->val[OPT_ADVANCE_SLIDE].w = SANE_TRUE;
     scanner->opt[OPT_ADVANCE_SLIDE].cap |= SANE_CAP_SOFT_SELECT;
 
     /* "Geometry" group: */
