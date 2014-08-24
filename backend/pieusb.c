@@ -481,7 +481,7 @@ sane_close (SANE_Handle handle)
     for (k=0; k<4; k++) free (scanner->shading_ref[k]);
     free (scanner->val[OPT_MODE].s);
     free (scanner->val[OPT_HALFTONE_PATTERN].s);
-    free (scanner);		
+    free (scanner);
 }
 
 /**
@@ -1177,6 +1177,7 @@ sane_start (SANE_Handle handle)
         case SCAN_ONE_PASS_COLOR: colors = 0x07; break;
         case SCAN_ONE_PASS_RGBI: colors = 0x0F; break;
     }
+    if (scanner->buffer.data) pieusb_buffer_delete(&scanner->buffer); /* free resources from previous invocation */
     st = pieusb_buffer_create (&(scanner->buffer), scanner->scan_parameters.pixels_per_line,
 			       scanner->scan_parameters.lines, colors,
 			       scanner->scan_parameters.depth);
