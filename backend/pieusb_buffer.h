@@ -52,6 +52,7 @@ struct Pieusb_Read_Buffer
 {
     SANE_Uint* data; /* image data - always store as 16 bit values */
     SANE_Int data_file; /* associated file if memory mapped */
+    char buffer_name[L_tmpnam];
 
     /* Buffer parameters */
     SANE_Int width; /* number of pixels on a line */

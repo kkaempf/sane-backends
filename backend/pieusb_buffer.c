@@ -132,7 +132,6 @@ SANE_Status
 pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int height, SANE_Byte color_spec, SANE_Byte depth)
 {
     int k, result;
-    char buffer_name[L_tmpnam];
     unsigned int buffer_size_bytes;
     unsigned char g;
 
@@ -162,25 +161,28 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     buffer->image_size_bytes = buffer->colors * buffer->height * buffer->line_size_bytes;
 
     /* Create empty file */
-    snprintf(buffer_name, L_tmpnam, "/tmp/sane.XXXXXX");
-    buffer->data_file = mkostemp(buffer_name, O_RDWR | O_CREAT | O_EXCL | O_TRUNC);
+    snprintf(buffer->buffer_name, L_tmpnam, "/tmp/sane.XXXXXX");
+    if (buffer->data_file != 0) /* might still be open from previous invocation */
+      close(buffer->data_file);
+    buffer->data_file = mkostemp(buffer->buffer_name, O_RDWR | O_CREAT | O_EXCL | O_TRUNC);
     if (buffer->data_file == -1) {
+        buffer->data_file = 0;
         buffer->data = NULL;
 	perror("pieusb_buffer_create(): error opening image buffer file");
         return SANE_STATUS_IO_ERROR;
     }
-    /* remove fs entry, file stays open */
-    unlink(buffer_name);
     /* Stretch the file size */
     buffer_size_bytes = buffer->width * buffer->height * buffer->colors * sizeof(SANE_Uint);
     if (buffer_size_bytes == 0) {
         close(buffer->data_file);
+        buffer->data_file = 0;
         DBG(DBG_error, "pieusb_buffer_create(): buffer_size is zero: width %d, height %d, colors %d\n", buffer->width, buffer->height, buffer->colors);
         return SANE_STATUS_INVAL;
     }
     result = lseek(buffer->data_file, buffer_size_bytes-1, SEEK_SET);
     if (result == -1) {
 	close(buffer->data_file);
+        buffer->data_file = 0;
         buffer->data = NULL;
         DBG(DBG_error, "pieusb_buffer_create(): error calling lseek() to 'stretch' the file to %d bytes\n", buffer_size_bytes-1);
 	perror("pieusb_buffer_create(): error calling lseek()");
@@ -191,6 +193,7 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     result = write(buffer->data_file, &g, 1);
     if (result < 0) {
 	close(buffer->data_file);
+        buffer->data_file = 0;
         buffer->data = NULL;
 	perror("pieusb_buffer_create(): error writing a byte at the end of the file");
         return SANE_STATUS_IO_ERROR;
@@ -226,7 +229,7 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
     buffer->bytes_unread = 0;
 
     DBG(DBG_info,"pieusb: Read buffer created: w=%d h=%d ncol=%d depth=%d in file %s\n",
-      buffer->width, buffer->height, buffer->colors, buffer->depth, buffer_name);
+      buffer->width, buffer->height, buffer->colors, buffer->depth, buffer->buffer_name);
   return SANE_STATUS_GOOD;
 }
 
@@ -241,6 +244,9 @@ pieusb_buffer_delete(struct Pieusb_Read_Buffer* buffer)
     munmap(buffer->data, buffer->image_size_bytes);
     /* ftruncate(buffer->data_file,0); Can we delete given a file-descriptor? */
     close(buffer->data_file);
+    /* remove fs entry */
+    unlink(buffer->buffer_name);
+    buffer->data_file = 0;
     free(buffer->p_read);
     free(buffer->p_write);
     buffer->data = 0;
