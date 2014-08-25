@@ -1178,7 +1178,7 @@ scan_it (void)
 		    sanei_write_tiff_header (parm.format,
 					     parm.pixels_per_line, parm.lines,
 					     parm.depth, resolution_value,
-					     icc_profile);
+					     icc_profile, stdout);
 		  else
 		    write_pnm_header (parm.format, parm.pixels_per_line,
 				      parm.lines, parm.depth);
@@ -1362,7 +1362,7 @@ scan_it (void)
       if (output_format == OUTPUT_TIFF)
 	sanei_write_tiff_header (parm.format, parm.pixels_per_line,
 				 image.height, parm.depth, resolution_value,
-				 icc_profile);
+				 icc_profile, stdout);
       else
 	write_pnm_header (parm.format, parm.pixels_per_line,
                           image.height, parm.depth);
