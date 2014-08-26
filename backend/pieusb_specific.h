@@ -83,6 +83,8 @@
 #define SCAN_CALIBRATION_OPTIONS     "from options"
 
 /* Settings for additional gain */
+#define SCAN_GAIN_ADJUST_03 "* 0.3"
+#define SCAN_GAIN_ADJUST_05 "* 0.5"
 #define SCAN_GAIN_ADJUST_08 "* 0.8"
 #define SCAN_GAIN_ADJUST_10 "* 1.0"
 #define SCAN_GAIN_ADJUST_12 "* 1.2"
@@ -205,7 +207,7 @@ struct Pieusb_Device_Definition
     /* Enumerated ranges vor various quantities */
     SANE_String scan_mode_list[7]; /* names of scan modes (see saneopts.h) */
     SANE_String calibration_mode_list[6]; /* names of calibration modes */
-    SANE_String gain_adjust_list[8]; /* gain adjustment values */
+    SANE_String gain_adjust_list[10]; /* gain adjustment values */
     SANE_Word bpp_list[5];	   /* bit depths  */
     SANE_String halftone_list[17]; /* names of the halftone patterns from the scanner */
     SANE_String speed_list[9];	   /* names of available speeds */

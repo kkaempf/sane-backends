@@ -442,14 +442,16 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     dev->calibration_mode_list[3] = SCAN_CALIBRATION_OPTIONS;
     dev->calibration_mode_list[4] = 0;
 
-    dev->gain_adjust_list[0] = SCAN_GAIN_ADJUST_08;
-    dev->gain_adjust_list[1] = SCAN_GAIN_ADJUST_10;
-    dev->gain_adjust_list[2] = SCAN_GAIN_ADJUST_12;
-    dev->gain_adjust_list[3] = SCAN_GAIN_ADJUST_16;
-    dev->gain_adjust_list[4] = SCAN_GAIN_ADJUST_19;
-    dev->gain_adjust_list[5] = SCAN_GAIN_ADJUST_24;
-    dev->gain_adjust_list[6] = SCAN_GAIN_ADJUST_30;
-    dev->gain_adjust_list[7] = 0;
+    dev->gain_adjust_list[0] = SCAN_GAIN_ADJUST_03;
+    dev->gain_adjust_list[1] = SCAN_GAIN_ADJUST_05;
+    dev->gain_adjust_list[2] = SCAN_GAIN_ADJUST_08;
+    dev->gain_adjust_list[3] = SCAN_GAIN_ADJUST_10;
+    dev->gain_adjust_list[4] = SCAN_GAIN_ADJUST_12;
+    dev->gain_adjust_list[5] = SCAN_GAIN_ADJUST_16;
+    dev->gain_adjust_list[6] = SCAN_GAIN_ADJUST_19;
+    dev->gain_adjust_list[7] = SCAN_GAIN_ADJUST_24;
+    dev->gain_adjust_list[8] = SCAN_GAIN_ADJUST_30;
+    dev->gain_adjust_list[9] = 0;
 
     /*TODO: create from inq->colorDepths? Maybe not: didn't experiment with
      * 4 and 12 bit depths. Don;t know how they behave. */
@@ -738,7 +740,7 @@ pieusb_init_options (Pieusb_Scanner* scanner)
     scanner->opt[OPT_GAIN_ADJUST].size = max_string_size ((SANE_String_Const const *) scanner->device->gain_adjust_list);
     scanner->opt[OPT_GAIN_ADJUST].constraint_type = SANE_CONSTRAINT_STRING_LIST;
     scanner->opt[OPT_GAIN_ADJUST].constraint.string_list = (SANE_String_Const const *) scanner->device->gain_adjust_list;
-    scanner->val[OPT_GAIN_ADJUST].s = (SANE_Char *) strdup (scanner->device->gain_adjust_list[1]); /* x 1.0 (no change) */
+    scanner->val[OPT_GAIN_ADJUST].s = (SANE_Char *) strdup (scanner->device->gain_adjust_list[2]); /* x 1.0 (no change) */
 
     /* scan infrared channel faster but less accurate */
     scanner->opt[OPT_FAST_INFRARED].name = "fast-infrared";
@@ -1955,7 +1957,11 @@ pieusb_set_gain_offset(Pieusb_Scanner * scanner, const char *calibration_mode)
     }
     /* Adjust gain */
     gain = 1.0;
-    if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_08) == 0) {
+    if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_03) == 0) {
+        gain = 0.3;
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_05) == 0) {
+        gain = 0.5;
+    } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_08) == 0) {
         gain = 0.8;
     } else if (strcmp (scanner->val[OPT_GAIN_ADJUST].s, SCAN_GAIN_ADJUST_10) == 0) {
         gain = 1.0;
