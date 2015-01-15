@@ -50,7 +50,8 @@
 
 struct Pieusb_Read_Buffer
 {
-    SANE_Uint* data; /* image data - always store as 16 bit values */
+    SANE_Uint* data; /* image data - always store as 16 bit values; mmap'ed */
+    unsigned int data_size; /* size of mmap region */
     SANE_Int data_file; /* associated file if memory mapped */
     char buffer_name[L_tmpnam];
 

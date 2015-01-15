@@ -206,7 +206,7 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
         perror("pieusb_buffer_create(): error mapping file");
         return SANE_STATUS_INVAL;
     }
-
+    buffer->data_size = buffer_size_bytes;
     /* Reading and writing */
     buffer->p_read = calloc(buffer->colors, sizeof(SANE_Uint*));
     if (buffer->p_read == NULL)
@@ -241,12 +241,13 @@ pieusb_buffer_create(struct Pieusb_Read_Buffer* buffer, SANE_Int width, SANE_Int
 void
 pieusb_buffer_delete(struct Pieusb_Read_Buffer* buffer)
 {
-    munmap(buffer->data, buffer->image_size_bytes);
+    munmap(buffer->data, buffer->data_size);
     /* ftruncate(buffer->data_file,0); Can we delete given a file-descriptor? */
     close(buffer->data_file);
     /* remove fs entry */
     unlink(buffer->buffer_name);
     buffer->data_file = 0;
+    buffer->data_size = 0;
     free(buffer->p_read);
     free(buffer->p_write);
     buffer->data = 0;
