@@ -58,6 +58,7 @@
 #include <sys/socket.h>
 #endif
 #include <sys/stat.h>
+#include <sys/time.h>
 
 #ifdef HAVE_OS2_H
 # define INCL_DOS
@@ -66,6 +67,8 @@
 
 #define BACKEND_NAME sanei_debug
 #include "../include/sane/sanei_debug.h"
+
+#define DEBUG_TIMESTAMP 0
 
 /* If a frontend enables translations, the system toupper()
  * call will use the LANG env var. We need to use ascii
@@ -112,13 +115,28 @@ sanei_debug_msg
   (int level, int max_level, const char *be, const char *fmt, va_list ap)
 {
   char *msg;
-	
+#if DEBUG_TIMESTAMP
+  static struct timeval start_t; /* track time since start */
+  if (start_t.tv_sec == 0) {
+    gettimeofday(&start_t, NULL);
+  }
+#endif
   if (max_level >= level)
     {
+#if DEBUG_TIMESTAMP
+      struct timeval elapsed_t;
+      gettimeofday(&elapsed_t, NULL);
+      elapsed_t.tv_usec -= start_t.tv_usec;
+      elapsed_t.tv_sec -= start_t.tv_sec;
+      if (elapsed_t.tv_usec < 0) {
+	elapsed_t.tv_usec += 1000000;
+	elapsed_t.tv_sec -= 1;
+      }
+#endif
 #ifdef S_IFSOCK
       if ( 1 == isfdtype(fileno(stderr), S_IFSOCK) )
 	{
-	  msg = (char *)malloc (sizeof(char) * (strlen(be) + strlen(fmt) + 4));
+	  msg = (char *)malloc (sizeof(char) * (strlen(be) + strlen(fmt) + 4 + 10));
 	  if (msg == NULL)
 	    {
 	      syslog (LOG_DEBUG, "[sanei_debug] malloc() failed\n");
@@ -126,7 +144,11 @@ sanei_debug_msg
 	    }
 	  else
 	    {
+#if DEBUG_TIMESTAMP
+	      sprintf (msg, "[%s+%3d.%06d] %s", be, (int)elapsed_t.tv_sec, (int)elapsed_t.tv_usec, fmt);
+#else
 	      sprintf (msg, "[%s] %s", be, fmt);
+#endif
               vsyslog(LOG_DEBUG, msg, ap);
 	      free (msg);
 	    }
@@ -134,7 +156,11 @@ sanei_debug_msg
       else
 #endif
 	{
+#if DEBUG_TIMESTAMP
+	  fprintf (stderr, "[%s+%3d.%06d] ", be, (int)elapsed_t.tv_sec, (int)elapsed_t.tv_usec);
+#else
 	  fprintf (stderr, "[%s] ", be);
+#endif
           vfprintf (stderr, fmt, ap);
 	}
 	 

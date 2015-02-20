@@ -71,7 +71,7 @@ typedef enum
 SANE_Status;
 
 /* following are for later sane version, older frontends wont support */
-#if 0
+#if 1
 #define SANE_STATUS_WARMING_UP 12 /* lamp not ready, please retry */
 #define SANE_STATUS_HW_LOCKED  13 /* scanner mechanism locked for transport */
 #endif
@@ -182,7 +182,7 @@ SANE_Frame;
 /* push remaining types down to match existing backends */
 /* these are to be exposed in a later version of SANE */
 /* most front-ends will require updates to understand them */
-#if 0
+#if 1
 #define SANE_FRAME_TEXT  0x0A  /* backend specific textual data */
 #define SANE_FRAME_JPEG  0x0B  /* complete baseline JPEG file */
 #define SANE_FRAME_G31D  0x0C  /* CCITT Group 3 1-D Compressed (MH) */
