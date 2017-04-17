@@ -1206,9 +1206,15 @@ write_png_header (SANE_Frame format, int width, int height, int depth, int dpi, 
     depth, color_type, PNG_INTERLACE_NONE,
     PNG_COMPRESSION_TYPE_BASE, PNG_FILTER_TYPE_BASE);
 
-  png_set_pHYs(*png_ptr, *info_ptr,
-    pixels_per_meter, pixels_per_meter,
-    PNG_RESOLUTION_METER);
+  if (icc_profile)
+    {
+      icc_buffer = sanei_load_icc_profile(icc_profile, &icc_size);
+      if (icc_size > 0)
+        {
+	  png_set_iCCP(*png_ptr, *info_ptr, basename(icc_profile), PNG_COMPRESSION_TYPE_BASE, icc_buffer, icc_size);
+	  free(icc_buffer);
+	}
+    }
 
   if (icc_profile)
     {
