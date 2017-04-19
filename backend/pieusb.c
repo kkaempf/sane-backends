@@ -109,6 +109,10 @@ extern void write_tiff_rgbi_header (FILE *fptr, int width, int height, int depth
 #define DBG_info_scan   11      /* information scanner commands */
 #define DBG_info_usb    13      /* information usb level functions */
 
+/* device flags */
+
+#define FLAG_SLIDE_TRANSPORT 0x01
+
 /* --------------------------------------------------------------------------
  *
  * SUPPORTED DEVICES SPECIFICS
@@ -150,7 +154,8 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     char config_line[PATH_MAX];
     SANE_Word vendor_id;
     SANE_Word product_id;
-    SANE_Word model_number;
+    SANE_Int model_number;
+    SANE_Int flags;
     SANE_Status status;
     int i;
 
@@ -183,18 +188,22 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     pieusb_supported_usb_device_list[0].vendor = 0x05e3;
     pieusb_supported_usb_device_list[0].product = 0x0145;
     pieusb_supported_usb_device_list[0].model = 0x30;
+    pieusb_supported_usb_device_list[0].flags = 0;
     /* Reflecta ProScan 7200, model number 0x36 */
     pieusb_supported_usb_device_list[1].vendor = 0x05e3;
     pieusb_supported_usb_device_list[1].product = 0x0145;
     pieusb_supported_usb_device_list[1].model = 0x36;
-    /* Reflecta 6000 Multiple Slide Scanner */
+    pieusb_supported_usb_device_list[1].flags = 0;
+    /* Reflecta 6000 Multiple Slide Scanner, model number 0x3a */
     pieusb_supported_usb_device_list[2].vendor = 0x05e3;
     pieusb_supported_usb_device_list[2].product = 0x0142;
     pieusb_supported_usb_device_list[2].model = 0x3a;
+    pieusb_supported_usb_device_list[2].flags = FLAG_SLIDE_TRANSPORT;
     /* end of list */
     pieusb_supported_usb_device_list[3].vendor = 0;
     pieusb_supported_usb_device_list[3].product = 0;
     pieusb_supported_usb_device_list[3].model = 0;
+    pieusb_supported_usb_device_list[3].flags = 0;
 
     /* Add entries from config file */
     fp = sanei_config_open (PIEUSB_CONFIG_FILE);
@@ -209,14 +218,14 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
             if (strncmp (config_line, "usb ", 4) != 0) continue;
             /* Parse vendor-id, product-id and model number and add to list */
             DBG (DBG_info_sane, "sane_init() config file parsing %s\n", config_line);
-            status = sanei_pieusb_parse_config_line(config_line, &vendor_id, &product_id, &model_number);
+            status = sanei_pieusb_parse_config_line(config_line, &vendor_id, &product_id, &model_number, &flags);
             if (status == SANE_STATUS_GOOD) {
-                DBG (DBG_info_sane, "sane_init() config file lists device %04x %04x %02x\n",vendor_id, product_id, model_number);
-                if (!sanei_pieusb_supported_device_list_contains(vendor_id, product_id, model_number)) {
-                    DBG (DBG_info_sane, "sane_init() adding device %04x %04x %02x\n",vendor_id, product_id, model_number);
-                    sanei_pieusb_supported_device_list_add(vendor_id, product_id, model_number);
+                DBG (DBG_info_sane, "sane_init() config file lists device %04x %04x %02x %02x\n",vendor_id, product_id, model_number, flags);
+                if (!sanei_pieusb_supported_device_list_contains(vendor_id, product_id, model_number, flags)) {
+                    DBG (DBG_info_sane, "sane_init() adding device %04x %04x %02x %02x\n",vendor_id, product_id, model_number, flags);
+                    sanei_pieusb_supported_device_list_add(vendor_id, product_id, model_number, flags);
                 } else {
-                    DBG (DBG_info_sane, "sane_init() list already contains %04x %04x %02x\n", vendor_id, product_id, model_number);
+                    DBG (DBG_info_sane, "sane_init() list already contains %04x %04x %02x %02x\n", vendor_id, product_id, model_number, flags);
                 }
             } else {
                 DBG (DBG_info_sane, "sane_init() config file parsing %s: error\n", config_line);
@@ -235,8 +244,13 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
         pieusb_supported_usb_device.vendor = pieusb_supported_usb_device_list[i].vendor;
         pieusb_supported_usb_device.product = pieusb_supported_usb_device_list[i].product;
         pieusb_supported_usb_device.model = pieusb_supported_usb_device_list[i].model;
+        pieusb_supported_usb_device.flags = pieusb_supported_usb_device_list[i].flags;
         pieusb_supported_usb_device.device_number = -1; /* No device number (yet) */
-        DBG( DBG_info_sane, "sane_init() looking for Reflecta scanner %04x %04x model %02x\n", pieusb_supported_usb_device.vendor, pieusb_supported_usb_device.product, pieusb_supported_usb_device.model);
+        DBG( DBG_info_sane, "sane_init() looking for scanner %04x %04x model %02x, flags %02x\n",
+             pieusb_supported_usb_device.vendor,
+             pieusb_supported_usb_device.product,
+             pieusb_supported_usb_device.model,
+             pieusb_supported_usb_device.flags);
         sanei_usb_find_devices (pieusb_supported_usb_device.vendor, pieusb_supported_usb_device.product, sanei_pieusb_find_device_callback);
         i++;
     }
@@ -354,6 +368,7 @@ sane_open (SANE_String_Const devicename, SANE_Handle * handle)
                     pieusb_supported_usb_device.vendor = vendor;
                     pieusb_supported_usb_device.product = product;
                     pieusb_supported_usb_device.model = pieusb_supported_usb_device_list[i].model;
+                    pieusb_supported_usb_device.flags = pieusb_supported_usb_device_list[i].flags;
                     pieusb_supported_usb_device.device_number = -1;
                     sanei_usb_find_devices (vendor, product, sanei_pieusb_find_device_callback);
                     if (pieusb_supported_usb_device.device_number == -1) {
@@ -994,17 +1009,18 @@ sane_start (SANE_Handle handle)
      *
      * ---------------------------------------------------------------------- */
 
-    sanei_pieusb_cmd_17 (scanner->device_number, 1, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error, "sane_start(): sanei_pieusb_cmd_17 failed: %d\n", status.pieusb_status);
-      return SANE_STATUS_IO_ERROR;
+    if (scanner->device->flags & FLAG_SLIDE_TRANSPORT) {
+        sanei_pieusb_cmd_17 (scanner->device_number, 1, &status);
+        if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+          DBG (DBG_error, "sane_start(): sanei_pieusb_cmd_17 failed: %d\n", status.pieusb_status);
+          return SANE_STATUS_IO_ERROR;
+        }
+        st = sanei_pieusb_wait_ready (scanner, 0);
+        if (st != SANE_STATUS_GOOD) {
+          DBG (DBG_error, "sane_start(): scanner not ready after sanei_pieusb_cmd_17: %d\n", st);
+          return st;
+        }
     }
-    st = sanei_pieusb_wait_ready (scanner, 0);
-    if (st != SANE_STATUS_GOOD) {
-      DBG (DBG_error, "sane_start(): scanner not ready after sanei_pieusb_cmd_17: %d\n", st);
-      return st;
-    }
-
     /* ----------------------------------------------------------------------
      *
      * Get & set initial gains and offsets
@@ -1039,20 +1055,21 @@ sane_start (SANE_Handle handle)
 
     /* ----------------------------------------------------------------------
      *
-     * Lamp on
+     * Init slide transport
      *
      * ---------------------------------------------------------------------- */
-    sanei_pieusb_cmd_slide (scanner->device_number, SLIDE_LAMP_ON, &status);
-    if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-      DBG (DBG_error, "sane_start(): sanei_pieusb_cmd_slide failed: %d\n", status.pieusb_status);
-      return SANE_STATUS_IO_ERROR;
+    if (scanner->device->flags & FLAG_SLIDE_TRANSPORT) {
+        sanei_pieusb_cmd_slide (scanner->device_number, SLIDE_INIT, &status);
+        if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+          DBG (DBG_error, "sane_start(): sanei_pieusb_cmd_slide failed: %d\n", status.pieusb_status);
+          return SANE_STATUS_IO_ERROR;
+        }
+        st = sanei_pieusb_wait_ready (scanner, 0);
+        if (st != SANE_STATUS_GOOD) {
+          DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
+          return st;
+        }
     }
-    st = sanei_pieusb_wait_ready (scanner, 0);
-    if (st != SANE_STATUS_GOOD) {
-      DBG (DBG_error, "sane_start: scanner not ready %d\n", st);
-      return st;
-    }
-
     /* Enter SCAN phase 1 */
     DBG (DBG_info_sane, "sane_start(): scan phase 1\n");
 
@@ -1200,12 +1217,14 @@ sane_start (SANE_Handle handle)
      * Advance to next slide (except for preview)
      *
      * ---------------------------------------------------------------------- */
-    if (scanner->val[OPT_ADVANCE_SLIDE].b && !scanner->val[OPT_PREVIEW].b) {
-      sanei_pieusb_cmd_slide (scanner->device_number, SLIDE_NEXT, &status);
-      if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
-	DBG (DBG_error, "sane_start(): sanei_pieusb_cmd_slide failed: %d\n", status.pieusb_status);
 
-      }
+    if (scanner->device->flags & FLAG_SLIDE_TRANSPORT) {
+        if (scanner->val[OPT_ADVANCE_SLIDE].b && !scanner->val[OPT_PREVIEW].b) {
+            sanei_pieusb_cmd_slide (scanner->device_number, SLIDE_NEXT, &status);
+            if (status.pieusb_status != PIEUSB_STATUS_GOOD) {
+                DBG (DBG_error, "sane_start(): sanei_pieusb_cmd_slide failed: %d\n", status.pieusb_status);
+            }
+        }
     }
 
     /* ----------------------------------------------------------------------

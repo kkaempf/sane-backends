@@ -292,6 +292,8 @@ sanei_pieusb_find_device_callback (const char *devicename)
         return SANE_STATUS_INVAL;
     }
 
+    dev->flags = pieusb_supported_usb_device.flags;
+
     /* Found a supported scanner, put it in the definitions list*/
     DBG (DBG_info_proc, "sanei_pieusb_find_device_callback: success\n");
     dev->next = pieusb_definition_list_head;
@@ -996,18 +998,23 @@ sanei_pieusb_init_options (Pieusb_Scanner* scanner)
 }
 
 /**
- * Parse line from config file into a vendor id, product id and a model number
+ * Parse line from config file into a vendor id, product id, model number, and flags
  *
  * @param config_line Text to parse
  * @param vendor_id
  * @param product_id
  * @param model_number
+ * @param flags
  * @return SANE_STATUS_GOOD, or SANE_STATUS_INVAL in case of a parse error
  */
 SANE_Status
-sanei_pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_id, SANE_Word* product_id, SANE_Word* model_number)
+sanei_pieusb_parse_config_line(const char* config_line,
+                               SANE_Word* vendor_id,
+                               SANE_Word* product_id,
+                               SANE_Int* model_number,
+                               SANE_Int* flags)
 {
-    char *vendor_id_string, *product_id_string, *model_number_string;
+    char *vendor_id_string, *product_id_string, *model_number_string, *flags_string;
 
     if (strncmp (config_line, "usb ", 4) != 0) {
         return SANE_STATUS_INVAL;
@@ -1041,12 +1048,12 @@ sanei_pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_id, SA
     } else {
         return SANE_STATUS_INVAL;
     }
-    /* Detect product-id */
+    /* Detect model number */
     config_line = sanei_config_skip_whitespace (config_line);
     if (*config_line) {
         config_line = sanei_config_get_string (config_line, &model_number_string);
         if (model_number_string) {
-            *model_number = strtol (model_number_string, 0, 0);
+            *model_number = (SANE_Int) strtol (model_number_string, 0, 0);
             free (model_number_string);
         } else {
             return SANE_STATUS_INVAL;
@@ -1054,6 +1061,16 @@ sanei_pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_id, SA
         config_line = sanei_config_skip_whitespace (config_line);
     } else {
         return SANE_STATUS_INVAL;
+    }
+    /* Detect (optional) flags */
+    *flags = 0;
+    config_line = sanei_config_skip_whitespace (config_line);
+    if (*config_line) {
+        config_line = sanei_config_get_string (config_line, &flags_string);
+        if (flags_string) {
+            *flags = (SANE_Int) strtol (flags_string, 0, 0);
+            free (flags_string);
+        }
     }
     return SANE_STATUS_GOOD;
 }
@@ -1064,16 +1081,18 @@ sanei_pieusb_parse_config_line(const char* config_line, SANE_Word* vendor_id, SA
  * @param vendor_id
  * @param product_id
  * @param model_number
+ * @param flags
  * @return
  */
 SANE_Bool
-sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Word model_number)
+sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number, SANE_Int flags)
 {
     int i = 0;
     while (pieusb_supported_usb_device_list[i].vendor != 0) {
         if (pieusb_supported_usb_device_list[i].vendor == vendor_id
               && pieusb_supported_usb_device_list[i].product == product_id
-              && pieusb_supported_usb_device_list[i].model == model_number) {
+              && pieusb_supported_usb_device_list[i].model == model_number
+              && pieusb_supported_usb_device_list[i].flags == flags) {
             return SANE_TRUE;
         }
         i++;
@@ -1086,10 +1105,11 @@ sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word produ
  * @param vendor_id
  * @param product_id
  * @param model_number
+ * @param flags
  * @return
  */
 SANE_Status
-sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Word model_number)
+sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number, SANE_Int flags)
 {
     int i = 0, k;
     struct Pieusb_USB_Device_Entry* dl;
@@ -1099,10 +1119,11 @@ sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id
     }
     /* i is index of last entry */
     for (k=0; k<=i; k++) {
-        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add(): current %03d: %04x %04x %02x\n", i,
+        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add(): current %03d: %04x %04x %02x %02x\n", i,
             pieusb_supported_usb_device_list[k].vendor,
             pieusb_supported_usb_device_list[k].product,
-            pieusb_supported_usb_device_list[k].model);
+            pieusb_supported_usb_device_list[k].model,
+            pieusb_supported_usb_device_list[k].flags);
     }
 
     dl = realloc(pieusb_supported_usb_device_list,(i+2)*sizeof(struct Pieusb_USB_Device_Entry)); /* Add one entry to list */
@@ -1114,14 +1135,17 @@ sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id
     pieusb_supported_usb_device_list[i].vendor = vendor_id;
     pieusb_supported_usb_device_list[i].product = product_id;
     pieusb_supported_usb_device_list[i].model = model_number;
+    pieusb_supported_usb_device_list[i].flags = flags;
     pieusb_supported_usb_device_list[i+1].vendor = 0;
     pieusb_supported_usb_device_list[i+1].product = 0;
     pieusb_supported_usb_device_list[i+1].model = 0;
+    pieusb_supported_usb_device_list[i+1].flags = 0;
     for (k=0; k<=i+1; k++) {
-        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add() add: %03d: %04x %04x %02x\n", i,
+        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add() add: %03d: %04x %04x %02x %02x\n", i,
             pieusb_supported_usb_device_list[k].vendor,
             pieusb_supported_usb_device_list[k].product,
-            pieusb_supported_usb_device_list[k].model);
+            pieusb_supported_usb_device_list[k].model,
+            pieusb_supported_usb_device_list[k].flags);
     }
     return SANE_STATUS_GOOD;
 }
