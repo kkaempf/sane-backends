@@ -80,6 +80,7 @@ struct Pieusb_USB_Device_Entry
     SANE_Word product;		/* USB product identifier */
     SANE_Word model;		/* USB model number */
     SANE_Int device_number;     /* USB device number if the device is present */
+    SANE_Int flags;             /* flags */
 };
 
 extern struct Pieusb_USB_Device_Entry* pieusb_supported_usb_device_list;
