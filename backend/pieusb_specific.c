@@ -110,12 +110,6 @@ static void updateGain2(Pieusb_Scanner *scanner, int color_index, double gain_in
 #define SCAN_CAP_DISABLE_CAL         0x08
 #define SCAN_CAP_SPEEDS              0x07
 
-/* Available scanner options */
-#define SCAN_OPT_DEV_MPCL            0x80
-#define SCAN_OPT_DEV_TP1             0x04
-#define SCAN_OPT_DEV_TP              0x02
-#define SCAN_OPT_DEV_ADF             0x01
-
 /* Options */
 #define SANE_NAME_EXPOSURE_R         "exposure-time-r"
 #define SANE_TITLE_EXPOSURE_R        "Exposure time red"
@@ -291,8 +285,6 @@ sanei_pieusb_find_device_callback (const char *devicename)
         DBG (DBG_error, "sanei_pieusb_find_device_callback: wrong model number %d\n", inq.model);
         return SANE_STATUS_INVAL;
     }
-
-    dev->flags = pieusb_supported_usb_device.flags;
 
     /* Found a supported scanner, put it in the definitions list*/
     DBG (DBG_info_proc, "sanei_pieusb_find_device_callback: success\n");
@@ -998,23 +990,21 @@ sanei_pieusb_init_options (Pieusb_Scanner* scanner)
 }
 
 /**
- * Parse line from config file into a vendor id, product id, model number, and flags
+ * Parse line from config file into a vendor id, product id, and model number
  *
  * @param config_line Text to parse
  * @param vendor_id
  * @param product_id
  * @param model_number
- * @param flags
  * @return SANE_STATUS_GOOD, or SANE_STATUS_INVAL in case of a parse error
  */
 SANE_Status
 sanei_pieusb_parse_config_line(const char* config_line,
                                SANE_Word* vendor_id,
                                SANE_Word* product_id,
-                               SANE_Int* model_number,
-                               SANE_Int* flags)
+                               SANE_Int* model_number)
 {
-    char *vendor_id_string, *product_id_string, *model_number_string, *flags_string;
+    char *vendor_id_string, *product_id_string, *model_number_string;
 
     if (strncmp (config_line, "usb ", 4) != 0) {
         return SANE_STATUS_INVAL;
@@ -1062,16 +1052,6 @@ sanei_pieusb_parse_config_line(const char* config_line,
     } else {
         return SANE_STATUS_INVAL;
     }
-    /* Detect (optional) flags */
-    *flags = 0;
-    config_line = sanei_config_skip_whitespace (config_line);
-    if (*config_line) {
-        config_line = sanei_config_get_string (config_line, &flags_string);
-        if (flags_string) {
-            *flags = (SANE_Int) strtol (flags_string, 0, 0);
-            free (flags_string);
-        }
-    }
     return SANE_STATUS_GOOD;
 }
 
@@ -1081,18 +1061,16 @@ sanei_pieusb_parse_config_line(const char* config_line,
  * @param vendor_id
  * @param product_id
  * @param model_number
- * @param flags
  * @return
  */
 SANE_Bool
-sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number, SANE_Int flags)
+sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number)
 {
     int i = 0;
     while (pieusb_supported_usb_device_list[i].vendor != 0) {
         if (pieusb_supported_usb_device_list[i].vendor == vendor_id
               && pieusb_supported_usb_device_list[i].product == product_id
-              && pieusb_supported_usb_device_list[i].model == model_number
-              && pieusb_supported_usb_device_list[i].flags == flags) {
+              && pieusb_supported_usb_device_list[i].model == model_number) {
             return SANE_TRUE;
         }
         i++;
@@ -1105,11 +1083,10 @@ sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word produ
  * @param vendor_id
  * @param product_id
  * @param model_number
- * @param flags
  * @return
  */
 SANE_Status
-sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number, SANE_Int flags)
+sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number)
 {
     int i = 0, k;
     struct Pieusb_USB_Device_Entry* dl;
@@ -1119,11 +1096,10 @@ sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id
     }
     /* i is index of last entry */
     for (k=0; k<=i; k++) {
-        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add(): current %03d: %04x %04x %02x %02x\n", i,
+        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add(): current %03d: %04x %04x %02x\n", i,
             pieusb_supported_usb_device_list[k].vendor,
             pieusb_supported_usb_device_list[k].product,
-            pieusb_supported_usb_device_list[k].model,
-            pieusb_supported_usb_device_list[k].flags);
+            pieusb_supported_usb_device_list[k].model);
     }
 
     dl = realloc(pieusb_supported_usb_device_list,(i+2)*sizeof(struct Pieusb_USB_Device_Entry)); /* Add one entry to list */
@@ -1135,17 +1111,14 @@ sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id
     pieusb_supported_usb_device_list[i].vendor = vendor_id;
     pieusb_supported_usb_device_list[i].product = product_id;
     pieusb_supported_usb_device_list[i].model = model_number;
-    pieusb_supported_usb_device_list[i].flags = flags;
     pieusb_supported_usb_device_list[i+1].vendor = 0;
     pieusb_supported_usb_device_list[i+1].product = 0;
     pieusb_supported_usb_device_list[i+1].model = 0;
-    pieusb_supported_usb_device_list[i+1].flags = 0;
     for (k=0; k<=i+1; k++) {
-        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add() add: %03d: %04x %04x %02x %02x\n", i,
+        DBG(DBG_info_proc,"sanei_pieusb_supported_device_list_add() add: %03d: %04x %04x %02x\n", i,
             pieusb_supported_usb_device_list[k].vendor,
             pieusb_supported_usb_device_list[k].product,
-            pieusb_supported_usb_device_list[k].model,
-            pieusb_supported_usb_device_list[k].flags);
+            pieusb_supported_usb_device_list[k].model);
     }
     return SANE_STATUS_GOOD;
 }

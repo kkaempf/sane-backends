@@ -110,6 +110,12 @@
 #define DEFAULT_ADDITIONAL_ENTRIES      1
 #define DEFAULT_DOUBLE_TIMES            0
 
+/* Available scanner options (in INQUIRY) */
+#define SCAN_OPT_DEV_MPCL            0x80
+#define SCAN_OPT_DEV_TP1             0x04
+#define SCAN_OPT_DEV_TP              0x02
+#define SCAN_OPT_DEV_ADF             0x01
+
 /* --------------------------------------------------------------------------
  *
  * DEVICE DEFINITION STRUCTURES
@@ -193,7 +199,6 @@ struct Pieusb_Device_Definition
       /* USB id's like 0x05e3 0x0145, see pieusb.conf */
     SANE_String version; /* INQUIRY productRevision */
     SANE_Byte model; /* INQUIRY model */
-    SANE_Byte flags; /* pieusb.conf flags */
 
     /* Ranges for various quantities */
     SANE_Range dpi_range;
@@ -319,8 +324,7 @@ typedef struct Pieusb_Scanner Pieusb_Scanner;
 SANE_Status sanei_pieusb_parse_config_line(const char* config_line,
                                            SANE_Word* vendor_id,
                                            SANE_Word* product_id,
-                                           SANE_Int* model_number,
-                                           SANE_Int* flags);
+                                           SANE_Int* model_number);
 /* sub to sane_start() */
 SANE_Status sanei_pieusb_post (Pieusb_Scanner *scanner,  uint16_t **in_img, int planes);
 void sanei_pieusb_correct_shading(struct Pieusb_Scanner *scanner, struct Pieusb_Read_Buffer *buffer);
@@ -334,8 +338,8 @@ SANE_Status sanei_pieusb_set_frame_from_options(Pieusb_Scanner * scanner);
 void sanei_pieusb_print_options(struct Pieusb_Scanner *scanner);
 /* sub to sane_control_option() and sane_start() */
 int sanei_pieusb_analyse_options(struct Pieusb_Scanner *scanner);
-SANE_Bool sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number, SANE_Int flags);
-SANE_Status sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number, SANE_Int flags);
+SANE_Bool sanei_pieusb_supported_device_list_contains(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number);
+SANE_Status sanei_pieusb_supported_device_list_add(SANE_Word vendor_id, SANE_Word product_id, SANE_Int model_number);
 /* sub to sane_init() and sane_open() */
 SANE_Status sanei_pieusb_find_device_callback (const char *devicename);
 /* sub to sane_open() */
