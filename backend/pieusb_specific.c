@@ -322,7 +322,7 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     buf = malloc(9);
     if (buf == NULL)
       return SANE_STATUS_NO_MEM;
-    strncpy(buf, inq->vendor, 8);
+    memcpy(buf, inq->vendor, 8);
     pp = buf + 8;
     *pp-- = '\0';
     while (*pp == ' ') *pp-- = '\0';
@@ -332,7 +332,7 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     buf = malloc(17);
     if (buf == NULL)
       return SANE_STATUS_NO_MEM;
-    strncpy(buf, inq->product, 16);
+    memcpy(buf, inq->product, 16);
     pp = buf + 16;
     *pp-- = '\0';
     while (*pp == ' ') *pp-- = '\0';
@@ -346,7 +346,7 @@ pieusb_initialize_device_definition (Pieusb_Device_Definition* dev, Pieusb_Scann
     buf = malloc(5);
     if (buf == NULL)
       return SANE_STATUS_NO_MEM;
-    strncpy(buf, inq->productRevision, 4);
+    memcpy(buf, inq->productRevision, 4);
     pp = buf + 4;
     *pp-- = '\0';
     while (*pp == ' ') *pp-- = '\0';
