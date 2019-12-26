@@ -645,7 +645,7 @@ ALL_BACKENDS="abaton agfafocus apple artec artec_eplus48u as6e \
         pixma plustek plustek_pp qcam ricoh ricoh2 rts8891 s9036 \
         sceptre sharp sm3600 sm3840 snapscan sp15c st400 \
         stv680 tamarack teco1 teco2 teco3 test u12 umax
-        umax_pp umax1220u v4l xerox_mfp p5"
+        umax_pp umax1220u v4l wsd-scan xerox_mfp p5"
 
 # If user specifies backends manually then cause configure
 # to fail if its detected it can't be compiled.  If we

@@ -1,0 +1,6 @@
+# wsd-scan.conf: Configuration file for WSD network scanners
+# Read man sane-wsd-scan for documentation
+
+# Format
+# url http://...
+url http://192.168.0.112:80/ws

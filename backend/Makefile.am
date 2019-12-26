@@ -82,6 +82,7 @@ BACKEND_CONFS= abaton.conf agfafocus.conf apple.conf artec.conf \
 	       st400.conf stv680.conf tamarack.conf \
 	       teco1.conf teco2.conf teco3.conf test.conf \
 	       u12.conf umax1220u.conf umax.conf umax_pp.conf v4l.conf \
+               wsd-scan.conf \
 	       xerox_mfp.conf dll.conf saned.conf
 # Although ./configure sets up BACKEND_CONFS_ENABLED it does not take
 # into account the fact that some backends don't have a configuration
@@ -181,6 +182,7 @@ be_convenience_libs = libabaton.la libagfafocus.la \
     libtamarack.la libtest.la libteco1.la \
     libteco2.la libteco3.la libu12.la libumax.la \
     libumax1220u.la libumax_pp.la libv4l.la \
+    libwsd_scan.la \
     libxerox_mfp.la
 
 # Each stand alone backend thats possible to be built should be listed
@@ -215,6 +217,7 @@ be_dlopen_libs = libsane-abaton.la libsane-agfafocus.la \
     libsane-tamarack.la libsane-test.la libsane-teco1.la \
     libsane-teco2.la libsane-teco3.la libsane-u12.la libsane-umax.la \
     libsane-umax1220u.la libsane-umax_pp.la libsane-v4l.la \
+    libsane-wsd_scan.la \
     libsane-xerox_mfp.la
 
 EXTRA_LTLIBRARIES = $(be_convenience_libs) $(be_dlopen_libs)
@@ -1166,6 +1169,15 @@ libsane_v4l_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=v4l
 libsane_v4l_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS)
 libsane_v4l_la_LIBADD = $(COMMON_LIBS) libv4l.la ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo  sane_strstatus.lo $(LIBV4L_LIBS)
 EXTRA_DIST += v4l.conf.in
+
+libwsd_scan_la_SOURCES = wsd-scan.h wsd-scan.c
+libwsd_scan_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=wsd_scan
+
+nodist_libsane_wsd_scan_la_SOURCES = wsd-scan-s.c
+libsane_wsd_scan_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=wsd_scan
+libsane_wsd_scan_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS)
+libsane_wsd_scan_la_LIBADD = $(COMMON_LIBS) libwsd_scan.la ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo  sane_strstatus.lo -lopenwsd -lcurl
+EXTRA_DIST += wsd-scan.conf.in
 
 libxerox_mfp_la_SOURCES = xerox_mfp.c xerox_mfp-usb.c xerox_mfp-tcp.c xerox_mfp.h
 libxerox_mfp_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=xerox_mfp
