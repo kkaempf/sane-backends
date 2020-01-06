@@ -59,16 +59,73 @@
 #include "../include/sane/sanei_debug.h"
 #include <openwsd/openwsd.h>
 
+/* Debug error levels */
+#define DBG_error        1      /* errors */
+#define DBG_warning      3      /* warnings */
+#define DBG_info         5      /* information */
+#define DBG_info_sane    7      /* information sane interface level */
+#define DBG_inquiry      8      /* inquiry data */
+#define DBG_info_proc    9      /* information wsd backend functions */
+#define DBG_info_scan   11      /* information scanner commands */
+#define DBG_info_usb    13      /* information usb level functions */
+
+
+/* Options supported by the scanner
+ * see Scan Service Definition Version 1.0 (Microsoft 2012)
+ */
+
+enum Wsd_Option
+{
+    OPT_NUM_OPTS = 0,
+    /* ------------------------------------------- */
+    OPT_SCAN_SOURCE,            /* platen, adf, film */
+    /* ------------------------------------------- */
+    OPT_FORMAT_GROUP,
+    OPT_RESOLUTION,
+    OPT_COLOR,
+    /* ------------------------------------------- */
+    OPT_GEOMETRY_GROUP,
+    OPT_WIDTH,
+    OPT_HEIGHT,
+#if 0
+    OPT_FORMAT,                 /* jpeg, tiff, pdf, ... */
+    OPT_COMPRESSION_QUALITY_FACTOR, /* 0..100 */
+    OPT_CONTENT_TYPE,           /* Auto, Text, Photo, Halftone, Mixed */
+    OPT_SIZE_AUTO_DETECT,       /* true, false */
+    OPT_AUTO_EXPOSURE,          /* unsupported, true, false */
+    OPT_BRIGHTNESS,             /* unsupported, ... */
+    OPT_CONTRAST,               /* unsupported, ... */
+    OPT_SCALING_WIDTH,
+    OPT_SCALING_HEIGHT,
+    OPT_ROTATION,               /* 0, 90, 180, 270 */ 
+    OPT_ADF_DUPLEX,
+    OPT_FILM_SCAN_MODE,
+    /* ------------------------------------------- */
+    OPT_ENHANCEMENT_GROUP,
+    /* ------------------------------------------- */
+    OPT_ADVANCED_GROUP,
+#endif
+    /* must come last: */
+    NUM_OPTIONS
+};
+
+/*-----------------------------------------------------------------*/
+
 struct _WsdScanner {
+    SANE_Device sane_device;
     struct _WsdScanner *next;
     char url[PATH_MAX];
     WsdClient *client;
-    SANE_Device sane_device;
     SANE_Int scanning; /* true if busy scanning */
     SANE_Int cancel_request; /* if true, scanner should terminate a scan */
+    SANE_Parameters scan_parameters;
+    char *job_id;
+    char *job_token;
+    /* SANE option descriptions and settings for this scanner instance */
+    SANE_Option_Descriptor opt[NUM_OPTIONS];
+    Option_Value val[NUM_OPTIONS];
 };
 
-#define NUM_OPTIONS 1
-
 typedef struct _WsdScanner WsdScanner;
+
 #endif	/* WSD_SCAN_H */

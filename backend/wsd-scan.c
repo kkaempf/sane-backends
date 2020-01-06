@@ -57,6 +57,7 @@
 #include <stdlib.h> /* for NULL */
 #include <stdint.h>
 #include <math.h>
+#include <sys/param.h> /* for MIN and MAX */
 
 /* Configuration defines */
 #include "../include/sane/config.h"
@@ -82,21 +83,432 @@
 /* Configuration filename */
 #define WSDSCAN_CONFIG_FILE "wsd-scan.conf"
 
-/* Debug error levels */
-#define DBG_error        1      /* errors */
-#define DBG_warning      3      /* warnings */
-#define DBG_info         5      /* information */
-#define DBG_info_sane    7      /* information sane interface level */
-#define DBG_inquiry      8      /* inquiry data */
-#define DBG_info_proc    9      /* information wsd backend functions */
-#define DBG_info_scan   11      /* information scanner commands */
-#define DBG_info_usb    13      /* information usb level functions */
+static WsdScanner *wsd_scanner_list = NULL;
 
-/* device flags */
+/* --------------------------------------------------------------------------
+ *
+ * wsd_scan internals
+ *
+ * --------------------------------------------------------------------------*/
 
-#define FLAG_SLIDE_TRANSPORT 0x01
+/**
+ * Determine maximum lengt of a set of strings.
+ *
+ * @param strings Set of strings
+ * @return maximum length
+ */
+static size_t
+_max_string_size (SANE_String_Const const strings[])
+{
+    size_t size, max_size = 0;
+    int i;
+    DBG (DBG_info_proc, "_max_string_size\n");
 
-static WsdScanner *devlist = NULL;
+    for (i = 0; strings[i]; ++i) {
+        size = strlen (strings[i]) + 1;
+        DBG (DBG_info_proc, "_max_string_size(%s:%ld)\n", strings[i], size);
+        if (size > max_size) {
+            max_size = size;
+        }
+    }
+
+    return max_size;
+}
+
+
+/*
+ * create request options
+ *
+ */
+request_opt_t *
+_create_request_options()
+{
+    request_opt_t *options = wsd_options_create();
+    if (DBG_LEVEL > 127) {
+        wsd_set_options_flags(options, FLAG_DUMP_REQUEST);
+        wsd_set_options_flags(options, FLAG_DUMP_RESPONSE);
+    }
+    return options;
+}
+
+
+int
+_color_mode_to_depth(char *text)
+{
+    if (!strcmp(text, WSD_COLOR_ENTRY_BW1)) {
+        return 1;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_GS4)) {
+        return 4;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_GS8)) {
+        return 8;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_GS16)) {
+        return 16;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_RGB24)) {
+        return 24;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_RGB48)) {
+        return 48;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_RGBA32)) {
+        return 32;
+    } else if (!strcmp(text, WSD_COLOR_ENTRY_RGBA64)) {
+        return 64;
+    }
+    DBG (DBG_error, "Unknown color mode '%s'\n", text);
+    return 0;
+}
+/**
+ * Initiaize scanner options from the device definition.
+ * The function is called by sane_open(), when no
+ * optimized settings are available yet. The scanner object is fully
+ * initialized in sane_start().
+ *
+ * @param scanner Scanner to initialize
+ * @return SANE_STATUS_GOOD
+ */
+SANE_Status
+_init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
+{
+    int i;
+
+    DBG (DBG_info_proc, "_init_options\n");
+
+    memset (scanner->opt, 0, sizeof (scanner->opt));
+    memset (scanner->val, 0, sizeof (scanner->val));
+
+    for (i = 0; i < NUM_OPTIONS; ++i) {
+        scanner->opt[i].size = sizeof (SANE_Word);
+        scanner->opt[i].cap = SANE_CAP_SOFT_SELECT | SANE_CAP_SOFT_DETECT;
+    }
+
+    /* Number of options (a pseudo-option) */
+    scanner->opt[OPT_NUM_OPTS].name = SANE_NAME_NUM_OPTIONS;
+    scanner->opt[OPT_NUM_OPTS].title = SANE_TITLE_NUM_OPTIONS;
+    scanner->opt[OPT_NUM_OPTS].desc = SANE_DESC_NUM_OPTIONS;
+    scanner->opt[OPT_NUM_OPTS].type = SANE_TYPE_INT;
+    scanner->opt[OPT_NUM_OPTS].cap = SANE_CAP_SOFT_DETECT;
+    scanner->val[OPT_NUM_OPTS].w = NUM_OPTIONS;
+
+    /* "Source" group: */
+
+    /* retrieve input sources */
+    SANE_String_Const *scan_sources = calloc(4, sizeof(SANE_String_Const));
+    if (!scan_sources) {
+        return SANE_STATUS_NO_MEM;
+    }
+    i = 0;
+    if (ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN, 1)) {
+      scan_sources[i++] = WSD_PLATEN;
+      DBG (DBG_info_sane, "%s found\n", WSD_PLATEN);
+    }
+    if (ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_ADF, 1)) {
+      scan_sources[i++] = WSD_ADF;
+      DBG (DBG_info_sane, "%s found\n", WSD_ADF);
+    }
+    if (ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_FILM, 1)) {
+      scan_sources[i++] = WSD_FILM;
+      DBG (DBG_info_sane, "%s found\n", WSD_FILM);
+    }
+    scanner->opt[OPT_SCAN_SOURCE].name = "Source";
+    scanner->opt[OPT_SCAN_SOURCE].title = "Scan source";
+    scanner->opt[OPT_SCAN_SOURCE].desc = "Scan input selector";
+    scanner->opt[OPT_SCAN_SOURCE].type = SANE_TYPE_STRING;
+    scanner->opt[OPT_SCAN_SOURCE].unit = SANE_UNIT_NONE;
+    scanner->opt[OPT_SCAN_SOURCE].size = _max_string_size(scan_sources);
+    scanner->opt[OPT_SCAN_SOURCE].cap = 0;
+    scanner->opt[OPT_SCAN_SOURCE].constraint_type = SANE_CONSTRAINT_STRING_LIST;
+    scanner->opt[OPT_SCAN_SOURCE].constraint.string_list = scan_sources;
+    scanner->val[OPT_SCAN_SOURCE].s = strdup(scan_sources[0]);
+
+    /* Format Group */
+    scanner->opt[OPT_FORMAT_GROUP].name = "Mode";
+    scanner->opt[OPT_FORMAT_GROUP].title = "Scan mode";
+    scanner->opt[OPT_FORMAT_GROUP].desc = "";
+    scanner->opt[OPT_FORMAT_GROUP].type = SANE_TYPE_GROUP;
+    scanner->opt[OPT_FORMAT_GROUP].unit = 0;
+    scanner->opt[OPT_FORMAT_GROUP].size = 0;
+    scanner->opt[OPT_FORMAT_GROUP].cap = 0;
+    scanner->opt[OPT_FORMAT_GROUP].constraint_type = SANE_CONSTRAINT_NONE;
+
+    /* resolutions */
+  
+    /* first - optical resolution */
+    WsXmlNodeH optical_resolution = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_OPTICAL_RESOLUTION, 1);
+    if (!optical_resolution) {
+        optical_resolution = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_ADF_OPTICAL_RESOLUTION, 1);
+        if (!optical_resolution) {
+            optical_resolution = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_FILM_OPTICAL_RESOLUTION, 1);
+            if (!optical_resolution) {
+                DBG (DBG_error, "No OpticalResolution found in %s\n", ws_xml_get_node_local_name(scanner_configuration));
+                return SANE_STATUS_INVAL;
+            }
+        }
+    }
+    WsXmlNodeH width = ws_xml_find_in_tree(optical_resolution, XML_NS_WDP_SCAN, WSD_WIDTH, 1);
+    WsXmlNodeH height = ws_xml_find_in_tree(optical_resolution, XML_NS_WDP_SCAN, WSD_HEIGHT, 1);
+    if (!width && !height) {
+        DBG (DBG_error, "No %s or %s found in %s\n", WSD_WIDTH, WSD_HEIGHT, ws_xml_get_node_local_name(optical_resolution));
+        return SANE_STATUS_INVAL;
+    }
+    SANE_Word max_x_res = atoi(ws_xml_get_node_text(width));
+    SANE_Word max_y_res = atoi(ws_xml_get_node_text(height));
+    DBG (DBG_info_sane, "resolution %d x %d\n", max_x_res, max_y_res);
+
+    /* then - other resolutions */
+    WsXmlNodeH platen_resolutions = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_RESOLUTIONS, 1);
+    if (!platen_resolutions) {
+        platen_resolutions = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_ADF_RESOLUTIONS, 1);
+        if (!platen_resolutions) {
+            platen_resolutions = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_FILM_RESOLUTIONS, 1);
+            if (!platen_resolutions) {
+                DBG (DBG_error, "No resolutions found in scanner configuration\n");
+                return SANE_STATUS_INVAL;
+            }
+        }
+    }
+    WsXmlNodeH widths = ws_xml_find_in_tree(platen_resolutions, XML_NS_WDP_SCAN, WSD_WIDTHS, 1);
+    SANE_Word min_x_res = max_x_res;
+    SANE_Word res;
+    if (widths) {
+        i = 0;
+        while ((width = ws_xml_get_child(widths, i++, XML_NS_WDP_SCAN, WSD_WIDTH))) {
+            res = atoi(ws_xml_get_node_text(width));
+            DBG (DBG_info_sane, "x resolution %d\n", res);
+            if (res < min_x_res)
+                min_x_res = res;
+        }
+    } else {
+          DBG (DBG_warning, "No %s found in %s\n", WSD_WIDTHS, ws_xml_get_node_local_name(platen_resolutions));
+    }
+  
+    WsXmlNodeH heights = ws_xml_find_in_tree(platen_resolutions, XML_NS_WDP_SCAN, WSD_HEIGHTS, 1);
+    SANE_Word min_y_res = max_y_res;
+    if (heights) {
+        i = 0;
+        while ((height = ws_xml_get_child(heights, i++, XML_NS_WDP_SCAN, WSD_HEIGHT))) {
+            res = atoi(ws_xml_get_node_text(height));
+            DBG (DBG_info_sane, "y resolution %d\n", res);
+            if (res < min_y_res)
+                min_y_res = res;
+        }
+    } else {
+          DBG (DBG_warning, "No %s found in %s\n", WSD_HEIGHTS, ws_xml_get_node_local_name(platen_resolutions));
+    }
+    SANE_Range *range = calloc(1, sizeof(SANE_Range));
+    if (!range) {
+        return SANE_STATUS_NO_MEM;
+    }
+    scanner->opt[OPT_RESOLUTION].name = "Resolution";
+    scanner->opt[OPT_RESOLUTION].title = "Scan resolution";
+    scanner->opt[OPT_RESOLUTION].desc = "Resolution in dots per inch";
+    scanner->opt[OPT_RESOLUTION].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_RESOLUTION].unit = SANE_UNIT_DPI;
+    scanner->opt[OPT_RESOLUTION].size = 0;
+    scanner->opt[OPT_RESOLUTION].cap = 0;
+    scanner->opt[OPT_RESOLUTION].constraint_type = SANE_CONSTRAINT_RANGE;
+    range->min = MIN(min_x_res, min_y_res);
+    range->max = MAX(max_x_res, max_y_res);
+    range->quant = 0;
+    scanner->opt[OPT_RESOLUTION].constraint.range = range;
+    scanner->val[OPT_RESOLUTION].w = range->min;
+
+    /* colors */
+
+    WsXmlNodeH color = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_COLOR, 1);
+    if (!color) {
+       color = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_ADF_COLOR, 1);
+       if (!color) {
+           color = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_FILM_COLOR, 1);
+           if (!color) {
+               DBG (DBG_error, "No Color found in %s\n", ws_xml_get_node_local_name(scanner_configuration));
+           }
+       }
+    }
+    i = ws_xml_get_child_count_by_qname(color, XML_NS_WDP_SCAN, WSD_COLOR_ENTRY);
+    if (i == 0) {
+        DBG (DBG_error, "%s has no %s\n", ws_xml_get_node_local_name(color), WSD_COLOR_ENTRY);
+        return SANE_STATUS_INVAL;
+    }
+    SANE_Word *bpp_list = calloc(i+1, sizeof(SANE_Word));
+    if (!bpp_list) {
+        return SANE_STATUS_NO_MEM;
+    }
+    bpp_list[0] = i;
+    int j;
+    for (j = 0; j < i; j++) {
+        WsXmlNodeH color_entry = ws_xml_get_child(color, j, XML_NS_WDP_SCAN, WSD_COLOR_ENTRY);
+        char *text;
+        if (!color_entry) {
+            DBG (DBG_error, "%s has no %s as child #%d\n", ws_xml_get_node_local_name(color), WSD_COLOR_ENTRY, j);
+            return SANE_STATUS_INVAL;
+        }
+        text = ws_xml_get_node_text(color_entry);
+        bpp_list[j] = _color_mode_to_depth(text);
+        if (bpp_list[j] == 0) {
+            DBG (DBG_error, "Unknown %s:%s in %s, ignoring\n", WSD_COLOR_ENTRY, text, ws_xml_get_node_local_name(color));
+        }
+    }
+    scanner->opt[OPT_COLOR].name = "Color";
+    scanner->opt[OPT_COLOR].title = "Color depth";
+    scanner->opt[OPT_COLOR].desc = "Bits per pixel";
+    scanner->opt[OPT_COLOR].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_COLOR].unit = SANE_UNIT_BIT;
+    scanner->opt[OPT_COLOR].size = sizeof(SANE_Word);
+    scanner->opt[OPT_COLOR].cap = 0;
+    scanner->opt[OPT_COLOR].constraint_type = SANE_CONSTRAINT_WORD_LIST;
+    scanner->opt[OPT_COLOR].constraint.word_list = bpp_list;
+    scanner->val[OPT_COLOR].w = 24;
+
+    /* Geometry Group */
+    scanner->opt[OPT_FORMAT_GROUP].name = "Size";
+    scanner->opt[OPT_FORMAT_GROUP].title = "Scan size";
+    scanner->opt[OPT_FORMAT_GROUP].desc = "";
+    scanner->opt[OPT_FORMAT_GROUP].type = SANE_TYPE_GROUP;
+    scanner->opt[OPT_FORMAT_GROUP].unit = 0;
+    scanner->opt[OPT_FORMAT_GROUP].size = 0;
+    scanner->opt[OPT_FORMAT_GROUP].cap = 0;
+    scanner->opt[OPT_FORMAT_GROUP].constraint_type = SANE_CONSTRAINT_NONE;
+
+    /* width, height */
+    WsXmlNodeH platen_minimum_size = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_MINIMUM_SIZE, 1);
+    if (!platen_minimum_size) {
+        DBG (DBG_error, "No %s found\n", WSD_PLATEN_MINIMUM_SIZE);
+        return SANE_STATUS_INVAL;
+    }
+    WsXmlNodeH platen_maximum_size = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_MAXIMUM_SIZE, 1);
+    if (!platen_minimum_size) {
+        DBG (DBG_error, "No %s found\n", WSD_PLATEN_MAXIMUM_SIZE);
+        return SANE_STATUS_INVAL;
+    }
+    int max_w, min_w; /* in 1/1000th of an inch */
+    width = ws_xml_find_in_tree(platen_minimum_size, XML_NS_WDP_SCAN, WSD_WIDTH, 1);
+    if (!width) {
+        DBG (DBG_error, "No %s found in %s\n", WSD_WIDTH, WSD_PLATEN_MINIMUM_SIZE);
+        return SANE_STATUS_INVAL;
+    }
+    min_w = atoi(ws_xml_get_node_text(width));
+    width = ws_xml_find_in_tree(platen_maximum_size, XML_NS_WDP_SCAN, WSD_WIDTH, 1);
+    if (!width) {
+        DBG (DBG_error, "No %s found in %s\n", WSD_WIDTH, WSD_PLATEN_MAXIMUM_SIZE);
+        return SANE_STATUS_INVAL;
+    }
+    max_w = atoi(ws_xml_get_node_text(width));
+    range = calloc(1, sizeof(SANE_Range));
+    if (!range) {
+        return SANE_STATUS_NO_MEM;
+    }
+    scanner->opt[OPT_WIDTH].name = "Width";
+    scanner->opt[OPT_WIDTH].title = "Scan width";
+    scanner->opt[OPT_WIDTH].desc = "Width of scan area";
+    scanner->opt[OPT_WIDTH].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_WIDTH].unit = SANE_UNIT_MM;
+    scanner->opt[OPT_WIDTH].size = _max_string_size(scan_sources);
+    scanner->opt[OPT_WIDTH].cap = 0;
+    scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
+    scanner->opt[OPT_WIDTH].constraint.range = range;
+    scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
+    range->min = SANE_FIX (min_w / 1000 * MM_PER_INCH);
+    range->max = SANE_FIX (max_w / 1000 * MM_PER_INCH);
+    range->quant = 0;
+    scanner->opt[OPT_WIDTH].constraint.range = range;
+    scanner->val[OPT_WIDTH].w = range->min;
+
+    /* height */
+    int max_h, min_h; /* in 1/1000th of an inch */
+    height = ws_xml_find_in_tree(platen_minimum_size, XML_NS_WDP_SCAN, WSD_HEIGHT, 1);
+    if (!height) {
+        DBG (DBG_error, "No %s found in %s\n", WSD_HEIGHT, WSD_PLATEN_MINIMUM_SIZE);
+        return SANE_STATUS_INVAL;
+    }
+    min_h = atoi(ws_xml_get_node_text(height));
+    height = ws_xml_find_in_tree(platen_maximum_size, XML_NS_WDP_SCAN, WSD_HEIGHT, 1);
+    if (!height) {
+        DBG (DBG_error, "No %s found in %s\n", WSD_HEIGHT, WSD_PLATEN_MAXIMUM_SIZE);
+        return SANE_STATUS_INVAL;
+    }
+    max_h = atoi(ws_xml_get_node_text(height));
+
+    range = calloc(1, sizeof(SANE_Range));
+    if (!range) {
+        return SANE_STATUS_NO_MEM;
+    }
+    range->min = MIN(min_x_res, min_y_res);
+    range->max = MAX(max_x_res, max_y_res);
+    range->quant = 0;
+    scanner->opt[OPT_HEIGHT].name = "Height";
+    scanner->opt[OPT_HEIGHT].title = "Scan height";
+    scanner->opt[OPT_HEIGHT].desc = "Height of scan area";
+    scanner->opt[OPT_HEIGHT].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_HEIGHT].unit = SANE_UNIT_MM;
+    scanner->opt[OPT_HEIGHT].size = _max_string_size(scan_sources);
+    scanner->opt[OPT_HEIGHT].cap = 0;
+    scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
+    scanner->opt[OPT_HEIGHT].constraint.range = range;
+    scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
+    range->min = SANE_FIX (min_h / 1000 * MM_PER_INCH);
+    range->max = SANE_FIX (max_h / 1000 * MM_PER_INCH);
+    range->quant = 0;
+    scanner->opt[OPT_HEIGHT].constraint.range = range;
+    scanner->val[OPT_HEIGHT].w = range->min;
+
+#if 0
+    scanner->opt[OPT_].name = "Source";
+    scanner->opt[OPT_].title = "Scan source";
+    scanner->opt[OPT_].desc = "Scan input selector";
+    scanner->opt[OPT_].type = SANE_TYPE_STRING;
+    scanner->opt[OPT_].unit = SANE_UNIT_NONE;
+    scanner->opt[OPT_].size = _max_string_size(scan_sources);
+    scanner->opt[OPT_].cap = 0;
+    scanner->opt[OPT_].constraint_type = SANE_CONSTRAINT_STRING_LIST;
+    scanner->opt[OPT_].constraint.string_list = scan_sources;
+    scanner->val[OPT_].s = strdup(scan_sources[0]);
+#endif
+    return SANE_STATUS_GOOD;
+}
+
+
+SANE_Status
+_get_status (WsdScanner *scanner)
+{
+    SANE_Status status = SANE_STATUS_GOOD;
+
+    request_opt_t *options = _create_request_options();
+
+    DBG (DBG_info_sane, "_get_status()\n");
+
+    WsdRequest *request = wsd_action_get_scanner_status(scanner->client, options);
+    if (!request) {
+        DBG (DBG_error, "get_scanner_status failed\n");
+        status = SANE_STATUS_IO_ERROR;
+        goto _get_status_done;
+    }
+    WsXmlNodeH node = wsd_response_node(request);
+    WsXmlNodeH scanner_status = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_SCANNER_STATUS, 1);
+    if (!request) {
+        DBG (DBG_error, "No %s in status response\n", WSD_SCANNER_STATUS);
+        status = SANE_STATUS_IO_ERROR;
+        goto _get_status_done;
+    }
+    WsXmlNodeH scanner_state = ws_xml_find_in_tree(scanner_status, XML_NS_WDP_SCAN, WSD_SCANNER_STATE, 1);
+    if (!scanner_state) {
+        DBG (DBG_error, "No %s in %s\n", WSD_SCANNER_STATE, WSD_SCANNER_STATUS);
+        status = SANE_STATUS_IO_ERROR;
+        goto _get_status_done;
+    }
+    char *text = ws_xml_get_node_text(scanner_state);
+    if (!strcmp(text, "Idle")) {
+        status = SANE_STATUS_GOOD;
+    } else if (!strcmp(text, "Processing")) {
+        status = SANE_STATUS_DEVICE_BUSY;
+    } else {
+        DBG (DBG_error, "Status is %s\n", text);
+        status = SANE_STATUS_IO_ERROR;
+        goto _get_status_done;
+    }
+_get_status_done:
+    if (request)
+        wsd_request_destroy(request);
+    wsd_options_destroy(options);
+    return status;
+}
 
 /* --------------------------------------------------------------------------
  *
@@ -120,7 +532,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
     char config_line[PATH_MAX];
     /* Initialize debug logging */
     DBG_INIT ();
-    debug_add_handler(wsd_debug_message_handler, DEBUG_LEVEL_ALWAYS, NULL);
+    debug_add_handler(wsd_debug_message_handler, DBG_LEVEL, NULL);
 
     DBG (DBG_info_sane, "sane_init() build %d\n", BUILD);
 
@@ -135,7 +547,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
         DBG (DBG_info_sane, "sane_init() did not find a config file, using default list of supported devices\n");
     } else {
         DBG (DBG_info_sane, "sane_init() found config file: %s\n", WSDSCAN_CONFIG_FILE);
-        WsdScanner **pivot = &devlist; 
+        WsdScanner **pivot = &wsd_scanner_list; 
         while (sanei_config_read (config_line, sizeof (config_line), fp)) {
             char *s, *url;
             /* Ignore line comments and empty lines */
@@ -157,7 +569,7 @@ sane_init (SANE_Int * version_code, SANE_Auth_Callback __sane_unused__ authorize
                 } else {
                     (*pivot)->next = scanner;
                 }
-                strncpy(scanner->url, url, PATH_MAX);
+                strncpy(scanner->url, url, PATH_MAX-1);
                 pivot = &scanner;
                 DBG (DBG_info_sane, "sane_init() wsd-scan device '%s'\n", url);
                 
@@ -180,11 +592,15 @@ sane_exit (void)
 {
     DBG (DBG_info_sane, "sane_exit()\n");
 
-    while (devlist) {
+    while (wsd_scanner_list) {
         WsdScanner *scanner;
-        scanner = devlist->next;
-        free (devlist);
-        devlist = scanner;
+        if (wsd_scanner_list->sane_device.name) free((SANE_String)wsd_scanner_list->sane_device.name);
+        if (wsd_scanner_list->sane_device.vendor) free((SANE_String)wsd_scanner_list->sane_device.vendor);
+        if (wsd_scanner_list->sane_device.model) free((SANE_String)wsd_scanner_list->sane_device.model);
+        if (wsd_scanner_list->sane_device.type) free((SANE_String)wsd_scanner_list->sane_device.type);
+        scanner = wsd_scanner_list->next;
+        free (wsd_scanner_list);
+        wsd_scanner_list = scanner;
     }
     return;
 }
@@ -203,24 +619,25 @@ sane_get_devices (const SANE_Device *** device_list, SANE_Bool __sane_unused__ l
     DBG (DBG_info_sane, "sane_get_devices()\n");
 
     WsdScanner *scanner;
-    WsdRequest *request;
+    const SANE_Device **devlist;
     int i;
-    request_opt_t *options = wsd_options_create();
-    wsd_set_options_flags(options, FLAG_DUMP_REQUEST);
+    request_opt_t *options;
 
     /* Create SANE_DEVICE list from device list created in sane_init() */
     i = 0;
-    for (scanner = devlist; scanner; scanner = scanner->next) {
+    for (scanner = wsd_scanner_list; scanner; scanner = scanner->next) {
         i++;
     }
 
     DBG (DBG_info_sane, "sane_get_devices: found %d scanner\n", i);
-    device_list = calloc ((i + 1), sizeof (WsdScanner *));
-    if (!device_list) {
+    devlist = calloc ((i + 1), sizeof (WsdScanner *));
+    if (!devlist) {
         return SANE_STATUS_NO_MEM;
     }
     i = 0;
-    for (scanner = devlist; scanner; scanner = scanner->next) {
+    options = _create_request_options();
+    for (scanner = wsd_scanner_list; scanner; scanner = scanner->next) {
+        WsdRequest *request;
         DBG (DBG_info_sane, "sane_get_devices: create scanner '%s'\n", scanner->url);
         scanner->client = wsd_client_create_from_url(scanner->url);
         if (!scanner->client) {
@@ -229,7 +646,7 @@ sane_get_devices (const SANE_Device *** device_list, SANE_Bool __sane_unused__ l
         }
         request = wsd_action_get_scanner_description(scanner->client, options);
         if (!request) {
-            DBG (DBG_error, "Request creation failed\n");
+            DBG (DBG_error, "Description request creation failed\n");
             continue;
         }
         else {
@@ -239,18 +656,39 @@ sane_get_devices (const SANE_Device *** device_list, SANE_Bool __sane_unused__ l
                 char *error_str = wsd_transport_get_last_error_string(error);
                 DBG (DBG_error, "No reponse: error %d:%s\n", error, error_str);
             } else {
-                WsXmlDocH doc = wsd_response_doc(request);
+                // set name, vendor, model, type
                 WsXmlNodeH node = wsd_response_node(request);
-                xml_parser_element_dump(stderr, doc, node);
+                WsXmlNodeH scanner_name_node = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_SCANNER_NAME, 1);
+                WsXmlNodeH scanner_info_node = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_SCANNER_INFO, 1);
+//                WsXmlNodeH scanner_location_node = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_ELEMENT_SCANNER_LOCATION, 1);
+                scanner->sane_device.name = strdup(scanner->url);
+                scanner->sane_device.vendor = strdup("unknown");
+                if (scanner_name_node) {
+                    scanner->sane_device.model = strdup(ws_xml_get_node_text(scanner_name_node));
+                    DBG (DBG_info_sane, "sane_get_devices: %s:%s\n", WSD_SCANNER_NAME, scanner->sane_device.model);
+                } else {
+                    DBG (DBG_error, "No %s found\n", WSD_SCANNER_NAME);
+                }
+                if (scanner_info_node) {
+                    scanner->sane_device.type = strdup(ws_xml_get_node_text(scanner_info_node));
+                    DBG (DBG_info_sane, "sane_get_devices: %s:%s\n", WSD_SCANNER_INFO, scanner->sane_device.type);
+                } else {
+                    DBG (DBG_error, "No %s found\n", WSD_SCANNER_INFO);
+                }
+//                WsXmlDocH doc = wsd_response_doc(request);
+//                xml_parser_element_dump(stderr, doc, node);
             }
         }
         wsd_request_destroy(request);
         wsd_client_destroy(scanner->client);
-        device_list[i++] = &(scanner->sane_device);
+        scanner->client = NULL;
+        devlist[i++] = &(scanner->sane_device);
     }
-    device_list[i] = NULL;
-    wsd_options_destroy(options);
+    devlist[i] = NULL;
+    DBG (DBG_info_sane, "sane_get_devices: returning %p\n", (void *)devlist);
+    *device_list = devlist;
 
+    wsd_options_destroy(options);
     return SANE_STATUS_GOOD;
 }
 
@@ -266,45 +704,55 @@ sane_get_devices (const SANE_Device *** device_list, SANE_Bool __sane_unused__ l
 SANE_Status
 sane_open (SANE_String_Const devicename, SANE_Handle * handle)
 {
+    WsdScanner *scanner;
+    WsdRequest *request;
+    SANE_Status status = SANE_STATUS_GOOD;
+    request_opt_t *options;
 
     DBG (DBG_info_sane, "sane_open(%s)\n", devicename);
-    handle = handle;
-#if 0
-    SANE_Status status;
-    WsdScanner *scanner, *s;
-    /* If no device found, return error */
-    if (!dev) {
+
+    for (scanner = wsd_scanner_list; scanner; scanner = scanner->next) {
+        if (strcmp(devicename, scanner->url)) {
+            continue;
+        }
+        if (scanner->client) {
+            // reopen
+            return SANE_STATUS_DEVICE_BUSY;
+        }
+        scanner->client = wsd_client_create_from_url(scanner->url);
+        break;
+    }
+    if (!scanner) {
+        DBG (DBG_error, "No scanner matches '%s'\n", devicename);
+        // no device found
         return SANE_STATUS_INVAL;
     }
-
-    /* Now create a scanner structure to return */
-
-    /* Check if we are not opening the same scanner again. */
-    for (s = first_handle; s; s = s->next) {
-        if (s->device->sane.name == devicename) {
-            *handle = s;
-            return SANE_STATUS_GOOD;
-        }
+    if (!scanner->client) {
+        DBG (DBG_error, "Client creation for '%s' failed\n", scanner->url);
+        // open failed
+        return SANE_STATUS_INVAL;
     }
-
-    /* Create a new scanner instance */
-    scanner = malloc (sizeof (*scanner));
-    if (!scanner) {
-        return SANE_STATUS_NO_MEM;
-    }
-    memset (scanner, 0, sizeof (*scanner));
-    scanner->device = dev;
+    scanner->scanning = 0;
     scanner->cancel_request = 0;
 
-    /* First time settings */
-    /* ? */
-    /* Insert newly opened handle into list of open handles: */
-    scanner->next = first_handle;
-    first_handle = scanner;
+    options = _create_request_options();
 
-    *handle = scanner;
-#endif
-    return SANE_STATUS_GOOD;
+    request = wsd_action_get_scanner_configuration(scanner->client, options);
+    if (!request) {
+        DBG (DBG_error, "Configuration request creation failed\n");
+        status = SANE_STATUS_IO_ERROR;
+        goto exit_from_open;
+    }
+    WsXmlNodeH node = wsd_response_node(request);
+    _init_options(scanner, node);
+
+//  WsXmlDocH doc = wsd_response_doc(request);
+//                xml_parser_element_dump(stderr, doc, node);
+
+    *handle = (SANE_Handle)scanner;
+exit_from_open:
+    wsd_options_destroy(options);
+    return status;
 }
 
 /**
@@ -339,7 +787,7 @@ sane_close (SANE_Handle handle)
 const SANE_Option_Descriptor *
 sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
 {
-//    WsdScanner *scanner = handle;
+    WsdScanner *scanner = (WsdScanner *)handle;
 
     DBG (DBG_info_proc, "sane_get_option_descriptor() option=%d\n", option);
 
@@ -347,12 +795,8 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
     {
       return NULL;
     }
-#if 0
+
     return scanner->opt + option;
-#else
-    handle = handle;
-    return NULL;
-#endif
 }
 
 
@@ -369,14 +813,14 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
  */
 SANE_Status
 sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
-		     void *val, SANE_Int * info)
+		     void *val, SANE_Int *info)
 {
     WsdScanner *scanner = handle;
-//    SANE_Status status;
-  action = action;
-  val = val;
-  info = info;
-    DBG(DBG_info_sane,"sane_control_option()\n");
+    SANE_Status status = SANE_STATUS_GOOD;
+    SANE_Word cap;
+    SANE_String_Const name;
+
+    DBG(DBG_info_sane,"sane_control_option(%s:%d)\n", (action == SANE_ACTION_GET_VALUE)?"Get":((action == SANE_ACTION_SET_VALUE)?"Set":"?"), option);
     if (info) {
         *info = 0;
     }
@@ -392,7 +836,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
         DBG(DBG_error,"Index too large, no option returned\n");
         return SANE_STATUS_INVAL;
     }
-#if 0
+
     /* Check if option is switched on */
     cap = scanner->opt[option].cap;
     if (!SANE_OPTION_IS_ACTIVE (cap))
@@ -415,64 +859,28 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             DBG (DBG_info_sane, "get %s [#%d]\n", name, option);
 
             switch (option) {
-
-                /* word options: */
                 case OPT_NUM_OPTS:
-                case OPT_BIT_DEPTH:
-                case OPT_RESOLUTION:
-                case OPT_TL_X:
-                case OPT_TL_Y:
-                case OPT_BR_X:
-                case OPT_BR_Y:
-                case OPT_THRESHOLD:
-                case OPT_SHARPEN:
-                case OPT_SHADING_ANALYSIS:
-                case OPT_FAST_INFRARED:
-	        case OPT_ADVANCE_SLIDE:
-                case OPT_CORRECT_SHADING:
-                case OPT_CORRECT_INFRARED:
-                case OPT_CLEAN_IMAGE:
-                case OPT_SMOOTH_IMAGE:
-                case OPT_TRANSFORM_TO_SRGB:
-                case OPT_INVERT_IMAGE:
-                case OPT_PREVIEW:
-                case OPT_SAVE_SHADINGDATA:
-                case OPT_SAVE_CCDMASK:
-	        case OPT_LIGHT:
-	        case OPT_DOUBLE_TIMES:
-                case OPT_SET_EXPOSURE_R:
-                case OPT_SET_EXPOSURE_G:
-                case OPT_SET_EXPOSURE_B:
-                case OPT_SET_EXPOSURE_I:
-                case OPT_SET_GAIN_R:
-                case OPT_SET_GAIN_G:
-                case OPT_SET_GAIN_B:
-                case OPT_SET_GAIN_I:
-                case OPT_SET_OFFSET_R:
-                case OPT_SET_OFFSET_G:
-                case OPT_SET_OFFSET_B:
-                case OPT_SET_OFFSET_I:
+                /* word options: */
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
-                    return SANE_STATUS_GOOD;
+                    break;
 
-                /* word-array options: => for exposure gain offset? */
-                case OPT_CROP_IMAGE:
+#if 0
+                /* word-array options: */
                     memcpy (val, scanner->val[option].wa, scanner->opt[option].size);
-                    return SANE_STATUS_GOOD;
-
+                    break;
+#endif
                 /* string options */
-                case OPT_MODE:
-                case OPT_CALIBRATION_MODE:
-                case OPT_GAIN_ADJUST:
-                case OPT_HALFTONE_PATTERN:
+                case OPT_SCAN_SOURCE:
                     strcpy (val, scanner->val[option].s);
                     DBG (DBG_info_sane, "get %s [#%d] val=%s\n", name, option,scanner->val[option].s);
-                    return SANE_STATUS_GOOD;
+                    break;
+                default:
+                    status = SANE_STATUS_INVAL;
             }
             break;
-
         case SANE_ACTION_SET_VALUE:
+#if 0
 
             switch (scanner->opt[option].type) {
                 case SANE_TYPE_INT:
@@ -503,45 +911,10 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             switch (option)
             {
                 /* (mostly) side-effect-free word options: */
-                case OPT_BIT_DEPTH:
-                case OPT_RESOLUTION:
-                case OPT_TL_X:
-                case OPT_TL_Y:
-                case OPT_BR_X:
-                case OPT_BR_Y:
-                case OPT_SHARPEN:
-                case OPT_SHADING_ANALYSIS:
-                case OPT_FAST_INFRARED:
                     if (info) {
                         *info |= SANE_INFO_RELOAD_PARAMS;
                     }
                   /* fall through */
-                case OPT_NUM_OPTS:
-                case OPT_PREVIEW:
-	        case OPT_ADVANCE_SLIDE:
-                case OPT_CORRECT_SHADING:
-                case OPT_CORRECT_INFRARED:
-                case OPT_CLEAN_IMAGE:
-                case OPT_SMOOTH_IMAGE:
-                case OPT_TRANSFORM_TO_SRGB:
-                case OPT_INVERT_IMAGE:
-                case OPT_SAVE_SHADINGDATA:
-                case OPT_SAVE_CCDMASK:
-                case OPT_THRESHOLD:
-	        case OPT_LIGHT:
-	        case OPT_DOUBLE_TIMES:
-                case OPT_SET_GAIN_R:
-                case OPT_SET_GAIN_G:
-                case OPT_SET_GAIN_B:
-                case OPT_SET_GAIN_I:
-                case OPT_SET_OFFSET_R:
-                case OPT_SET_OFFSET_G:
-                case OPT_SET_OFFSET_B:
-                case OPT_SET_OFFSET_I:
-                case OPT_SET_EXPOSURE_R:
-                case OPT_SET_EXPOSURE_G:
-                case OPT_SET_EXPOSURE_B:
-                case OPT_SET_EXPOSURE_I:
                     scanner->val[option].w = *(SANE_Word *) val;
                     break;
 
@@ -589,126 +962,31 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             }
               */
             break;
+#endif
+        case SANE_ACTION_SET_AUTO:
         default:
-            return SANE_STATUS_INVAL;
+            status = SANE_STATUS_INVAL;
             break;
     }
-#endif
-    return SANE_STATUS_INVAL;
+    return status;
 }
 
-/**
- * Obtain the current scan parameters. The returned parameters are guaranteed
- * to be accurate between the time a scan has been started (sane start() has
- * been called) and the completion of that request. Outside of that window, the
- * returned values are best-effort estimates of what the parameters will be when
- * sane start() gets invoked. - says the SANE standard.
- *
- * @param handle Scanner handle
- * @param params Scan parameters
- * @return SANE_STATUS_GOOD
- */
-SANE_Status
-sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
-{
-  handle = handle;
-  params = params;
-    DBG (DBG_info_sane, "sane_get_parameters\n");
-#if 0
-    WsdScanner *scanner = handle;
-    const char *mode;
-    double resolution, width, height;
-    SANE_Int colors;
-    if (params) {
-
-        if (scanner->scanning) {
-            /* sane_start() initialized a SANE_Parameters struct in the scanner */
-            DBG (DBG_info_sane, "sane_get_parameters from scanner values\n");
-            params->bytes_per_line = scanner->scan_parameters.bytes_per_line;
-            params->depth = scanner->scan_parameters.depth;
-            params->format = scanner->scan_parameters.format;
-            params->last_frame = scanner->scan_parameters.last_frame;
-            params->lines = scanner->scan_parameters.lines;
-            params->pixels_per_line = scanner->scan_parameters.pixels_per_line;
-        } else {
-            /* Calculate appropriate values from option settings */
-            DBG (DBG_info_sane, "sane_get_parameters from option values\n");
-            if (scanner->val[OPT_PREVIEW].b) {
-                resolution = scanner->device->fast_preview_resolution;
-            } else {
-                resolution = SANE_UNFIX(scanner->val[OPT_RESOLUTION].w);
-            }
-            DBG (DBG_info_sane, "  resolution %f\n", resolution);
-            width = SANE_UNFIX(scanner->val[OPT_BR_X].w)-SANE_UNFIX(scanner->val[OPT_TL_X].w);
-            height = SANE_UNFIX(scanner->val[OPT_BR_Y].w)-SANE_UNFIX(scanner->val[OPT_TL_Y].w);
-            DBG (DBG_info_sane, "  width x height: %f x %f\n", width, height);
-            params->lines = height / MM_PER_INCH * resolution;
-            params->pixels_per_line = width / MM_PER_INCH * resolution;
-            mode = scanner->val[OPT_MODE].s;
-            if (strcmp(mode, SANE_VALUE_SCAN_MODE_LINEART) == 0) {
-                params->format = SANE_FRAME_GRAY;
-                params->depth = 1;
-                colors = 1;
-            } else if(strcmp(mode, SANE_VALUE_SCAN_MODE_HALFTONE) == 0) {
-                params->format = SANE_FRAME_GRAY;
-                params->depth = 1;
-                colors = 1;
-            } else if(strcmp(mode, SANE_VALUE_SCAN_MODE_GRAY) == 0) {
-                params->format = SANE_FRAME_GRAY;
-                params->depth = scanner->val[OPT_BIT_DEPTH].w;
-                colors = 1;
-            } else if(strcmp(mode, SANE_VALUE_SCAN_MODE_RGBI) == 0) {
-                params->format = SANE_FRAME_RGB; /* was: SANE_FRAME_RGBI */
-                params->depth = scanner->val[OPT_BIT_DEPTH].w;
-                colors = 4;
-            } else { /* SANE_VALUE_SCAN_MODE_COLOR */
-                params->format = SANE_FRAME_RGB;
-                params->depth = scanner->val[OPT_BIT_DEPTH].w;
-                colors = 3;
-            }
-            DBG (DBG_info_sane, "  colors: %d\n", colors);
-            if (params->depth == 1) {
-                params->bytes_per_line = colors * (params->pixels_per_line + 7)/8;
-            } else if (params->depth <= 8) {
-                params->bytes_per_line = colors * params->pixels_per_line;
-            } else if (params->depth <= 16) {
-                params->bytes_per_line = 2 * colors * params->pixels_per_line;
-            }
-            params->last_frame = SANE_TRUE;
-        }
-
-        DBG(DBG_info_sane,"sane_get_parameters(): SANE parameters\n");
-        DBG(DBG_info_sane," format = %d\n",params->format);
-        DBG(DBG_info_sane," last_frame = %d\n",params->last_frame);
-        DBG(DBG_info_sane," bytes_per_line = %d\n",params->bytes_per_line);
-        DBG(DBG_info_sane," pixels_per_line = %d\n",params->pixels_per_line);
-        DBG(DBG_info_sane," lines = %d\n",params->lines);
-        DBG(DBG_info_sane," depth = %d\n",params->depth);
-
-    } else {
-
-        DBG(DBG_info_sane," no params argument, no values returned\n");
-
-    }
-#endif
-    return SANE_STATUS_GOOD;
-}
 
 /**
  * Initiates aquisition of an image from the scanner.
- * SCAN Phase 1: initialization and calibration
- * (SCAN Phase 2: line-by-line scan & read is not implemented)
- * SCAN Phase 3: get CCD-mask
- * SCAN phase 4: scan slide and save data in scanner buffer
 
  * @param handle Scanner handle
- * @return
+ * @return status
  */
+
 SANE_Status
 sane_start (SANE_Handle handle)
 {
-    WsdScanner *scanner = handle;
+    SANE_Status status = SANE_STATUS_GOOD;
 
+    WsdScanner *scanner = (WsdScanner *)handle;
+    WsdRequest *request = NULL;
+    request_opt_t *options = _create_request_options();
 
     DBG (DBG_info_sane, "sane_start()\n");
 
@@ -722,18 +1000,174 @@ sane_start (SANE_Handle handle)
         return SANE_STATUS_DEVICE_BUSY;
     }
 
-    scanner->scanning = SANE_TRUE;
-    scanner->cancel_request = SANE_FALSE;
+    status = _get_status(scanner);
+    if (status != SANE_STATUS_GOOD)
+        goto start_done;
+
+    request = wsd_action_create_scan_job(scanner->client, options, NULL);
+    if (!request) {
+        DBG (DBG_error, "sane_start(): create_scan_job failed\n");
+        status = SANE_STATUS_IO_ERROR;
+        goto start_done;
+    }
+    WsXmlNodeH node = wsd_response_node(request);
+    WsXmlNodeH job_id = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_JOB_ID, 1);
+    if (!job_id) {
+        DBG (DBG_error, "No %s in create_scan_job response\n", WSD_JOB_ID);
+        goto start_done;
+    }
+    scanner->job_id = strdup(ws_xml_get_node_text(job_id));
+    WsXmlNodeH job_token = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_JOB_TOKEN, 1);
+    if (!job_token) {
+        DBG (DBG_error, "No %s in create_scan_job response\n", WSD_JOB_TOKEN);
+        goto start_done;
+    }
+    scanner->job_token = strdup(ws_xml_get_node_text(job_token));
+    DBG (DBG_info_sane, "Job token '%s'\n", scanner->job_token);
+    WsXmlNodeH media_front_image_info = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_MEDIA_FRONT_IMAGE_INFO, 1);
+    if (!media_front_image_info) {
+        DBG (DBG_error, "No %s in create_scan_job response\n", WSD_MEDIA_FRONT_IMAGE_INFO);
+        goto start_done;
+    }
+    WsXmlNodeH color_processing = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_COLOR_PROCESSING, 1);
+    if (!color_processing) {
+        DBG (DBG_error, "No %s in create_scan_job response\n", WSD_COLOR_PROCESSING);
+        goto start_done;
+    }
+    int bits_per_pixel = _color_mode_to_depth(ws_xml_get_node_text(color_processing));
+    switch (bits_per_pixel) {
+    case 1:
+      scanner->scan_parameters.format = SANE_FRAME_GRAY;
+      scanner->scan_parameters.depth = 1;
+      break;
+    case 4:
+    case 8:
+      scanner->scan_parameters.format = SANE_FRAME_GRAY;
+      scanner->scan_parameters.depth = 8;
+      break;
+    case 16:
+      scanner->scan_parameters.format = SANE_FRAME_GRAY;
+      scanner->scan_parameters.depth = 16;
+      break;
+    case 24:
+    case 32:
+      scanner->scan_parameters.format = SANE_FRAME_RGB;
+      scanner->scan_parameters.depth = 8;
+      break;
+    case 48:
+    case 64:
+      scanner->scan_parameters.format = SANE_FRAME_RGB;
+      scanner->scan_parameters.depth = 16;
+      break;
+    default:
+        DBG (DBG_error, "Strange bits_per_pixel %d\n", bits_per_pixel);
+        goto start_done;
+    }
+    WsXmlNodeH pixels_per_line = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_PIXELS_PER_LINE, 1);
+    if (!pixels_per_line) {
+        DBG (DBG_error, "No %s in create_scan_job response\n", WSD_PIXELS_PER_LINE);
+        goto start_done;
+    }
+    scanner->scan_parameters.pixels_per_line = atoi(ws_xml_get_node_text(pixels_per_line));
+    WsXmlNodeH number_of_lines = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_NUMBER_OF_LINES, 1);
+    if (!number_of_lines) {
+        DBG (DBG_error, "No %s in create_scan_job response\n", WSD_NUMBER_OF_LINES);
+        goto start_done;
+    }
+    scanner->scan_parameters.lines = atoi(ws_xml_get_node_text(number_of_lines));
+    scanner->scan_parameters.bytes_per_line = (scanner->scan_parameters.pixels_per_line * scanner->scan_parameters.depth) / 8;
+
+    scanner->scanning = 1;
+    scanner->cancel_request = 0;
+
 #if 0
+    scanner->scan_parameters.bytes_per_line;
+    scanner->scan_parameters.depth;
+    scanner->scan_parameters.format;
+    scanner->scan_parameters.last_frame;
+    scanner->scan_parameters.lines;
+    scanner->scan_parameters.pixels_per_line;
     /* Handle cancel request */
     if (scanner->cancel_request) {
         return sanei_wsdscan_on_cancel (scanner);
     }
 #endif
 
-    return SANE_STATUS_GOOD;
-
+start_done:
+    if (request)
+        wsd_request_destroy(request);
+    wsd_options_destroy(options);
+    return status;
 }
+
+
+/**
+ * Obtain the current scan parameters. The returned parameters are guaranteed
+ * to be accurate between the time a scan has been started (sane_start() has
+ * been called) and the completion of that request. Outside of that window, the
+ * returned values are best-effort estimates of what the parameters will be when
+ * sane start() gets invoked. - says the SANE standard.
+ *
+ * @param handle Scanner handle
+ * @param params Scan parameters
+ * @return SANE_STATUS_GOOD
+ */
+
+SANE_Status
+sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
+{
+    DBG (DBG_info_sane, "sane_get_parameters()\n");
+
+    WsdScanner *scanner = (WsdScanner *)handle;
+    double resolution;
+
+    if (params) {
+
+        if (scanner->scanning) {
+            /* sane_start() initialized a SANE_Parameters struct in the scanner */
+            DBG (DBG_info_sane, "sane_get_parameters from scanner values\n");
+            params->bytes_per_line = scanner->scan_parameters.bytes_per_line;
+            params->depth = scanner->scan_parameters.depth;
+            params->format = scanner->scan_parameters.format;
+            params->last_frame = scanner->scan_parameters.last_frame;
+            params->lines = scanner->scan_parameters.lines;
+            params->pixels_per_line = scanner->scan_parameters.pixels_per_line;
+            params->last_frame = SANE_TRUE;
+        } else {
+            /* Calculate appropriate values from option settings */
+            DBG (DBG_info_sane, "sane_get_parameters from option values\n");
+            resolution = SANE_UNFIX(scanner->val[OPT_RESOLUTION].w);
+            DBG (DBG_info_sane, "  resolution %f\n", resolution);
+            SANE_Int colors = scanner->val[OPT_COLOR].w = 24;
+            DBG (DBG_info_sane, "  colors: %d\n", colors);
+            if (params->depth == 1) {
+                params->bytes_per_line = colors * (params->pixels_per_line + 7)/8;
+            } else if (params->depth <= 8) {
+                params->bytes_per_line = colors * params->pixels_per_line;
+            } else if (params->depth <= 16) {
+                params->bytes_per_line = 2 * colors * params->pixels_per_line;
+            }
+            params->last_frame = SANE_TRUE;
+        }
+
+        DBG(DBG_info_sane,"sane_get_parameters(): SANE parameters\n");
+        DBG(DBG_info_sane," format = %d\n", params->format);
+        DBG(DBG_info_sane," last_frame = %d\n", params->last_frame);
+        DBG(DBG_info_sane," bytes_per_line = %d\n", params->bytes_per_line);
+        DBG(DBG_info_sane," pixels_per_line = %d\n", params->pixels_per_line);
+        DBG(DBG_info_sane," lines = %d\n", params->lines);
+        DBG(DBG_info_sane," depth = %d\n", params->depth);
+
+    } else {
+
+        DBG(DBG_error,"sane_get_parameters() no params argument, no values returned\n");
+        return SANE_STATUS_INVAL;
+
+    }
+
+    return SANE_STATUS_GOOD;
+}
+
 
 /**
  * Read image data from the scanner buffer.
@@ -747,24 +1181,104 @@ sane_start (SANE_Handle handle)
 SANE_Status
 sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len)
 {
-  buf = buf;
-  len = len;
-    WsdScanner *scanner = handle;
-//    SANE_Int return_size;
+    static u_buf_t *image_buf = NULL;
+    static char *image_data = NULL;
+    static int image_size = 0;
+    WsdScanner *scanner = (WsdScanner *)handle;
+    WsdRequest *request = NULL;
+    SANE_Status status = SANE_STATUS_GOOD;
+    request_opt_t *options = _create_request_options();
 
     DBG(DBG_info_sane, "sane_read(): requested %d bytes\n", max_len);
 
+    if (image_data) {
+        int size = MIN(max_len, image_size);
+        DBG (DBG_info_sane, "sane_read(): have image_data, copying %d bytes\n", size);
+        if (size == 0) {
+            u_buf_free(image_buf);
+            image_buf = NULL;
+            image_data = NULL;
+            image_size = 0;
+            *len = 0;
+            scanner->scanning = SANE_FALSE;
+            DBG( DBG_info_sane, "sane_read(): EOF\n");
+            return SANE_STATUS_EOF;
+        }
+        memcpy(buf, image_data, size);
+        *len = size;
+        image_size -= size;
+        image_data += size;
+        DBG( DBG_info_sane, "sane_read(): return %d bytes\n", *len);
+        return status;
+    }
     /* No reading if not scanning */
     if (!scanner->scanning) {
         *len = 0;
-        return SANE_STATUS_IO_ERROR; /* SANE standard does not allow a SANE_STATUS_INVAL return */
+        status = SANE_STATUS_IO_ERROR; /* SANE standard does not allow a SANE_STATUS_INVAL return */
+        goto sane_read_done;
     }
+    DBG (DBG_info_sane, "sane_read(): no image_data, checking status\n");
 
-    /* Handle cancel request */
-    if (scanner->cancel_request) {
-        /* cancel */
+    status = _get_status(scanner);
+    if (status != SANE_STATUS_DEVICE_BUSY) {
+        DBG( DBG_error, "Scanner is not busy in sane_read()\n");
+        goto sane_read_done;
     }
-    return SANE_STATUS_GOOD;
+    WsdScanJob scan_job = {
+        .id = scanner->job_id,
+        .token = scanner->job_token,
+        .document_name = "document.name"
+    };
+    DBG (DBG_info_sane, "sane_read(): RetrieveImage\n");
+    request = wsd_action_retrieve_image(scanner->client, options, &scan_job, &image_buf);
+    if (!request) {
+        DBG (DBG_error, "sane_start(): create_scan_job failed\n");
+        status = SANE_STATUS_IO_ERROR;
+        goto sane_read_done;
+    }
+    WsXmlNodeH node = wsd_response_node(request);
+    WsXmlNodeH scan_data = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_SCAN_DATA, 1);
+    if (!scan_data) {
+        DBG (DBG_error, "No %s in RetrieveImageResponse\n", WSD_SCAN_DATA);
+        status = SANE_STATUS_INVAL;
+        goto sane_read_done;
+    }
+    /* <xop:Include href="cid:id6"/> */
+    WsXmlNodeH xop_include = ws_xml_find_in_tree(scan_data, XML_NS_XOP, WSD_XOP_INCLUDE, 1);
+    if (!xop_include) {
+        DBG (DBG_error, "No xop:%s in %s\n", WSD_XOP_INCLUDE, WSD_SCAN_DATA);
+        status = SANE_STATUS_INVAL;
+        goto sane_read_done;
+    }
+    WsXmlAttrH xop_href = ws_xml_find_node_attr(xop_include, NULL, WSD_XOP_HREF);
+    if (!xop_href) {
+        DBG (DBG_error, "No %s attribute in %s\n", WSD_XOP_HREF, WSD_XOP_INCLUDE);
+        status = SANE_STATUS_INVAL;
+        goto sane_read_done;
+    }
+    char *mtom_href = ws_xml_get_attr_value(xop_href);
+    if (strncmp(mtom_href, WSD_XOP_CID, WSD_XOP_CID_LEN)) {
+        DBG (DBG_error, "No %s prefix attribute in '%s'\n", WSD_XOP_CID, mtom_href);
+        status = SANE_STATUS_INVAL;
+        goto sane_read_done;
+    }
+    DBG (DBG_info_sane, "sane_read(): have %d bytes of image_data\n", image_size);
+    image_data = u_buf_ptr(image_buf);
+    image_size = u_buf_len(image_buf);
+    FILE *output = fopen("output.jpeg", "w+");
+    fwrite(image_data, image_size, 1, output);
+    fclose(output);
+    status = SANE_STATUS_GOOD;
+sane_read_done:
+    if (request)
+        wsd_request_destroy(request);
+    if (image_buf && (image_data == NULL)) {
+        u_buf_free(image_buf);
+        image_buf = NULL;
+    }
+    wsd_options_destroy(options);
+
+    return status;
 }
 
 
