@@ -213,7 +213,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_SCAN_SOURCE].type = SANE_TYPE_STRING;
     scanner->opt[OPT_SCAN_SOURCE].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_SCAN_SOURCE].size = _max_string_size(scan_sources);
-    scanner->opt[OPT_SCAN_SOURCE].cap = 0;
+//    scanner->opt[OPT_SCAN_SOURCE].cap = 0;
     scanner->opt[OPT_SCAN_SOURCE].constraint_type = SANE_CONSTRAINT_STRING_LIST;
     scanner->opt[OPT_SCAN_SOURCE].constraint.string_list = scan_sources;
     scanner->val[OPT_SCAN_SOURCE].s = strdup(scan_sources[0]);
@@ -302,13 +302,14 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_RESOLUTION].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_RESOLUTION].unit = SANE_UNIT_DPI;
     scanner->opt[OPT_RESOLUTION].size = 0;
-    scanner->opt[OPT_RESOLUTION].cap = 0;
+//    scanner->opt[OPT_RESOLUTION].cap = 0;
     scanner->opt[OPT_RESOLUTION].constraint_type = SANE_CONSTRAINT_RANGE;
     range->min = MIN(min_x_res, min_y_res);
     range->max = MAX(max_x_res, max_y_res);
-    range->quant = 0;
+    DBG (DBG_info_sane, "resolution min %d, max %d\n", range->min, range->max);
+    range->quant = SANE_FIX(1);
     scanner->opt[OPT_RESOLUTION].constraint.range = range;
-    scanner->val[OPT_RESOLUTION].w = range->min;
+    scanner->val[OPT_RESOLUTION].w = range->min << SANE_FIXED_SCALE_SHIFT;
 
     /* colors */
 
@@ -331,9 +332,9 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     if (!bpp_list) {
         return SANE_STATUS_NO_MEM;
     }
-    bpp_list[0] = i;
+    bpp_list[0] = i; /* count */
     int j;
-    for (j = 0; j < i; j++) {
+    for (j = 1; j <= i; j++) {
         WsXmlNodeH color_entry = ws_xml_get_child(color, j, XML_NS_WDP_SCAN, WSD_COLOR_ENTRY);
         char *text;
         if (!color_entry) {
@@ -344,6 +345,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         bpp_list[j] = _color_mode_to_depth(text);
         if (bpp_list[j] == 0) {
             DBG (DBG_error, "Unknown %s:%s in %s, ignoring\n", WSD_COLOR_ENTRY, text, ws_xml_get_node_local_name(color));
+        } else {
+            DBG (DBG_info_sane, "color depth[%d] = %d\n", j, bpp_list[j]);
         }
     }
     scanner->opt[OPT_COLOR].name = "Color";
@@ -352,7 +355,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_COLOR].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_COLOR].unit = SANE_UNIT_BIT;
     scanner->opt[OPT_COLOR].size = sizeof(SANE_Word);
-    scanner->opt[OPT_COLOR].cap = 0;
+//    scanner->opt[OPT_COLOR].cap = 0;
     scanner->opt[OPT_COLOR].constraint_type = SANE_CONSTRAINT_WORD_LIST;
     scanner->opt[OPT_COLOR].constraint.word_list = bpp_list;
     scanner->val[OPT_COLOR].w = 24;
@@ -401,7 +404,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_WIDTH].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_WIDTH].unit = SANE_UNIT_MM;
     scanner->opt[OPT_WIDTH].size = _max_string_size(scan_sources);
-    scanner->opt[OPT_WIDTH].cap = 0;
+//    scanner->opt[OPT_WIDTH].cap = 0;
     scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_WIDTH].constraint.range = range;
     scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
@@ -439,7 +442,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_HEIGHT].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_HEIGHT].unit = SANE_UNIT_MM;
     scanner->opt[OPT_HEIGHT].size = _max_string_size(scan_sources);
-    scanner->opt[OPT_HEIGHT].cap = 0;
+//    scanner->opt[OPT_HEIGHT].cap = 0;
     scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_HEIGHT].constraint.range = range;
     scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
@@ -861,6 +864,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             switch (option) {
                 case OPT_NUM_OPTS:
                 /* word options: */
+                case OPT_RESOLUTION:
+                case OPT_COLOR:
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
                     break;
@@ -879,9 +884,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                     status = SANE_STATUS_INVAL;
             }
             break;
-        case SANE_ACTION_SET_VALUE:
-#if 0
 
+        case SANE_ACTION_SET_VALUE:
             switch (scanner->opt[option].type) {
                 case SANE_TYPE_INT:
                     DBG (DBG_info_sane, "set %s [#%d] to %d, size=%d\n", name, option, *(SANE_Word *) val, scanner->opt[option].size);
@@ -907,24 +911,27 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             if (status != SANE_STATUS_GOOD) {
               return status;
             }
+
             /* Set option and handle info return */
             switch (option)
             {
+                case OPT_RESOLUTION:
+                case OPT_COLOR:
                 /* (mostly) side-effect-free word options: */
                     if (info) {
                         *info |= SANE_INFO_RELOAD_PARAMS;
                     }
-                  /* fall through */
+                /* fall through */
                     scanner->val[option].w = *(SANE_Word *) val;
                     break;
-
+#if 0
                 /* side-effect-free word-array options: */
                 case OPT_CROP_IMAGE:
                     memcpy (scanner->val[option].wa, val, scanner->opt[option].size);
                     break;
-
+#endif
                 /* options with side-effects: */
-                case OPT_MODE:
+                case OPT_SCAN_SOURCE:
                 {
                     /* Free current setting */
                     if (scanner->val[option].s) {
@@ -938,7 +945,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                     }
                     break;
                 }
-
+#if 0
                 case OPT_CALIBRATION_MODE:
                 case OPT_GAIN_ADJUST:
                 case OPT_HALFTONE_PATTERN:
@@ -951,6 +958,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                     scanner->val[option].s = (SANE_Char *) strdup (val);
                     break;
                 }
+#endif
 
             }
 
@@ -962,8 +970,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             }
               */
             break;
-#endif
         case SANE_ACTION_SET_AUTO:
+            break;
         default:
             status = SANE_STATUS_INVAL;
             break;
