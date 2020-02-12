@@ -1,6 +1,9 @@
 # wsd-scan.conf: Configuration file for WSD network scanners
 # Read man sane-wsd-scan for documentation
 
+# debug
+url file:///abuild/projects/digitdia/sane-backends/configuration
+
 # Format
 # url http://...
 url http://192.168.0.112:80/ws
