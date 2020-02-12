@@ -219,8 +219,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->val[OPT_SCAN_SOURCE].s = strdup(scan_sources[0]);
 
     /* Format Group */
-    scanner->opt[OPT_FORMAT_GROUP].name = "Mode";
-    scanner->opt[OPT_FORMAT_GROUP].title = "Scan mode";
+    scanner->opt[OPT_FORMAT_GROUP].name = "Format";
+    scanner->opt[OPT_FORMAT_GROUP].title = "Scan format";
     scanner->opt[OPT_FORMAT_GROUP].desc = "";
     scanner->opt[OPT_FORMAT_GROUP].type = SANE_TYPE_GROUP;
     scanner->opt[OPT_FORMAT_GROUP].unit = 0;
@@ -301,7 +301,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_RESOLUTION].desc = "Resolution in dots per inch";
     scanner->opt[OPT_RESOLUTION].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_RESOLUTION].unit = SANE_UNIT_DPI;
-    scanner->opt[OPT_RESOLUTION].size = 0;
+    scanner->opt[OPT_RESOLUTION].size = sizeof(SANE_Word);
 //    scanner->opt[OPT_RESOLUTION].cap = 0;
     scanner->opt[OPT_RESOLUTION].constraint_type = SANE_CONSTRAINT_RANGE;
     range->min = MIN(min_x_res, min_y_res);
@@ -335,14 +335,14 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     bpp_list[0] = i; /* count */
     int j;
     for (j = 1; j <= i; j++) {
-        WsXmlNodeH color_entry = ws_xml_get_child(color, j, XML_NS_WDP_SCAN, WSD_COLOR_ENTRY);
+        WsXmlNodeH color_entry = ws_xml_get_child(color, j-1, XML_NS_WDP_SCAN, WSD_COLOR_ENTRY);
         char *text;
         if (!color_entry) {
-            DBG (DBG_error, "%s has no %s as child #%d\n", ws_xml_get_node_local_name(color), WSD_COLOR_ENTRY, j);
+            DBG (DBG_error, "%s has no %s as child #%d\n", ws_xml_get_node_local_name(color), WSD_COLOR_ENTRY, j-1);
             return SANE_STATUS_INVAL;
         }
         text = ws_xml_get_node_text(color_entry);
-        bpp_list[j] = _color_mode_to_depth(text);
+        bpp_list[j] = _color_mode_to_depth(text) << SANE_FIXED_SCALE_SHIFT;
         if (bpp_list[j] == 0) {
             DBG (DBG_error, "Unknown %s:%s in %s, ignoring\n", WSD_COLOR_ENTRY, text, ws_xml_get_node_local_name(color));
         } else {
@@ -358,15 +358,13 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
 //    scanner->opt[OPT_COLOR].cap = 0;
     scanner->opt[OPT_COLOR].constraint_type = SANE_CONSTRAINT_WORD_LIST;
     scanner->opt[OPT_COLOR].constraint.word_list = bpp_list;
-    scanner->val[OPT_COLOR].w = 24;
+    scanner->val[OPT_COLOR].w = bpp_list[i]; /* highest mode */
 
     /* Geometry Group */
-    scanner->opt[OPT_FORMAT_GROUP].name = "Size";
-    scanner->opt[OPT_FORMAT_GROUP].title = "Scan size";
+    scanner->opt[OPT_FORMAT_GROUP].name = "Resolution";
+    scanner->opt[OPT_FORMAT_GROUP].title = "Scan resolution";
     scanner->opt[OPT_FORMAT_GROUP].desc = "";
     scanner->opt[OPT_FORMAT_GROUP].type = SANE_TYPE_GROUP;
-    scanner->opt[OPT_FORMAT_GROUP].unit = 0;
-    scanner->opt[OPT_FORMAT_GROUP].size = 0;
     scanner->opt[OPT_FORMAT_GROUP].cap = 0;
     scanner->opt[OPT_FORMAT_GROUP].constraint_type = SANE_CONSTRAINT_NONE;
 
@@ -403,7 +401,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_WIDTH].desc = "Width of scan area";
     scanner->opt[OPT_WIDTH].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_WIDTH].unit = SANE_UNIT_MM;
-    scanner->opt[OPT_WIDTH].size = _max_string_size(scan_sources);
+    scanner->opt[OPT_WIDTH].size = sizeof(SANE_Word);
 //    scanner->opt[OPT_WIDTH].cap = 0;
     scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_WIDTH].constraint.range = range;
@@ -441,7 +439,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_HEIGHT].desc = "Height of scan area";
     scanner->opt[OPT_HEIGHT].type = SANE_TYPE_FIXED;
     scanner->opt[OPT_HEIGHT].unit = SANE_UNIT_MM;
-    scanner->opt[OPT_HEIGHT].size = _max_string_size(scan_sources);
+    scanner->opt[OPT_HEIGHT].size = sizeof(SANE_Word);
 //    scanner->opt[OPT_HEIGHT].cap = 0;
     scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_HEIGHT].constraint.range = range;
@@ -459,7 +457,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_].type = SANE_TYPE_STRING;
     scanner->opt[OPT_].unit = SANE_UNIT_NONE;
     scanner->opt[OPT_].size = _max_string_size(scan_sources);
-    scanner->opt[OPT_].cap = 0;
+//    scanner->opt[OPT_].cap = 0;
     scanner->opt[OPT_].constraint_type = SANE_CONSTRAINT_STRING_LIST;
     scanner->opt[OPT_].constraint.string_list = scan_sources;
     scanner->val[OPT_].s = strdup(scan_sources[0]);
