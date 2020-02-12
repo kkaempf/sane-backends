@@ -155,6 +155,47 @@ _color_mode_to_depth(char *text)
     DBG (DBG_error, "Unknown color mode '%s'\n", text);
     return 0;
 }
+
+/*
+ * extract options from xml to string list
+ */
+SANE_String_Const *
+_build_options_list(WsXmlNodeH parent, const char *initial, const char *ns, const char *outer, const char *inner)
+{
+    int count = (initial)?1:0;
+    SANE_String_Const *options;
+    const char *parent_name;
+    if (!parent) {
+        DBG (DBG_error, "_build_options_list() - no parent given\n");
+        return NULL;
+    }
+    parent_name = ws_xml_get_node_local_name(parent);
+    DBG (DBG_info_sane, "_build_options_list(parent %s, ns %s, outer %s, inner %s\n", parent_name, ns, outer, inner);
+
+    WsXmlNodeH outer_node = ws_xml_find_in_tree(parent, ns, outer, 1);
+    if (outer_node) {
+        count += ws_xml_get_child_count_by_qname(outer_node, ns, inner);
+        DBG (DBG_info_sane, "Found %d %s entries\n", count, inner);
+    }
+    options = calloc(count+1, sizeof(SANE_String_Const)); /* +1 for trailing NULL */
+    if (!options) {
+        DBG (DBG_error, "_build_options_list() - calloc() returned NULL\n");
+        return NULL;
+    }
+    int o = 0;
+    if (initial) {
+      options[o++] = strdup(initial);
+    }
+    WsXmlNodeH inner_node;
+    int i = 0;
+    while ((inner_node = ws_xml_get_child(outer_node, i++, ns, inner))) {
+        options[o++] = strdup(ws_xml_get_node_text(inner_node));
+    }
+    DBG (DBG_error, "_build_options_list() - created %d of %d options\n", o, count);
+  
+    return options;
+}
+
 /**
  * Initiaize scanner options from the device definition.
  * The function is called by sane_open(), when no
@@ -248,9 +289,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         DBG (DBG_error, "No %s or %s found in %s\n", WSD_WIDTH, WSD_HEIGHT, ws_xml_get_node_local_name(optical_resolution));
         return SANE_STATUS_INVAL;
     }
-    SANE_Word max_x_res = atoi(ws_xml_get_node_text(width));
-    SANE_Word max_y_res = atoi(ws_xml_get_node_text(height));
-    DBG (DBG_info_sane, "resolution %d x %d\n", max_x_res, max_y_res);
+    SANE_String max_width = ws_xml_get_node_text(width);
+    SANE_String max_height = ws_xml_get_node_text(height);
 
     /* then - other resolutions */
     WsXmlNodeH platen_resolutions = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_RESOLUTIONS, 1);
@@ -264,52 +304,20 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
             }
         }
     }
-    WsXmlNodeH widths = ws_xml_find_in_tree(platen_resolutions, XML_NS_WDP_SCAN, WSD_WIDTHS, 1);
-    SANE_Word min_x_res = max_x_res;
-    SANE_Word res;
-    if (widths) {
-        i = 0;
-        while ((width = ws_xml_get_child(widths, i++, XML_NS_WDP_SCAN, WSD_WIDTH))) {
-            res = atoi(ws_xml_get_node_text(width));
-            DBG (DBG_info_sane, "x resolution %d\n", res);
-            if (res < min_x_res)
-                min_x_res = res;
-        }
-    } else {
-          DBG (DBG_warning, "No %s found in %s\n", WSD_WIDTHS, ws_xml_get_node_local_name(platen_resolutions));
-    }
-  
-    WsXmlNodeH heights = ws_xml_find_in_tree(platen_resolutions, XML_NS_WDP_SCAN, WSD_HEIGHTS, 1);
-    SANE_Word min_y_res = max_y_res;
-    if (heights) {
-        i = 0;
-        while ((height = ws_xml_get_child(heights, i++, XML_NS_WDP_SCAN, WSD_HEIGHT))) {
-            res = atoi(ws_xml_get_node_text(height));
-            DBG (DBG_info_sane, "y resolution %d\n", res);
-            if (res < min_y_res)
-                min_y_res = res;
-        }
-    } else {
-          DBG (DBG_warning, "No %s found in %s\n", WSD_HEIGHTS, ws_xml_get_node_local_name(platen_resolutions));
-    }
-    SANE_Range *range = calloc(1, sizeof(SANE_Range));
-    if (!range) {
-        return SANE_STATUS_NO_MEM;
-    }
+    SANE_String_Const *x_resolutions = _build_options_list(platen_resolutions, max_width, XML_NS_WDP_SCAN, WSD_WIDTHS, WSD_WIDTH);
+//    SANE_String_Const *y_resolutions = _build_options_list(platen_resolutions, max_height, XML_NS_WDP_SCAN, WSD_HEIGHTS, WSD_HEIGHT);
+
     scanner->opt[OPT_RESOLUTION].name = "Resolution";
     scanner->opt[OPT_RESOLUTION].title = "Scan resolution";
     scanner->opt[OPT_RESOLUTION].desc = "Resolution in dots per inch";
-    scanner->opt[OPT_RESOLUTION].type = SANE_TYPE_FIXED;
-    scanner->opt[OPT_RESOLUTION].unit = SANE_UNIT_DPI;
-    scanner->opt[OPT_RESOLUTION].size = sizeof(SANE_Word);
+    scanner->opt[OPT_RESOLUTION].type = SANE_TYPE_STRING;
+    scanner->opt[OPT_RESOLUTION].unit = SANE_UNIT_NONE;
+    scanner->opt[OPT_RESOLUTION].size = _max_string_size(x_resolutions);
 //    scanner->opt[OPT_RESOLUTION].cap = 0;
-    scanner->opt[OPT_RESOLUTION].constraint_type = SANE_CONSTRAINT_RANGE;
-    range->min = MIN(min_x_res, min_y_res);
-    range->max = MAX(max_x_res, max_y_res);
-    DBG (DBG_info_sane, "resolution min %d, max %d\n", range->min, range->max);
-    range->quant = SANE_FIX(1);
-    scanner->opt[OPT_RESOLUTION].constraint.range = range;
-    scanner->val[OPT_RESOLUTION].w = range->min << SANE_FIXED_SCALE_SHIFT;
+    scanner->opt[OPT_RESOLUTION].constraint_type = SANE_CONSTRAINT_STRING_LIST;
+    scanner->opt[OPT_RESOLUTION].constraint.string_list = x_resolutions;
+    scanner->val[OPT_RESOLUTION].s = strdup(x_resolutions[0]);
+    DBG (DBG_info_sane, "scanner->val[%d].s = %s\n", OPT_RESOLUTION, scanner->val[OPT_RESOLUTION].s);
 
     /* colors */
 
@@ -392,7 +400,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         return SANE_STATUS_INVAL;
     }
     max_w = atoi(ws_xml_get_node_text(width));
-    range = calloc(1, sizeof(SANE_Range));
+    SANE_Range *range = calloc(1, sizeof(SANE_Range));
     if (!range) {
         return SANE_STATUS_NO_MEM;
     }
@@ -407,8 +415,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_WIDTH].constraint.range = range;
     scanner->opt[OPT_WIDTH].constraint_type = SANE_CONSTRAINT_RANGE;
-    range->min = SANE_FIX (min_w / 1000 * MM_PER_INCH);
-    range->max = SANE_FIX (max_w / 1000 * MM_PER_INCH);
+    range->min = min_w;
+    range->max = max_w;
     range->quant = 0;
     scanner->opt[OPT_WIDTH].constraint.range = range;
     scanner->val[OPT_WIDTH].w = range->min;
@@ -433,8 +441,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     if (!range) {
         return SANE_STATUS_NO_MEM;
     }
-    range->min = MIN(min_x_res, min_y_res);
-    range->max = MAX(max_x_res, max_y_res);
+    range->min = MIN(min_w, min_h);
+    range->max = MAX(max_w, max_h);
     range->quant = 0;
     scanner->opt[OPT_HEIGHT].name = "Height";
     scanner->opt[OPT_HEIGHT].title = "Scan height";
@@ -446,8 +454,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_HEIGHT].constraint.range = range;
     scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
-    range->min = SANE_FIX (min_h / 1000 * MM_PER_INCH);
-    range->max = SANE_FIX (max_h / 1000 * MM_PER_INCH);
+    range->min = min_h;
+    range->max = max_h;
     range->quant = 0;
     scanner->opt[OPT_HEIGHT].constraint.range = range;
     scanner->val[OPT_HEIGHT].w = range->min;
@@ -864,7 +872,6 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             switch (option) {
                 case OPT_NUM_OPTS:
                 /* word options: */
-                case OPT_RESOLUTION:
                 case OPT_COLOR:
                 case OPT_WIDTH:
                 case OPT_HEIGHT:
@@ -879,6 +886,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
 #endif
                 /* string options */
                 case OPT_SCAN_SOURCE:
+                case OPT_RESOLUTION:
                     strcpy (val, scanner->val[option].s);
                     DBG (DBG_info_sane, "get %s [#%d] val=%s\n", name, option,scanner->val[option].s);
                     break;
@@ -918,7 +926,6 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             /* Set option and handle info return */
             switch (option)
             {
-                case OPT_RESOLUTION:
                 case OPT_COLOR:
                 /* (mostly) side-effect-free word options: */
                     if (info) {
@@ -935,6 +942,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
 #endif
                 /* options with side-effects: */
                 case OPT_SCAN_SOURCE:
+                case OPT_RESOLUTION:
                 {
                     /* Free current setting */
                     if (scanner->val[option].s) {
@@ -1132,7 +1140,7 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
     DBG (DBG_info_sane, "sane_get_parameters()\n");
 
     WsdScanner *scanner = (WsdScanner *)handle;
-    double resolution;
+    SANE_Int resolution;
 
     if (params) {
 
@@ -1147,10 +1155,11 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
             params->pixels_per_line = scanner->scan_parameters.pixels_per_line;
             params->last_frame = SANE_TRUE;
         } else {
+
             /* Calculate appropriate values from option settings */
             DBG (DBG_info_sane, "sane_get_parameters from option values\n");
-            resolution = SANE_UNFIX(scanner->val[OPT_RESOLUTION].w);
-            DBG (DBG_info_sane, "  resolution %f\n", resolution);
+            resolution = atoi(scanner->val[OPT_RESOLUTION].s);
+            DBG (DBG_info_sane, "  resolution %d\n", resolution);
             SANE_Int colors = scanner->val[OPT_COLOR].w = 24;
             DBG (DBG_info_sane, "  colors: %d\n", colors);
             if (params->depth == 1) {
