@@ -2,7 +2,7 @@
 # Read man sane-wsd-scan for documentation
 
 # debug
-url file:///abuild/projects/digitdia/sane-backends/configuration
+url file:///abuild/projects/digitdia/sane-backends/configuration.xml
 
 # Format
 # url http://...
