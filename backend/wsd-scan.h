@@ -78,15 +78,15 @@ enum Wsd_Option
 {
     OPT_NUM_OPTS = 0,
     /* ------------------------------------------- */
-    OPT_SCAN_SOURCE,            /* platen, adf, film */
+    OPT_SCAN_SOURCE,            /* 1: platen, adf, film */
     /* ------------------------------------------- */
-    OPT_FORMAT_GROUP,
-    OPT_RESOLUTION,
-    OPT_COLOR,
+    OPT_FORMAT_GROUP,           /* 2 */
+    OPT_RESOLUTION,             /* 3: scan resolution in dpi */
+    OPT_COLOR,                  /* 4: color depth */
     /* ------------------------------------------- */
-    OPT_GEOMETRY_GROUP,
-    OPT_WIDTH,
-    OPT_HEIGHT,
+    OPT_GEOMETRY_GROUP,         /* 5 */
+    OPT_WIDTH,                  /* 6: scan width in mm */
+    OPT_HEIGHT,                 /* 7: scan height in mm */
 #if 0
     OPT_FORMAT,                 /* jpeg, tiff, pdf, ... */
     OPT_COMPRESSION_QUALITY_FACTOR, /* 0..100 */

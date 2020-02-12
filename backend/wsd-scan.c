@@ -361,12 +361,12 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->val[OPT_COLOR].w = bpp_list[i]; /* highest mode */
 
     /* Geometry Group */
-    scanner->opt[OPT_FORMAT_GROUP].name = "Resolution";
-    scanner->opt[OPT_FORMAT_GROUP].title = "Scan resolution";
-    scanner->opt[OPT_FORMAT_GROUP].desc = "";
-    scanner->opt[OPT_FORMAT_GROUP].type = SANE_TYPE_GROUP;
-    scanner->opt[OPT_FORMAT_GROUP].cap = 0;
-    scanner->opt[OPT_FORMAT_GROUP].constraint_type = SANE_CONSTRAINT_NONE;
+    scanner->opt[OPT_GEOMETRY_GROUP].name = "Size";
+    scanner->opt[OPT_GEOMETRY_GROUP].title = "Scan size";
+    scanner->opt[OPT_GEOMETRY_GROUP].desc = "";
+    scanner->opt[OPT_GEOMETRY_GROUP].type = SANE_TYPE_GROUP;
+    scanner->opt[OPT_GEOMETRY_GROUP].cap = 0;
+    scanner->opt[OPT_GEOMETRY_GROUP].constraint_type = SANE_CONSTRAINT_NONE;
 
     /* width, height */
     WsXmlNodeH platen_minimum_size = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_PLATEN_MINIMUM_SIZE, 1);
@@ -396,6 +396,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     if (!range) {
         return SANE_STATUS_NO_MEM;
     }
+    DBG (DBG_info_sane, "width:  %d - %d mm\n", min_w, max_w);
     scanner->opt[OPT_WIDTH].name = "Width";
     scanner->opt[OPT_WIDTH].title = "Scan width";
     scanner->opt[OPT_WIDTH].desc = "Width of scan area";
@@ -426,6 +427,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         return SANE_STATUS_INVAL;
     }
     max_h = atoi(ws_xml_get_node_text(height));
+    DBG (DBG_info_sane, "height:  %d - %d mm\n", min_h, max_h);
 
     range = calloc(1, sizeof(SANE_Range));
     if (!range) {
@@ -864,6 +866,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 /* word options: */
                 case OPT_RESOLUTION:
                 case OPT_COLOR:
+                case OPT_WIDTH:
+                case OPT_HEIGHT:
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
                     break;
@@ -879,6 +883,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                     DBG (DBG_info_sane, "get %s [#%d] val=%s\n", name, option,scanner->val[option].s);
                     break;
                 default:
+                    DBG(DBG_error,"SANE_ACTION_GET_VALUE(%d) - not implemented\n", option);
                     status = SANE_STATUS_INVAL;
             }
             break;
@@ -957,7 +962,9 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                     break;
                 }
 #endif
-
+                default:
+                    DBG(DBG_error,"SANE_ACTION_SET_VALUE(%d) - not implemented\n", option);
+                    break;
             }
 
             /* Check the whole set
