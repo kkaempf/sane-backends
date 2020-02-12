@@ -120,7 +120,7 @@ _max_string_size (SANE_String_Const const strings[])
  * create request options
  *
  */
-request_opt_t *
+static request_opt_t *
 _create_request_options()
 {
     request_opt_t *options = wsd_options_create();
@@ -132,7 +132,7 @@ _create_request_options()
 }
 
 
-int
+static int
 _color_mode_to_depth(char *text)
 {
     if (!strcmp(text, WSD_COLOR_ENTRY_BW1)) {
@@ -155,6 +155,36 @@ _color_mode_to_depth(char *text)
     DBG (DBG_error, "Unknown color mode '%s'\n", text);
     return 0;
 }
+
+
+static char *
+_depth_to_color_mode(int depth)
+{
+    switch (depth) {
+        case 1:
+            return WSD_COLOR_ENTRY_BW1;
+        case 4:
+            return WSD_COLOR_ENTRY_GS4;
+        case 8:
+            return WSD_COLOR_ENTRY_GS8;
+        case 16:
+            return WSD_COLOR_ENTRY_GS16;
+        case 24:
+            return WSD_COLOR_ENTRY_RGB24;
+        case 48:
+            return WSD_COLOR_ENTRY_RGB48;
+        case 32:
+            return WSD_COLOR_ENTRY_RGBA32;
+        case 64:
+            return WSD_COLOR_ENTRY_RGBA64;
+        default:
+            DBG (DBG_error, "Unknown color depth '%d'\n", depth);
+            break;
+    }
+    return WSD_COLOR_ENTRY_BW1;
+}
+
+
 
 /*
  * extract options from xml to string list
@@ -350,7 +380,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
             return SANE_STATUS_INVAL;
         }
         text = ws_xml_get_node_text(color_entry);
-        bpp_list[j] = _color_mode_to_depth(text) << SANE_FIXED_SCALE_SHIFT;
+        bpp_list[j] = _color_mode_to_depth(text);
         if (bpp_list[j] == 0) {
             DBG (DBG_error, "Unknown %s:%s in %s, ignoring\n", WSD_COLOR_ENTRY, text, ws_xml_get_node_local_name(color));
         } else {
@@ -360,7 +390,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_COLOR].name = "Color";
     scanner->opt[OPT_COLOR].title = "Color depth";
     scanner->opt[OPT_COLOR].desc = "Bits per pixel";
-    scanner->opt[OPT_COLOR].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_COLOR].type = SANE_TYPE_INT;
     scanner->opt[OPT_COLOR].unit = SANE_UNIT_BIT;
     scanner->opt[OPT_COLOR].size = sizeof(SANE_Word);
 //    scanner->opt[OPT_COLOR].cap = 0;
@@ -408,7 +438,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_WIDTH].name = "Width";
     scanner->opt[OPT_WIDTH].title = "Scan width";
     scanner->opt[OPT_WIDTH].desc = "Width of scan area";
-    scanner->opt[OPT_WIDTH].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_WIDTH].type = SANE_TYPE_INT;
     scanner->opt[OPT_WIDTH].unit = SANE_UNIT_MM;
     scanner->opt[OPT_WIDTH].size = sizeof(SANE_Word);
 //    scanner->opt[OPT_WIDTH].cap = 0;
@@ -447,7 +477,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->opt[OPT_HEIGHT].name = "Height";
     scanner->opt[OPT_HEIGHT].title = "Scan height";
     scanner->opt[OPT_HEIGHT].desc = "Height of scan area";
-    scanner->opt[OPT_HEIGHT].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_HEIGHT].type = SANE_TYPE_INT;
     scanner->opt[OPT_HEIGHT].unit = SANE_UNIT_MM;
     scanner->opt[OPT_HEIGHT].size = sizeof(SANE_Word);
 //    scanner->opt[OPT_HEIGHT].cap = 0;
@@ -1004,7 +1034,8 @@ SANE_Status
 sane_start (SANE_Handle handle)
 {
     SANE_Status status = SANE_STATUS_GOOD;
-
+    WsdScanOptions scan_options;
+    
     WsdScanner *scanner = (WsdScanner *)handle;
     WsdRequest *request = NULL;
     request_opt_t *options = _create_request_options();
@@ -1025,7 +1056,18 @@ sane_start (SANE_Handle handle)
     if (status != SANE_STATUS_GOOD)
         goto start_done;
 
-    request = wsd_action_create_scan_job(scanner->client, options, NULL);
+    scan_options.jobname = "scanjob";
+    scan_options.username = "sane",
+      scan_options.format = "jfif";
+      scan_options.images_to_transfer = 1,
+      scan_options.input_source = scanner->val[OPT_SCAN_SOURCE].s;
+      scan_options.content_type = "Auto";
+      scan_options.front_color_mode = _depth_to_color_mode(scanner->val[OPT_COLOR].w);
+      scan_options.back_color_mode = NULL;
+      scan_options.x_resolution = scanner->val[OPT_RESOLUTION].w;
+      scan_options.y_resolution = scanner->val[OPT_RESOLUTION].w;
+    
+    request = wsd_action_create_scan_job(scanner->client, options, &scan_options);
     if (!request) {
         DBG (DBG_error, "sane_start(): create_scan_job failed\n");
         status = SANE_STATUS_IO_ERROR;
@@ -1160,7 +1202,7 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
             DBG (DBG_info_sane, "sane_get_parameters from option values\n");
             resolution = atoi(scanner->val[OPT_RESOLUTION].s);
             DBG (DBG_info_sane, "  resolution %d\n", resolution);
-            SANE_Int colors = scanner->val[OPT_COLOR].w = 24;
+            SANE_Int colors = scanner->val[OPT_COLOR].w;
             DBG (DBG_info_sane, "  colors: %d\n", colors);
             if (params->depth == 1) {
                 params->bytes_per_line = colors * (params->pixels_per_line + 7)/8;
