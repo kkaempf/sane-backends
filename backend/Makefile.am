@@ -1176,7 +1176,7 @@ libwsd_scan_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=wsd_scan
 nodist_libsane_wsd_scan_la_SOURCES = wsd-scan-s.c
 libsane_wsd_scan_la_CPPFLAGS = $(AM_CPPFLAGS) -DBACKEND_NAME=wsd_scan
 libsane_wsd_scan_la_LDFLAGS = $(DIST_SANELIBS_LDFLAGS)
-libsane_wsd_scan_la_LIBADD = $(COMMON_LIBS) libwsd_scan.la ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo  sane_strstatus.lo -lopenwsd -lcurl
+libsane_wsd_scan_la_LIBADD = $(COMMON_LIBS) libwsd_scan.la ../sanei/sanei_init_debug.lo ../sanei/sanei_constrain_value.lo ../sanei/sanei_config.lo  sane_strstatus.lo @SANEI_SANEI_JPEG_LO@ $(JPEG_LIBS) -lopenwsd -lcurl
 EXTRA_DIST += wsd-scan.conf.in
 
 libxerox_mfp_la_SOURCES = xerox_mfp.c xerox_mfp-usb.c xerox_mfp-tcp.c xerox_mfp.h

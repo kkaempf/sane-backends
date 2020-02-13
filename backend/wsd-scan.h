@@ -69,7 +69,6 @@
 #define DBG_info_scan   11      /* information scanner commands */
 #define DBG_info_usb    13      /* information usb level functions */
 
-
 /* Options supported by the scanner
  * see Scan Service Definition Version 1.0 (Microsoft 2012)
  */
@@ -116,11 +115,10 @@ struct _WsdScanner {
     struct _WsdScanner *next;
     char url[PATH_MAX];
     WsdClient *client;
+    WsdScanJob scan_job;
     SANE_Int scanning; /* true if busy scanning */
     SANE_Int cancel_request; /* if true, scanner should terminate a scan */
     SANE_Parameters scan_parameters;
-    char *job_id;
-    char *job_token;
     /* SANE option descriptions and settings for this scanner instance */
     SANE_Option_Descriptor opt[NUM_OPTIONS];
     Option_Value val[NUM_OPTIONS];

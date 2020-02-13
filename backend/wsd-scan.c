@@ -52,12 +52,16 @@
 #include "../include/sane/config.h"
 /* Standard includes for various utiliy functions */
 #include <ctype.h> /* for isblank */
+#include <errno.h> /* for errno and strerror */
 #include <stdio.h> /* for FILE */
 #include <string.h> /* for strlen */
 #include <stdlib.h> /* for NULL */
 #include <stdint.h>
 #include <math.h>
 #include <sys/param.h> /* for MIN and MAX */
+#ifdef HAVE_LIBJPEG
+#include <jpeglib.h>
+#endif
 
 /* Configuration defines */
 #include "../include/sane/config.h"
@@ -184,6 +188,95 @@ _depth_to_color_mode(int depth)
     return WSD_COLOR_ENTRY_BW1;
 }
 
+/*
+ * JPEG decompression to support XSANE preview
+ *
+ */
+
+/*
+ * Decode jpeg from `infilename` into dev->decData of dev->decDataSize size.
+ */
+static u_buf_t *
+_jpeg_decompress(u_buf_t *jpeg_buf)
+{
+#ifdef HAVE_LIBJPEG
+    int rc;
+    int row_stride, width, height, pixel_size;
+    struct jpeg_decompress_struct cinfo;
+    struct jpeg_error_mgr jerr;
+    size_t jpeg_size;
+    unsigned char *jpeg_data;
+    unsigned long bmp_size = 0;
+    u_buf_t *image_buf;
+    FILE *f;
+
+    if (!jpeg_buf)
+            return NULL;
+
+    jpeg_data = (unsigned char *)u_buf_ptr(jpeg_buf);
+    jpeg_size = u_buf_len(jpeg_buf);
+    DBG (DBG_info_sane, "_jpeg_decompress %lu bytes at %p\n", jpeg_size, jpeg_data);
+    f = fopen("output.jpeg", "w+");
+    if (f == NULL) {
+        DBG (DBG_error, "fopen failed\n");
+    }
+    else {
+        size_t written = fwrite(jpeg_data, sizeof(unsigned char), jpeg_size, f);
+        fclose(f);
+        DBG (DBG_info_sane, "written %lu bytes of %lu jpeg data to output.jpeg\n", written, jpeg_size);
+    }
+    cinfo.err = jpeg_std_error(&jerr);
+
+    jpeg_create_decompress(&cinfo);
+
+    jpeg_mem_src(&cinfo, jpeg_data, jpeg_size);
+
+    rc = jpeg_read_header(&cinfo, TRUE);
+    if (rc != 1) {
+        DBG (DBG_error, "_jpeg_decompress failed to read jpeg header\n");
+        jpeg_destroy_decompress(&cinfo);
+        return NULL;
+    }
+
+    jpeg_start_decompress(&cinfo);
+
+    width = cinfo.output_width;
+    height = cinfo.output_height;
+    pixel_size = cinfo.output_components;
+    bmp_size = width * height * pixel_size;
+
+    DBG (DBG_info_sane, "_jpeg_decompress %d x %d image, %d bits per pixel, requiring %lu bytes\n", width, height, pixel_size*8, bmp_size);
+
+    if (u_buf_create(&image_buf)) {
+        DBG (DBG_error, "_jpeg_decompress failed to create image_buf\n");
+        image_buf = NULL;
+        goto jpeg_exit;
+    }
+    if (u_buf_reserve(image_buf, bmp_size)) {
+        u_buf_free(image_buf);
+        DBG (DBG_error, "_jpeg_decompress failed to alloc %lu bytes for bmp_buf\n", bmp_size);
+        image_buf = NULL;
+        goto jpeg_exit;
+    }
+
+    row_stride = width * pixel_size;
+
+    while (cinfo.output_scanline < cinfo.output_height) {
+        unsigned char *buffer_array[1];
+        buffer_array[0] = (unsigned char *)u_buf_ptr(image_buf) + (cinfo.output_scanline) * row_stride;
+        jpeg_read_scanlines(&cinfo, buffer_array, 1);
+    }
+jpeg_exit:
+    jpeg_finish_decompress(&cinfo);
+    jpeg_destroy_decompress(&cinfo);
+
+    DBG (DBG_info_sane, "_jpeg_decompress done\n");
+
+    return image_buf;
+#else
+    return NULL;
+#endif
+}
 
 
 /*
@@ -261,7 +354,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     /* "Source" group: */
 
     /* retrieve input sources */
-    SANE_String_Const *scan_sources = calloc(4, sizeof(SANE_String_Const));
+    SANE_String_Const *scan_sources = calloc(5, sizeof(SANE_String_Const));
     if (!scan_sources) {
         return SANE_STATUS_NO_MEM;
     }
@@ -273,6 +366,10 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     if (ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_ADF, 1)) {
       scan_sources[i++] = WSD_ADF;
       DBG (DBG_info_sane, "%s found\n", WSD_ADF);
+    }
+    if (ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_ADF_DUPLEX, 1)) {
+      scan_sources[i++] = WSD_ADF_DUPLEX;
+      DBG (DBG_info_sane, "%s found\n", WSD_ADF_DUPLEX);
     }
     if (ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_FILM, 1)) {
       scan_sources[i++] = WSD_FILM;
@@ -535,14 +632,48 @@ _get_status (WsdScanner *scanner)
         goto _get_status_done;
     }
     char *text = ws_xml_get_node_text(scanner_state);
-    if (!strcmp(text, "Idle")) {
-        status = SANE_STATUS_GOOD;
-    } else if (!strcmp(text, "Processing")) {
+    if (!strcmp(text, WSD_SCANNER_STATE_IDLE)) {
+        WsXmlNodeH active_conditions = ws_xml_find_in_tree(scanner_status, XML_NS_WDP_SCAN, WSD_SCANNER_ACTIVE_CONDITIONS, 1);
+        if (active_conditions) {
+            /* scanner is idle because of a problem
+             *   look at ActiveConditions -> DeviceCondition -> Name,Component
+             */
+            WsXmlNodeH device_condition = ws_xml_find_in_tree(active_conditions, XML_NS_WDP_SCAN, WSD_SCANNER_DEVICE_CONDITION, 1);
+            if (!device_condition) {
+                DBG (DBG_inquiry, "No %s in %s - assuming good\n", WSD_SCANNER_DEVICE_CONDITION, WSD_SCANNER_ACTIVE_CONDITIONS);
+                status = SANE_STATUS_GOOD;
+                goto _get_status_done;
+            }
+            char *name = NULL, *component = NULL;
+            WsXmlNodeH condition_name = ws_xml_find_in_tree(device_condition, XML_NS_WDP_SCAN, WSD_NAME, 1);
+            if (condition_name)
+                    name = ws_xml_get_node_text(condition_name);
+            else
+                    DBG (DBG_error, "No %s in %s\n", WSD_NAME, WSD_SCANNER_ACTIVE_CONDITIONS);
+            WsXmlNodeH condition_component = ws_xml_find_in_tree(device_condition, XML_NS_WDP_SCAN, WSD_COMPONENT, 1);
+            if (condition_component)
+                    component = ws_xml_get_node_text(condition_component);
+            else
+                    DBG (DBG_error, "No %s in %s\n", WSD_COMPONENT, WSD_SCANNER_ACTIVE_CONDITIONS);
+            DBG (DBG_error, "Idle because %s is %s\n", component, name);
+            if (!strcmp(name, "InputTrayEmpty")) {
+                status = SANE_STATUS_NO_DOCS;
+            }
+            else if (!strcmp(name, "MediaJam")) {
+                status = SANE_STATUS_JAMMED;
+            }
+            else {
+                status = SANE_STATUS_IO_ERROR;
+            }
+        }
+        else {
+            status = SANE_STATUS_GOOD;
+        }
+    } else if (!strcmp(text, WSD_SCANNER_STATE_PROCESSING)) {
         status = SANE_STATUS_DEVICE_BUSY;
     } else {
         DBG (DBG_error, "Status is %s\n", text);
         status = SANE_STATUS_IO_ERROR;
-        goto _get_status_done;
     }
 _get_status_done:
     if (request)
@@ -551,6 +682,38 @@ _get_status_done:
     return status;
 }
 
+static void
+_cleanup_scan_job(WsdScanner *scanner)
+{
+    if (scanner->scan_job.id) {
+        free(scanner->scan_job.id);
+        scanner->scan_job.id = NULL;
+    }
+    if (scanner->scan_job.token) {
+        free(scanner->scan_job.token);
+        scanner->scan_job.token = NULL;
+    }
+    return;
+}
+
+
+static void
+_cancel_scan_job(WsdScanner *scanner)
+{
+    if (!scanner->scan_job.id)
+        return;
+    request_opt_t *options = _create_request_options();
+    WsdRequest *request = wsd_action_cancel_scan_job(scanner->client, options, &scanner->scan_job);
+    wsd_options_destroy(options);
+    if (request) {
+        wsd_request_destroy(request);
+    }
+    else {
+        DBG (DBG_error, "Cancel job failed\n");
+    }
+    _cleanup_scan_job(scanner);
+    return;
+}
 /* --------------------------------------------------------------------------
  *
  * SANE INTERFACE
@@ -1066,7 +1229,14 @@ sane_start (SANE_Handle handle)
       scan_options.back_color_mode = NULL;
       scan_options.x_resolution = scanner->val[OPT_RESOLUTION].w;
       scan_options.y_resolution = scanner->val[OPT_RESOLUTION].w;
-    
+      scan_options.x_offset = 0;
+      scan_options.y_offset = 0;
+      scan_options.width = scanner->val[OPT_WIDTH].w;
+      scan_options.height = scanner->val[OPT_HEIGHT].w;
+
+    scanner->scan_job.id = NULL;
+    scanner->scan_job.document_name = "sane.wsd-scan";
+
     request = wsd_action_create_scan_job(scanner->client, options, &scan_options);
     if (!request) {
         DBG (DBG_error, "sane_start(): create_scan_job failed\n");
@@ -1079,14 +1249,14 @@ sane_start (SANE_Handle handle)
         DBG (DBG_error, "No %s in create_scan_job response\n", WSD_JOB_ID);
         goto start_done;
     }
-    scanner->job_id = strdup(ws_xml_get_node_text(job_id));
+    scanner->scan_job.id = strdup(ws_xml_get_node_text(job_id));
     WsXmlNodeH job_token = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_JOB_TOKEN, 1);
     if (!job_token) {
         DBG (DBG_error, "No %s in create_scan_job response\n", WSD_JOB_TOKEN);
         goto start_done;
     }
-    scanner->job_token = strdup(ws_xml_get_node_text(job_token));
-    DBG (DBG_info_sane, "Job token '%s'\n", scanner->job_token);
+    scanner->scan_job.token = strdup(ws_xml_get_node_text(job_token));
+    DBG (DBG_info_sane, "Job token '%s'\n", scanner->scan_job.token);
     WsXmlNodeH media_front_image_info = ws_xml_find_in_tree(node, XML_NS_WDP_SCAN, WSD_MEDIA_FRONT_IMAGE_INFO, 1);
     if (!media_front_image_info) {
         DBG (DBG_error, "No %s in create_scan_job response\n", WSD_MEDIA_FRONT_IMAGE_INFO);
@@ -1245,16 +1415,23 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
 SANE_Status
 sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len)
 {
+    /* local buffer of scanner data
+     * returned in chunks of max_len
+     */
+    u_buf_t *jpeg_buf = NULL;
     static u_buf_t *image_buf = NULL;
-    static char *image_data = NULL;
-    static int image_size = 0;
+    static size_t image_size = 0;
+    static unsigned char *image_data = NULL;
+
     WsdScanner *scanner = (WsdScanner *)handle;
     WsdRequest *request = NULL;
     SANE_Status status = SANE_STATUS_GOOD;
-    request_opt_t *options = _create_request_options();
+    request_opt_t *options = NULL;
 
     DBG(DBG_info_sane, "sane_read(): requested %d bytes\n", max_len);
+    *len = 0;
 
+have_image_data:
     if (image_data) {
         int size = MIN(max_len, image_size);
         DBG (DBG_info_sane, "sane_read(): have image_data, copying %d bytes\n", size);
@@ -1262,8 +1439,6 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
             u_buf_free(image_buf);
             image_buf = NULL;
             image_data = NULL;
-            image_size = 0;
-            *len = 0;
             scanner->scanning = SANE_FALSE;
             DBG( DBG_info_sane, "sane_read(): EOF\n");
             return SANE_STATUS_EOF;
@@ -1277,24 +1452,18 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
     }
     /* No reading if not scanning */
     if (!scanner->scanning) {
-        *len = 0;
         status = SANE_STATUS_IO_ERROR; /* SANE standard does not allow a SANE_STATUS_INVAL return */
         goto sane_read_done;
     }
     DBG (DBG_info_sane, "sane_read(): no image_data, checking status\n");
-
     status = _get_status(scanner);
     if (status != SANE_STATUS_DEVICE_BUSY) {
         DBG( DBG_error, "Scanner is not busy in sane_read()\n");
         goto sane_read_done;
     }
-    WsdScanJob scan_job = {
-        .id = scanner->job_id,
-        .token = scanner->job_token,
-        .document_name = "document.name"
-    };
     DBG (DBG_info_sane, "sane_read(): RetrieveImage\n");
-    request = wsd_action_retrieve_image(scanner->client, options, &scan_job, &image_buf);
+    options = _create_request_options();
+    request = wsd_action_retrieve_image(scanner->client, options, &scanner->scan_job, &jpeg_buf);
     if (!request) {
         DBG (DBG_error, "sane_start(): create_scan_job failed\n");
         status = SANE_STATUS_IO_ERROR;
@@ -1326,13 +1495,21 @@ sane_read (SANE_Handle handle, SANE_Byte * buf, SANE_Int max_len, SANE_Int * len
         status = SANE_STATUS_INVAL;
         goto sane_read_done;
     }
-    DBG (DBG_info_sane, "sane_read(): have %d bytes of image_data\n", image_size);
-    image_data = u_buf_ptr(image_buf);
-    image_size = u_buf_len(image_buf);
-    FILE *output = fopen("output.jpeg", "w+");
-    fwrite(image_data, image_size, 1, output);
-    fclose(output);
-    status = SANE_STATUS_GOOD;
+    DBG (DBG_info_sane, "sane_read(): have %ld bytes of jpeg_data\n", u_buf_len(jpeg_buf));
+    image_buf = _jpeg_decompress(jpeg_buf);
+    u_buf_free(jpeg_buf);
+    if (image_buf) {
+        image_data = u_buf_ptr(image_buf);
+        image_size = u_buf_len(image_buf);
+        status = SANE_STATUS_GOOD;
+        _cleanup_scan_job(scanner);
+        goto have_image_data;
+    }
+    DBG (DBG_error, "Decompression of JPEG image failed\n");
+    status = SANE_STATUS_INVAL;
+    image_data = NULL;
+    image_size = 0;
+
 sane_read_done:
     if (request)
         wsd_request_destroy(request);
@@ -1340,7 +1517,11 @@ sane_read_done:
         u_buf_free(image_buf);
         image_buf = NULL;
     }
-    wsd_options_destroy(options);
+    if (status != SANE_STATUS_GOOD) {
+        _cancel_scan_job(scanner);
+    }
+    if (options)
+        wsd_options_destroy(options);
 
     return status;
 }
@@ -1360,6 +1541,7 @@ sane_cancel (SANE_Handle handle)
 
     if (scanner->scanning) {
         scanner->cancel_request = 1;
+        _cancel_scan_job(scanner);
     }
 }
 
