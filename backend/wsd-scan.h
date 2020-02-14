@@ -86,12 +86,14 @@ enum Wsd_Option
     OPT_GEOMETRY_GROUP,         /* 5 */
     OPT_WIDTH,                  /* 6: scan width in mm */
     OPT_HEIGHT,                 /* 7: scan height in mm */
+    /* ------------------------------------------- */
+    OPT_EXPOSURE_GROUP,         /* 8 */
+    OPT_AUTO_EXPOSURE,          /* 9: unsupported, true, false */
 #if 0
     OPT_FORMAT,                 /* jpeg, tiff, pdf, ... */
     OPT_COMPRESSION_QUALITY_FACTOR, /* 0..100 */
     OPT_CONTENT_TYPE,           /* Auto, Text, Photo, Halftone, Mixed */
     OPT_SIZE_AUTO_DETECT,       /* true, false */
-    OPT_AUTO_EXPOSURE,          /* unsupported, true, false */
     OPT_BRIGHTNESS,             /* unsupported, ... */
     OPT_CONTRAST,               /* unsupported, ... */
     OPT_SCALING_WIDTH,

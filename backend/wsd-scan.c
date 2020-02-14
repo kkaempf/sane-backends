@@ -514,7 +514,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         DBG (DBG_error, "No %s found\n", WSD_PLATEN_MAXIMUM_SIZE);
         return SANE_STATUS_INVAL;
     }
-    int max_w, min_w; /* in 1/1000th of an inch */
+    int max_w, min_w;
     width = ws_xml_find_in_tree(platen_minimum_size, XML_NS_WDP_SCAN, WSD_WIDTH, 1);
     if (!width) {
         DBG (DBG_error, "No %s found in %s\n", WSD_WIDTH, WSD_PLATEN_MINIMUM_SIZE);
@@ -586,6 +586,37 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     range->quant = 0;
     scanner->opt[OPT_HEIGHT].constraint.range = range;
     scanner->val[OPT_HEIGHT].w = range->min;
+
+    /* Exposure Group */
+    scanner->opt[OPT_EXPOSURE_GROUP].name = "Exposure";
+    scanner->opt[OPT_EXPOSURE_GROUP].title = "Brightness, Contrast, etc.";
+    scanner->opt[OPT_EXPOSURE_GROUP].desc = "";
+    scanner->opt[OPT_EXPOSURE_GROUP].type = SANE_TYPE_GROUP;
+    scanner->opt[OPT_EXPOSURE_GROUP].cap = 0;
+    scanner->opt[OPT_EXPOSURE_GROUP].constraint_type = SANE_CONSTRAINT_NONE;
+
+    WsXmlNodeH auto_exposure_supported = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_AUTO_EXPOSURE_SUPPORTED, 1);
+    scanner->opt[OPT_AUTO_EXPOSURE].name = "Auto exposure";
+    scanner->opt[OPT_AUTO_EXPOSURE].title = "Enable auto exposure";
+    scanner->opt[OPT_AUTO_EXPOSURE].desc = "Might be disabled if unsupported by scanner";
+    scanner->opt[OPT_AUTO_EXPOSURE].type = SANE_TYPE_BOOL;
+    scanner->opt[OPT_AUTO_EXPOSURE].unit = SANE_UNIT_NONE;
+    scanner->opt[OPT_AUTO_EXPOSURE].size = sizeof(SANE_Bool);
+
+    if (!auto_exposure_supported) {
+        // setting not available
+        scanner->opt[OPT_AUTO_EXPOSURE].cap =  SANE_CAP_INACTIVE;
+    }
+    else {
+        char *auto_exposure_supported_s = ws_xml_get_node_text(auto_exposure_supported);
+        if ((strcmp(auto_exposure_supported_s, "true")) && (strcmp(auto_exposure_supported_s, "1"))) {
+            // setting not supported
+            scanner->opt[OPT_AUTO_EXPOSURE].cap =  SANE_CAP_INACTIVE;
+        }
+        else {
+            scanner->val[OPT_AUTO_EXPOSURE].b = SANE_FALSE;
+        }
+    }
 
 #if 0
     scanner->opt[OPT_].name = "Source";
@@ -993,7 +1024,7 @@ sane_get_option_descriptor (SANE_Handle handle, SANE_Int option)
 {
     WsdScanner *scanner = (WsdScanner *)handle;
 
-    DBG (DBG_info_proc, "sane_get_option_descriptor() option=%d\n", option);
+//    DBG (DBG_info_proc, "sane_get_option_descriptor() option=%d\n", option);
 
     if ((unsigned) option >= NUM_OPTIONS)
     {
@@ -1024,7 +1055,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
     SANE_Word cap;
     SANE_String_Const name;
 
-    DBG(DBG_info_sane,"sane_control_option(%s:%d)\n", (action == SANE_ACTION_GET_VALUE)?"Get":((action == SANE_ACTION_SET_VALUE)?"Set":"?"), option);
+//    DBG(DBG_info_sane,"sane_control_option(%s:%d)\n", (action == SANE_ACTION_GET_VALUE)?"Get":((action == SANE_ACTION_SET_VALUE)?"Set":"?"), option);
     if (info) {
         *info = 0;
     }
@@ -1060,7 +1091,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
     switch (action) {
         case SANE_ACTION_GET_VALUE:
 
-            DBG (DBG_info_sane, "get %s [#%d]\n", name, option);
+//            DBG (DBG_info_sane, "get %s [#%d]\n", name, option);
 
             switch (option) {
                 case OPT_NUM_OPTS:
@@ -1068,6 +1099,7 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_COLOR:
                 case OPT_WIDTH:
                 case OPT_HEIGHT:
+                case OPT_AUTO_EXPOSURE:
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
                     break;
@@ -1120,11 +1152,11 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             switch (option)
             {
                 case OPT_COLOR:
+                case OPT_AUTO_EXPOSURE:
                 /* (mostly) side-effect-free word options: */
                     if (info) {
                         *info |= SANE_INFO_RELOAD_PARAMS;
                     }
-                /* fall through */
                     scanner->val[option].w = *(SANE_Word *) val;
                     break;
 #if 0
@@ -1313,19 +1345,6 @@ sane_start (SANE_Handle handle)
     scanner->scanning = 1;
     scanner->cancel_request = 0;
 
-#if 0
-    scanner->scan_parameters.bytes_per_line;
-    scanner->scan_parameters.depth;
-    scanner->scan_parameters.format;
-    scanner->scan_parameters.last_frame;
-    scanner->scan_parameters.lines;
-    scanner->scan_parameters.pixels_per_line;
-    /* Handle cancel request */
-    if (scanner->cancel_request) {
-        return sanei_wsdscan_on_cancel (scanner);
-    }
-#endif
-
 start_done:
     if (request)
         wsd_request_destroy(request);
@@ -1366,7 +1385,8 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
             params->lines = scanner->scan_parameters.lines;
             params->pixels_per_line = scanner->scan_parameters.pixels_per_line;
             params->last_frame = SANE_TRUE;
-        } else {
+        }
+        else {
 
             /* Calculate appropriate values from option settings */
             DBG (DBG_info_sane, "sane_get_parameters from option values\n");
@@ -1374,6 +1394,13 @@ sane_get_parameters (SANE_Handle handle, SANE_Parameters * params)
             DBG (DBG_info_sane, "  resolution %d\n", resolution);
             SANE_Int colors = scanner->val[OPT_COLOR].w;
             DBG (DBG_info_sane, "  colors: %d\n", colors);
+            if (params->lines == 0)
+                    params->lines = 2200;
+            if (params->pixels_per_line == 0)
+                    params->pixels_per_line = 1700;
+            if (params->depth == 0)
+                params->depth = 8;
+                
             if (params->depth == 1) {
                 params->bytes_per_line = colors * (params->pixels_per_line + 7)/8;
             } else if (params->depth <= 8) {
