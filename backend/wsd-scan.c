@@ -89,6 +89,14 @@
 
 static WsdScanner *wsd_scanner_list = NULL;
 
+/* Range used for brightness and contrast */
+static const SANE_Range percentage_range = {
+  SANE_FIX(-100),	/* minimum */
+  SANE_FIX(100),	/* maximum */
+  SANE_FIX(1)           /* quantization */
+};
+
+
 /* --------------------------------------------------------------------------
  *
  * wsd_scan internals
@@ -278,6 +286,21 @@ jpeg_exit:
 #endif
 }
 
+
+/*
+ * check node text for "truthness" (1, true)
+ */
+
+int
+_is_true(WsXmlNodeH node)
+{
+    if (!node)
+        return 0;
+    const char *s = ws_xml_get_node_text(node);
+    if (!s)
+        return 0;
+    return ((!strcmp(s, "true")) || (!strcmp(s, "1")));
+}
 
 /*
  * extract options from xml to string list
@@ -580,7 +603,6 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
 //    scanner->opt[OPT_HEIGHT].cap = 0;
     scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
     scanner->opt[OPT_HEIGHT].constraint.range = range;
-    scanner->opt[OPT_HEIGHT].constraint_type = SANE_CONSTRAINT_RANGE;
     range->min = min_h;
     range->max = max_h;
     range->quant = 0;
@@ -588,8 +610,8 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
     scanner->val[OPT_HEIGHT].w = range->min;
 
     /* Exposure Group */
-    scanner->opt[OPT_EXPOSURE_GROUP].name = "Exposure";
-    scanner->opt[OPT_EXPOSURE_GROUP].title = "Brightness, Contrast, etc.";
+    scanner->opt[OPT_EXPOSURE_GROUP].name = "Quality";
+    scanner->opt[OPT_EXPOSURE_GROUP].title = "Image quality";
     scanner->opt[OPT_EXPOSURE_GROUP].desc = "";
     scanner->opt[OPT_EXPOSURE_GROUP].type = SANE_TYPE_GROUP;
     scanner->opt[OPT_EXPOSURE_GROUP].cap = 0;
@@ -608,8 +630,7 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         scanner->opt[OPT_AUTO_EXPOSURE].cap =  SANE_CAP_INACTIVE;
     }
     else {
-        char *auto_exposure_supported_s = ws_xml_get_node_text(auto_exposure_supported);
-        if ((strcmp(auto_exposure_supported_s, "true")) && (strcmp(auto_exposure_supported_s, "1"))) {
+        if (_is_true(auto_exposure_supported)) {
             // setting not supported
             scanner->opt[OPT_AUTO_EXPOSURE].cap =  SANE_CAP_INACTIVE;
         }
@@ -618,6 +639,46 @@ _init_options (WsdScanner* scanner, WsXmlNodeH scanner_configuration)
         }
     }
 
+    scanner->opt[OPT_BRIGHTNESS].name = "Brightness";
+    scanner->opt[OPT_BRIGHTNESS].title = "Brightness";
+    scanner->opt[OPT_BRIGHTNESS].desc = "Might be disabled if unsupported by scanner";
+    scanner->opt[OPT_BRIGHTNESS].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_BRIGHTNESS].unit = SANE_UNIT_PERCENT;
+    scanner->opt[OPT_BRIGHTNESS].size = sizeof(SANE_Word);
+    scanner->opt[OPT_BRIGHTNESS].constraint_type = SANE_CONSTRAINT_RANGE;
+    scanner->opt[OPT_BRIGHTNESS].constraint.range = &percentage_range;
+    scanner->val[OPT_BRIGHTNESS].w = 0;
+    WsXmlNodeH brightness_supported = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_BRIGHTNESS_SUPPORTED, 1);
+    if (!_is_true(brightness_supported)) {
+        scanner->opt[OPT_BRIGHTNESS].cap =  SANE_CAP_INACTIVE;
+    }
+
+    scanner->opt[OPT_CONTRAST].name = "Contrast";
+    scanner->opt[OPT_CONTRAST].title = "Contrast";
+    scanner->opt[OPT_CONTRAST].desc = "Might be disabled if unsupported by scanner";
+    scanner->opt[OPT_CONTRAST].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_CONTRAST].unit = SANE_UNIT_PERCENT;
+    scanner->opt[OPT_CONTRAST].size = sizeof(SANE_Word);
+    scanner->opt[OPT_CONTRAST].constraint_type = SANE_CONSTRAINT_RANGE;
+    scanner->opt[OPT_CONTRAST].constraint.range = &percentage_range;
+    scanner->val[OPT_CONTRAST].w = 0;
+    WsXmlNodeH contrast_supported = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_CONTRAST_SUPPORTED, 1);
+    if (!_is_true(contrast_supported)) {
+        scanner->opt[OPT_CONTRAST].cap =  SANE_CAP_INACTIVE;
+    }
+    scanner->opt[OPT_SHARPNESS].name = "Sharpness";
+    scanner->opt[OPT_SHARPNESS].title = "Sharpness";
+    scanner->opt[OPT_SHARPNESS].desc = "Might be disabled if unsupported by scanner";
+    scanner->opt[OPT_SHARPNESS].type = SANE_TYPE_FIXED;
+    scanner->opt[OPT_SHARPNESS].unit = SANE_UNIT_PERCENT;
+    scanner->opt[OPT_SHARPNESS].size = sizeof(SANE_Word);
+    scanner->opt[OPT_SHARPNESS].constraint_type = SANE_CONSTRAINT_RANGE;
+    scanner->opt[OPT_SHARPNESS].constraint.range = &percentage_range;
+    scanner->val[OPT_SHARPNESS].w = 0;
+    WsXmlNodeH sharpness_supported = ws_xml_find_in_tree(scanner_configuration, XML_NS_WDP_SCAN, WSD_SHARPNESS_SUPPORTED, 1);
+    if (!_is_true(sharpness_supported)) {
+        scanner->opt[OPT_SHARPNESS].cap =  SANE_CAP_INACTIVE;
+    }
 #if 0
     scanner->opt[OPT_].name = "Source";
     scanner->opt[OPT_].title = "Scan source";
@@ -638,6 +699,8 @@ SANE_Status
 _get_status (WsdScanner *scanner)
 {
     SANE_Status status = SANE_STATUS_GOOD;
+    if (wsdc_in_debug_mode(scanner->client))
+        return status;
 
     request_opt_t *options = _create_request_options();
 
@@ -1100,6 +1163,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
                 case OPT_WIDTH:
                 case OPT_HEIGHT:
                 case OPT_AUTO_EXPOSURE:
+                case OPT_BRIGHTNESS:
+                case OPT_CONTRAST:
                     *(SANE_Word *) val = scanner->val[option].w;
                     DBG (DBG_info_sane, "get %s [#%d] val=%d\n", name, option,scanner->val[option].w);
                     break;
@@ -1153,6 +1218,8 @@ sane_control_option (SANE_Handle handle, SANE_Int option, SANE_Action action,
             {
                 case OPT_COLOR:
                 case OPT_AUTO_EXPOSURE:
+                case OPT_BRIGHTNESS:
+                case OPT_CONTRAST:
                 /* (mostly) side-effect-free word options: */
                     if (info) {
                         *info |= SANE_INFO_RELOAD_PARAMS;
@@ -1232,6 +1299,11 @@ sane_start (SANE_Handle handle)
     WsdScanOptions scan_options;
     
     WsdScanner *scanner = (WsdScanner *)handle;
+    if (wsdc_in_debug_mode(scanner)) {
+              scanner->scan_parameters.format = SANE_FRAME_RGB;
+      scanner->scan_parameters.depth = 24;
+        scanner->scan_parameters.pixels_per_line
+    }
     WsdRequest *request = NULL;
     request_opt_t *options = _create_request_options();
 
@@ -1317,12 +1389,12 @@ sane_start (SANE_Handle handle)
     case 24:
     case 32:
       scanner->scan_parameters.format = SANE_FRAME_RGB;
-      scanner->scan_parameters.depth = 8;
+      scanner->scan_parameters.depth = 24;
       break;
     case 48:
     case 64:
       scanner->scan_parameters.format = SANE_FRAME_RGB;
-      scanner->scan_parameters.depth = 16;
+      scanner->scan_parameters.depth = 24;
       break;
     default:
         DBG (DBG_error, "Strange bits_per_pixel %d\n", bits_per_pixel);

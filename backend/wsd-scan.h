@@ -89,13 +89,14 @@ enum Wsd_Option
     /* ------------------------------------------- */
     OPT_EXPOSURE_GROUP,         /* 8 */
     OPT_AUTO_EXPOSURE,          /* 9: unsupported, true, false */
+    OPT_BRIGHTNESS,             /* 10: unsupported, ... */
+    OPT_CONTRAST,               /* 11: unsupported, ... */
+    OPT_SHARPNESS,              /* 12: unsupported, ... */
 #if 0
     OPT_FORMAT,                 /* jpeg, tiff, pdf, ... */
     OPT_COMPRESSION_QUALITY_FACTOR, /* 0..100 */
     OPT_CONTENT_TYPE,           /* Auto, Text, Photo, Halftone, Mixed */
     OPT_SIZE_AUTO_DETECT,       /* true, false */
-    OPT_BRIGHTNESS,             /* unsupported, ... */
-    OPT_CONTRAST,               /* unsupported, ... */
     OPT_SCALING_WIDTH,
     OPT_SCALING_HEIGHT,
     OPT_ROTATION,               /* 0, 90, 180, 270 */ 
